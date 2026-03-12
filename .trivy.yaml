@@ -1,0 +1,188 @@
+---
+# Trivy Configuration for Kubernetes Homelab
+# Scans container images, Kubernetes manifests, and source code for vulnerabilities
+
+# Severity levels to scan for
+severity:
+  - CRITICAL
+  - HIGH
+  - MEDIUM
+  - LOW
+  - UNKNOWN
+
+# Vulnerabilities to ignore
+# Format: CVE-XXXX-XXXXX or other vulnerability ID
+ignorefile: .trivyignore
+
+# Scanner to use
+scanners:
+  - vuln        # Vulnerability scanner
+  - config      # Misconfiguration scanner
+  - secret      # Secret detection
+  - sbom        # Software Bill of Materials generation
+
+# Misconfiguration scanning
+misconfiguration:
+  severity:
+    - CRITICAL
+    - HIGH
+  skipUpdate: false
+
+# Secret detection
+secret:
+  skipUpdate: false
+
+# SBOM generation (optional)
+sbom:
+  format: cyclonedx
+  artifactType: image
+
+# Exit code settings
+exitCode: 1  # Exit with error code if vulnerabilities found
+
+# Output formats
+format: json  # Can be: table, json, sarif, cyclonedx, spdx
+output: trivy-results.json
+
+# Logging
+debug: false
+logLevel: info
+
+# Database settings
+dbRepository: ghcr.io/aquasecurity/trivy-db
+dbRepositoryInsecure: false
+skipUpdate: false
+offlineMode: false
+cacheDir: ~/.cache/trivy
+
+# Registry settings for authentication
+registry:
+  # Harbor registry authentication
+  username: ""  # Set via environment variable or CLI flag
+  password: ""  # Set via environment variable or CLI flag
+  insecure: false
+
+# Timeout settings
+timeout: 10m
+
+# Java scanning settings
+javaDb: ""
+javaPomProperties: ""
+
+# Python settings
+pythonPackageVersion: "3.9"
+
+# Node-specific settings
+nodeCommand: ""
+
+# Golang settings
+gomodBinary: ""
+
+# Ruby settings
+gemLockfilePath: ""
+
+# License settings
+licenseDBRepository: ""
+
+# Policy settings
+policyFile: ""  # Path to Rego policy file
+
+# Report settings
+reportFormat: json
+reportTTL: 720h  # 30 days retention
+
+# Kubernetes specific scanning
+kubernetes:
+  # Enable Kubernetes manifest scanning
+  enabled: true
+  # Context to scan
+  context: ""
+  # Namespaces to scan
+  namespaces: []
+  # Labels to filter
+  labels: []
+
+# Container image scanning
+image:
+  # Skip update check
+  skipUpdate: false
+  # Remove image after scan
+  rmImage: true
+  # Insecure registry
+  insecureRegistry: false
+
+# Compliance settings
+compliance:
+  # Kubernetes security standards
+  standards:
+    - k8s-nsa
+    - k8s-cis
+
+# Reachability analysis (for dependency analysis)
+reachability:
+  enabled: true
+  timeout: 5m
+
+# SLSA Provenance verification
+slsa: false
+
+# Attestation verification
+attestationVerification: false
+
+# SBOM settings
+sbom:
+  format: cyclonedx
+  cyclonedx:
+    version: "1.4"
+
+# Supply chain scanning
+supplyChain:
+  # Attest images
+  attest: false
+  # Generate SBOM
+  sbom: true
+
+# Module scanning
+modules:
+  # Scan Go modules
+  enabled: true
+
+# VEX (Vulnerability Exploitability Exchange) settings
+vex:
+  enabled: false
+
+# Filter results
+filter:
+  # Severity filter (already set above)
+  # Resource filter
+  resourceType:
+    - deployment
+    - daemonset
+    - statefulset
+    - pod
+    - container
+    - service
+
+# Custom header/footer
+customHeaders: {}
+
+# Cache settings
+cacheSettings:
+  # Clear cache before scan
+  clearCache: false
+  # Cache validity duration
+  cacheTTL: 24h
+
+# Parallel scanning
+parallel: 4
+
+# Progress bar
+progressBar: true
+
+# Color output
+color: true
+
+# Other options
+quiet: false
+insecure: false
+allowInsecureContainerRegistries: []

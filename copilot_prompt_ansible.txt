@@ -1,0 +1,104 @@
+Hello, I want to create a modern secure kubernetes setup to play around with but that I can also use later on to expand to a production setup.
+
+I want to have this structure of the final setup:
+Base domain: support.example.com. example.com is handled by Cloudflare, example.com is handled by Unifi.
+
+Internet -> Unifi router -> general host with lots of ram (from now on mentioned as the workstation)
+
+The workstation should be possible to replace with multiple hosts for a more production level set up
+
+The workstation is running arch Linux.
+The workstation should in this installation use vagrant with Virtualbox backend to setup virtual machines with the rke2 installation
+
+There should be 1 master node and 3 worker nodes in the cluster, let's start with giving them 8GB ram each. This will change over time.
+
+Networking should be bridged for the kubernetes nodes to the workstation so that we can expose loadbalancers with bgp for routing from the unifi router.
+
+The unifi router also has the DNS server. 
+Things from Vagrant can ideally be added there by some scripts during setup, 
+but if that is cumbersome, then manual is fine. For things inside kubernetes, 
+I want to use ExternalDNS and https://github.com/kashalls/external-dns-unifi-webhook.
+
+I want to be able to select between nginx, cilium and Gateway API to route traffic to services inside K8s
+
+For terminating web services, I want to use let's encrypt certificates with wildcard cert for support.example.com. This requires DNS01 for example.com which is handled by cloudflare.
+
+The kubernetes cluster should run cilium as CNI with tetragon for hardening the pods.
+The kubernetes cluster should run ArgoCD to do changes
+The kubernetes cluster should use External Secrets to pull in secrets from Vault
+The kubernetes cluster should be scanned by the trivy-operator
+The kubernetes cluster should have Grafana, Prometheus, Loki installed with some appropriate logcollector for monitoring and Loki should be configured to store its logs encrypted on the minio setup
+The kubernetes cluster should have these storage options
+* Longhorn: PVC default for app state.
+* MinIO: Loki object store (and maybe backups), not through storage classes, but app config.
+* NFS: shared RWX legacy workloads, or backup target.
+
+
+I need supporting tools for this to work as well.
+I need an artifact repository like Harbor (artifacts.support.example.com)
+I need credential management and a PKI, for example with Hashicorp Vault (trust.support.example.com)
+I need longhorn to provision block-storage for kubernetes cluster.
+I need MinIO to make object storage available to the kubernetes cluster.
+I need to provide NFS from a VM to the kubernetes cluster as well.
+I want these supporting tools to be installed into a single VM, but I want to be able to separate them later. They should be deployed to a Vagrant VM as well.
+
+I want vagrant to handle deploying VMs and then I want ansible playbooks to handle the configuration of services.
+
+Please create all the needed scaffolding to be able to build this solution.
+
+I need architecture documentation.
+I need a TODO-list.
+I need a spec-kit like structure that contains all the requirements for this to be setup in a professional way.
+
+RKE2 can be provisioned by Ansible as well, but the sequencing matters:
+
+1) Bring up Vault VM, configure PKI + K8s auth
+2) Bring up Harbor VM, set to be pull-through cache for dockerhub, rancher, quay etc.
+3) Bring up RKE2, configure:
+* kube-apiserver access from Vault VM
+* use harbor, imagePullSecrets, registry CA trust, etc.
+* Kubernetes auth role in Vault (bound service account)
+* cert-manager and external-secrets integration
+
+In other words: model dependencies explicitly.
+
+Here is a proposed folder structure:
+repo/
+  vagrant/
+    Vagrantfile
+    scripts/           # tiny helper scripts only
+  ansible/
+    inventories/
+      vagrant.ini
+    playbooks/
+      site.yml         # orchestrates order
+      vault.yml
+      harbor.yml
+      rke2.yml
+    roles/
+      common/
+      vault/
+      harbor/
+      rke2/
+  k8s/
+    manifests/         # baseline manifests
+    helmfile.yaml      # or ArgoCD app definitions
+  docs/
+    threat-model.md
+    runbook.md
+  Makefile
+
+Then your UX becomes:
+
+make up → vagrant up
+
+make provision → ansible-playbook ... site.yml
+
+make reset → destroy + recreate + provision
+
+I need to be able to update this setup as new versions come out as well.
+So please add this script to git to keep track of everything
+Create a Renovatebot config and a trivy config to be able to scan all relevant artifacts for needed updates and known vulnerabilities. 
+
+This is a pretty complex setup. So I want you to create a 10-step plan that we can go through and validate that all steps go through correctly.
+

@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: kubernetes-homelab-base
+
+# Resources included in this base
+resources:
+  # cert-manager ClusterIssuer configurations
+  # - cert-manager-issuer.yaml
+  
+  # Vault SecretStore for external-secrets
+  # - vault-secretstore.yaml
+  
+  # RBAC and network policies
+  # - rbac.yaml
+  # - network-policies.yaml
+  
+  # Monitoring and logging
+  # - prometheus-rules.yaml
+
+# Common labels
+commonLabels:
+  app.kubernetes.io/managed-by: kustomize
+  environment: homelab
+
+# Common annotations
+commonAnnotations:
+  documentation: "https://github.com/yourusername/kss"
+  owner: "homelab-team"
+
+# Namespace
+namespace: default
+
+# API version
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization

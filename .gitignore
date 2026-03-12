@@ -1,0 +1,104 @@
+# Vagrant files
+.vagrant/
+*.box
+Vagrantfile.local
+.vagrant.d/
+
+# VirtualBox
+*.vdi
+*.vmdk
+.vbox-*
+
+# Nix
+result
+result-*
+.direnv
+.envrc
+.envrc.local
+
+# Kubernetes
+.kubeconfig
+kubeconfig
+*.kubeconfig
+.kube/
+
+# Helm
+Chart.lock
+helmfile.lock
+*.tgz
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Local configuration
+.env
+.env.local
+config.local.yaml
+secrets.yaml
+
+# Trivy
+trivy-results.json
+trivy-results.*.json
+
+# Logs
+*.log
+logs/
+journal.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Git hooks
+.git/hooks/pre-push.local
+
+# CI/CD
+.github/workflows/*.local.yml
+.gitlab-ci.local.yml
+
+# Artifacts
+artifacts/
+build/
+dist/
+
+# SSH keys
+id_rsa
+id_rsa.pub
+*.pem
+.ssh/
+
+# Vault
+unseal-keys.txt
+vault-token
+
+# ArgoCD
+argocd-password.txt
+
+# Network traces
+*.pcap
+*.tcpdump
+
+# OS-specific
+Thumbs.db
+.DS_Store
+
+# Backup files
+*.backup
+*.bak
+*~

@@ -1,0 +1,74 @@
+# Vagrantfile for RKE2 cluster (1 master, 3 workers)
+# Assumptions:
+# - Host OS is Arch Linux
+# - libvirt or VirtualBox is available (user chooses provider)
+# - Bridge interface name can be supplied via env var BRIDGE
+
+VAGRANT_CONFIG_API_VERSION = '2'
+BRIDGE = ENV['BRIDGE'] || 'br0'
+MASTER_RAM = (ENV['MASTER_RAM'] || '8192').to_i
+WORKER_RAM = (ENV['WORKER_RAM'] || '8192').to_i
+MASTER_CPUS = (ENV['MASTER_CPUS'] || '4').to_i
+WORKER_CPUS = (ENV['WORKER_CPUS'] || '4').to_i
+BOX = ENV['BOX'] || 'generic/ubuntu2204'
+
+Vagrant.configure(VAGRANT_CONFIG_API_VERSION) do |config|
+  config.vm.box = BOX
+  config.vm.provider :virtualbox do |vb|
+    vb.memory = 2048
+  end
+
+  # Shared synced folder for token/config
+  config.vm.synced_folder '.', '/vagrant', type: 'rsync', rsync__auto: true
+
+  # Master node
+  config.vm.define 'k8s-master' do |m|
+    m.vm.hostname = 'k8s-master'
+    m.vm.network 'public_network', bridge: BRIDGE
+    m.vm.provider 'virtualbox' do |vb|
+      vb.name = 'k8s-master'
+      vb.memory = MASTER_RAM
+      vb.cpus = MASTER_CPUS
+    end
+    m.vm.provision 'shell', path: 'provision/master.sh'
+  end
+
+  # Worker nodes
+  (1..3).each do |i|
+    name = "k8s-worker#{i}"
+    config.vm.define name do |node|
+      node.vm.hostname = name
+      node.vm.network 'public_network', bridge: BRIDGE
+      node.vm.provider 'virtualbox' do |vb|
+        vb.name = name
+        vb.memory = WORKER_RAM
+        vb.cpus = WORKER_CPUS
+      end
+      node.vm.provision 'shell', path: 'provision/agent.sh'
+    end
+  end
+
+  # Vault (dev mode) - used for secrets management in lab
+  config.vm.define 'vault' do |v|
+    v.vm.hostname = 'vault'
+    v.vm.network 'public_network', bridge: BRIDGE
+    v.vm.provider 'virtualbox' do |vb|
+      vb.name = 'vault'
+      vb.memory = 2048
+      vb.cpus = 2
+    end
+    v.vm.provision 'shell', path: 'provision/vault.sh'
+  end
+
+  # Artifactory (simple container VM) - lab-only
+  config.vm.define 'artifactory' do |a|
+    a.vm.hostname = 'artifactory'
+    a.vm.network 'public_network', bridge: BRIDGE
+    a.vm.provider 'virtualbox' do |vb|
+      vb.name = 'artifactory'
+      vb.memory = 4096
+      vb.cpus = 2
+    end
+    a.vm.provision 'shell', path: 'provision/artifactory.sh'
+  end
+end

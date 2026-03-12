@@ -1,0 +1,172 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base",
+    ":dependencyDashboard",
+    ":enableVulnerabilityAlerts",
+    "schedule:weekly"
+  ],
+  "timezone": "UTC",
+  "schedule": [
+    "before 9am on Monday"
+  ],
+  "labels": [
+    "dependencies",
+    "renovate"
+  ],
+  "commitMessagePrefix": "chore(deps): ",
+  "commitMessageTopic": "{{depName}}",
+  "grouping": {
+    "major": {
+      "schedule": ["after 10pm on the first Monday of the month"],
+      "labels": ["breaking-change"]
+    },
+    "minor": {
+      "schedule": ["after 10pm on Monday"],
+      "labels": ["feature"]
+    }
+  },
+  "packageRules": [
+    {
+      "description": "Kubernetes and RKE2",
+      "matchDatasources": ["github-releases"],
+      "matchPackagePatterns": ["kubernetes", "rke2"],
+      "minMajorVersion": 1,
+      "schedule": ["after 10pm on the second Monday of the month"],
+      "labels": ["kubernetes"],
+      "assignees": ["@self"]
+    },
+    {
+      "description": "Helm charts",
+      "matchDatasources": ["helm"],
+      "groupName": "Helm charts",
+      "labels": ["helm"]
+    },
+    {
+      "description": "Container images",
+      "matchDatasources": ["docker"],
+      "groupName": "Container images",
+      "labels": ["docker"],
+      "schedule": ["after 10pm on Sunday"]
+    },
+    {
+      "description": "Cilium and network tools",
+      "matchPackagePatterns": ["cilium", "tetragon"],
+      "labels": ["network", "security"],
+      "schedule": ["after 10pm on the second Tuesday of the month"]
+    },
+    {
+      "description": "Security-critical updates",
+      "matchDatasources": ["npm", "pypi", "golang"],
+      "matchUpdateTypes": ["security"],
+      "schedule": ["at 2am on any day"],
+      "automerge": true,
+      "autoApprove": true,
+      "labels": ["security-patch"]
+    },
+    {
+      "description": "Patch updates - auto-merge",
+      "matchUpdateTypes": ["patch", "pin", "digest"],
+      "automerge": true,
+      "autoApprove": true,
+      "schedule": ["at 3am on weekends"],
+      "labels": ["patch"]
+    },
+    {
+      "description": "Minor version updates - require review",
+      "matchUpdateTypes": ["minor"],
+      "automerge": false,
+      "labels": ["minor-update"]
+    },
+    {
+      "description": "Major version updates - require review",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["major-update", "breaking-change"],
+      "assignees": ["@self"]
+    },
+    {
+      "description": "NixOS packages",
+      "matchDatasources": ["nix"],
+      "labels": ["nixos"],
+      "schedule": ["after 10pm on Friday"]
+    },
+    {
+      "description": "GitHub Actions",
+      "matchDatasources": ["github-actions"],
+      "automerge": true,
+      "schedule": ["at 4am on Sunday"]
+    },
+    {
+      "description": "Dev dependencies - auto-merge patches only",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "schedule": ["at 5am on any day"]
+    },
+    {
+      "description": "Lock file updates only",
+      "matchUpdateTypes": ["lockFileMaintenance"],
+      "schedule": ["before 9am on Monday"],
+      "automerge": true
+    }
+  ],
+  "extends": [
+    "config:base",
+    ":dependencyDashboard",
+    "schedule:weekly",
+    "docker:enableMajor",
+    "docker:pinDigests"
+  ],
+  "dockerfile": {
+    "enabled": true,
+    "schedule": ["after 10pm on Sunday"]
+  },
+  "docsUrl": "https://docs.renovatebot.com/",
+  "prConcurrentLimit": 5,
+  "prCreationLimit": 3,
+  "semanticCommits": "enabled",
+  "semanticCommitScope": "deps",
+  "gitCommitScope": "deps",
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["vulnerability"],
+    "assignees": ["@self"]
+  },
+  "postUpdateOptions": [
+    "gomodTidy",
+    "npmDedupe",
+    "yarnDedupeHighest"
+  ],
+  "ignoreDeps": [],
+  "enabledManagers": [
+    "dockerfile",
+    "docker-compose",
+    "github-actions",
+    "gitlabci",
+    "helm-values",
+    "helmfile",
+    "kubernetes",
+    "nix",
+    "npm",
+    "poetry",
+    "pip"
+  ],
+  "pre-commit": {
+    "enabled": true,
+    "schedule": ["before 9am on Monday"]
+  },
+  "hostRules": [
+    {
+      "description": "Docker Hub rate limiting",
+      "hostType": "docker",
+      "throttle": 1000
+    }
+  ],
+  "stabilityDays": 0,
+  "minimumReleaseAge": "0 days",
+  "versionCompatibility": "loose",
+  "suppressNotifications": [
+    "prIgnoreNotification"
+  ]
+}

@@ -1,0 +1,84 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # Base configuration for all boxes
+  # Using local NixOS qcow image with libvirt
+  config.vm.box = "local/nixos-25.11-vagrant"
+  config.vm.box_url = "file://#{File.expand_path(File.dirname(__FILE__))}/nixos-25.11-vagrant.box"
+
+  # SSH configuration - use custom ECDSA key instead of insecure key
+  config.ssh.private_key_path = File.expand_path("~/.vagrant.d/ecdsa_private_key")
+  config.ssh.insert_key = false
+  # Prevent terminal escape sequences from corrupting Vagrant commands
+  config.ssh.shell = "TERM=dumb bash -l"
+  # Disable Vagrant's hostname setting - NixOS box doesn't have /etc/nixos structure
+  # Hostname is set via libvirt domain definition instead
+  config.vm.hostname = nil
+
+  # Network settings - direct bridge attachment to VLAN 50 bridge
+  # VMs will get IPs from DHCP on the 10.69.50.0/24 network (served by Unifi router)
+  # Using public_network with direct bridge avoids vagrant-libvirt DHCP management issues
+  # auto_config: false prevents Vagrant from trying to use ifconfig (not on NixOS)
+  config.vm.network :public_network,
+    dev: "br-k8s",
+    mode: "bridge",
+    type: "bridge",
+    auto_config: false
+
+  # Shared folder configuration - disabled for NixOS
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+  # Prevent Vagrant from modifying /etc/fstab (read-only on NixOS)
+  config.vm.allow_fstab_modification = false
+
+  # Default provider: libvirt with KVM (for Arch Linux)
+  config.vm.provider "libvirt" do |libvirt|
+    libvirt.driver = "kvm"
+    libvirt.graphics_type = "spice"
+    libvirt.graphics_port = -1
+    libvirt.graphics_autoport = true
+    libvirt.qemu_use_session = false
+  end
+
+  # Set libvirt as the default provider
+  ENV['VAGRANT_DEFAULT_PROVIDER'] = 'libvirt'
+
+  # Supporting Systems VM
+  # Hosts: Vault, Harbor, MinIO, NFS
+  config.vm.define "support" do |support|
+    # Hostname will be set via NixOS configuration, not Vagrant
+    support.vm.provider "libvirt" do |libvirt|
+      libvirt.memory = 8192
+      libvirt.cpus = 4
+      libvirt.disk_bus = "virtio"
+      libvirt.disk_driver :cache => "directsync"
+      libvirt.cpu_mode = "host-passthrough"
+    end
+  end
+
+  # Kubernetes Master Node
+  config.vm.define "k8s-master" do |master|
+    # Hostname will be set via NixOS configuration, not Vagrant
+    master.vm.provider "libvirt" do |libvirt|
+      libvirt.memory = 8192
+      libvirt.cpus = 4
+      libvirt.disk_bus = "virtio"
+      libvirt.disk_driver :cache => "directsync"
+      libvirt.cpu_mode = "host-passthrough"
+    end
+  end
+
+  # Kubernetes Worker Nodes (3x)
+  (1..3).each do |i|
+    config.vm.define "k8s-worker-#{i}" do |worker|
+      # Hostname will be set via NixOS configuration, not Vagrant
+      worker.vm.provider "libvirt" do |libvirt|
+        libvirt.memory = 8192
+        libvirt.cpus = 4
+        libvirt.disk_bus = "virtio"
+        libvirt.disk_driver :cache => "directsync"
+        libvirt.cpu_mode = "host-passthrough"
+      end
+    end
+  end
+end

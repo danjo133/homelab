@@ -1,0 +1,25 @@
+emils setup:
+3x de.gmktec.com nucbox m6 ultra amd ryzen 5 7640HS minipc
+
+
+rke2
+gatewayapi med bgp mot unifi
+cilium
+tetragon
+hubble
+www.bunkerweb.io
+grafana beyla
+grafana, k8s-monitoring-helm
+
+links:
+editor.networkpolicy.io
+tetragon.io/docs/policy-library/observability/#privileges-fscaps
+
+my thoughts:
+confidential computing
+kubevirt
+oauth2proxy+nginx
+kubearmor
+sysdig
+falco
+

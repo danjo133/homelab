@@ -1,0 +1,116 @@
+# Nginx Ingress Controller Helm Values
+# Ingress controller for routing external traffic
+
+# Image
+image:
+  registry: docker.io
+  repository: nginx/nginx-ingress
+  tag: null  # Use default from chart
+
+# Deployment
+replicas: 1
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+
+# RBAC
+rbac:
+  create: true
+
+# Service account
+serviceAccount:
+  create: true
+  name: nginx-ingress
+
+# Pod security
+podSecurityPolicy:
+  enable: false
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 101
+  fsGroup: 101
+
+securityContext:
+  allowPrivilegeEscalation: true
+  capabilities:
+    add:
+      - NET_BIND_SERVICE
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+# Service configuration
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 80
+  
+  # For HTTP/2 and gRPC support
+  httpPort:
+    enableIPv6: true
+
+# Service for HTTPS
+serviceHttps:
+  enabled: true
+  type: LoadBalancer
+  port: 443
+  targetPort: 443
+  httpPort:
+    enableIPv6: true
+
+# Nginx configuration
+nginx:
+  # Default server configuration
+  serverTokens: "off"
+  
+  # Security headers
+  map:
+    "X-Frame-Options": "SAMEORIGIN"
+    "X-Content-Type-Options": "nosniff"
+    "X-XSS-Protection": "1; mode=block"
+  
+  # SSL/TLS configuration
+  ssl:
+    redirect: "off"  # Redirect HTTP to HTTPS
+  
+  # Rate limiting
+  rateLimiting:
+    enabled: false  # Can be enabled per ingress
+
+# Resources
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Node selection
+nodeSelector: {}
+tolerations:
+  - operator: Exists
+affinity: {}
+
+# Health check
+healthCheck:
+  enabled: true
+  uri: /nginx_health
+  interval: 15s
+
+# Prometheus metrics
+prometheus:
+  enabled: true
+  port: 9113
+  metrics:
+    - upstream
+    - server
+
+# Enable controller logging
+enableCustomResources: true
+
+# Kubernetes Gateway API support (optional)
+gatewayAPI:
+  enable: false

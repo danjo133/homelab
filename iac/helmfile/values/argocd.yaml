@@ -1,0 +1,103 @@
+# ArgoCD Helm Values
+# GitOps continuous deployment
+
+# Image configuration
+image:
+  tag: null  # Use default from chart
+
+# ArgoCD server
+server:
+  autoscaling:
+    enabled: false
+  replicas: 1
+  
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+  
+  # Ingress for ArgoCD UI
+  ingress:
+    enabled: false
+    # Configure with cert-manager annotation
+    # annotations:
+    #   cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # hosts:
+    #   - argocd.support.example.com
+    # tls:
+    #   - secretName: argocd-tls
+    #     hosts:
+    #       - argocd.support.example.com
+  
+  # Admin password (set via external-secrets or manual)
+  config:
+    # configManagementPlugins: |
+
+# ArgoCD repository server
+repoServer:
+  autoscaling:
+    enabled: false
+  replicas: 1
+  
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ArgoCD controller
+controller:
+  replicas: 1
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ArgoCD application controller
+applicationController:
+  replicas: 1
+
+# ArgoCD notifications
+notifications:
+  enabled: false
+  # Configure notification providers (Slack, email, etc)
+
+# Redis
+redis:
+  enabled: true
+  replica:
+    enabled: false
+
+# RBAC
+rbac:
+  create: true
+
+# Service account
+serviceAccount:
+  create: true
+  name: argocd-server
+
+# Global configuration
+global:
+  logging:
+    level: info
+    format: json
+
+# Install CRDs
+installCRDs: true
+
+# Metrics
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: false  # Enable if using Prometheus Operator
+
+# High availability mode
+ha:
+  enabled: false  # Enable for production HA setup

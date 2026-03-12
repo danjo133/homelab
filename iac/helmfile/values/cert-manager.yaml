@@ -1,0 +1,95 @@
+# cert-manager Helm Values
+# Automated certificate management from Vault and Let's Encrypt
+
+# Image configuration
+image:
+  repository: quay.io/jetstack/cert-manager-controller
+  tag: null  # Use default from chart
+
+# Deployment
+replicaCount: 1
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+
+# RBAC
+rbac:
+  create: true
+  createAggregateClusterRoles: true
+
+# Service account
+serviceAccount:
+  create: true
+  name: cert-manager
+
+# Pod security
+podSecurityPolicy:
+  enabled: false
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+# Global configuration
+global:
+  rbac:
+    create: true
+  leaderElection:
+    enabled: true
+
+# Webhook configuration
+webhook:
+  enabled: true
+  replicaCount: 1
+  
+  # Webhook service configuration
+  service:
+    type: ClusterIP
+    port: 443
+    targetPort: 10250
+    annotations: {}
+
+# CAinjector configuration
+cainjector:
+  enabled: true
+  replicaCount: 1
+
+# Startupapicheck configuration
+startupApiCheck:
+  enabled: true
+
+# Resources
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Node selection
+nodeSelector: {}
+tolerations:
+  - operator: Exists
+affinity: {}
+
+# Prometheus metrics
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: false  # Enable if using Prometheus Operator
+
+# Vault configuration (will be set via Issuer/ClusterIssuer)
+# See kustomize/base/cert-manager-issuer.yaml for Vault integration
+
+# Ingress configuration (optional, if using cert-manager for webhook ingress)
+ingress:
+  enabled: false

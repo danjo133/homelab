@@ -1,0 +1,39 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: kubernetes-homelab-prod
+
+# Base to include
+bases:
+  - ../base
+
+# Production-specific labels
+commonLabels:
+  environment: prod
+  owner: homelab-team
+
+# Production-specific annotations
+commonAnnotations:
+  description: "Production environment"
+  compliance: "enabled"
+
+# Resource replicas for production (higher availability)
+replicas:
+  - name: cert-manager
+    count: 2
+
+# Patches for production (more resources, strict policies)
+patches: []
+
+# ConfigMap generator for environment variables
+configMapGenerator:
+  - name: homelab-config
+    literals:
+      - ENVIRONMENT=prod
+      - LOG_LEVEL=warn
+      - METRICS_ENABLED=true
+      - AUDIT_LOGGING=true
+
+# Namespace
+namespace: default
