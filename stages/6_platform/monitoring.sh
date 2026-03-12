@@ -6,13 +6,26 @@ require_kubeconfig
 
 GEN_DIR="$(cluster_gen_dir)"
 
+# Prometheus and AlertManager need PVCs — verify a StorageClass exists
+if ! kubectl get sc -o name 2>/dev/null | grep -q .; then
+  error "No StorageClass found — deploy Longhorn first (just platform-longhorn)"
+  exit 1
+fi
+
+# Ensure required namespaces exist (monitoring kustomize may reference these)
+for ns in monitoring gatekeeper-system; do
+  kubectl create namespace "$ns" 2>/dev/null || true
+done
+
 info "Applying monitoring ExternalSecrets (${KSS_CLUSTER})..."
-kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 # First pass: ExternalSecrets succeed, CRD-dependent resources (PrometheusRule, ServiceMonitor) may fail
 kubectl apply -k "${GEN_DIR}/kustomize/monitoring/" 2>&1 | grep -v "no matches for kind" || true
 
-info "Waiting for monitoring secrets..."
-kubectl wait --for=condition=Ready externalsecret/grafana-admin-secret -n monitoring --timeout=60s 2>/dev/null || true
+info "Waiting for monitoring secrets (required for Grafana)..."
+kubectl wait --for=condition=Ready externalsecret/grafana-admin-secret -n monitoring --timeout=120s || {
+  error "grafana-admin-secret not ready — ensure platform secrets are seeded (just platform-deploy)"
+  exit 1
+}
 
 info "Deploying kube-prometheus-stack..."
 helmfile_cmd -e "${CLUSTER_HELMFILE_ENV}" -l name=kube-prometheus-stack apply

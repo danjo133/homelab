@@ -52,9 +52,18 @@ case "$TARGET" in
 
     "${STAGES_DIR}/3_cluster/token.sh"
 
+    FAILED_WORKERS=()
     for i in $(seq 1 "${CLUSTER_WORKER_COUNT}"); do
-      rebuild_worker "$i"
+      if ! rebuild_worker "$i"; then
+        FAILED_WORKERS+=("worker-$i")
+        warn "worker-$i rebuild failed, continuing with remaining workers..."
+      fi
     done
+
+    if [ ${#FAILED_WORKERS[@]} -gt 0 ]; then
+      error "The following workers failed to rebuild: ${FAILED_WORKERS[*]}"
+      exit 1
+    fi
 
     success "All ${KSS_CLUSTER} nodes rebuilt"
     ;;

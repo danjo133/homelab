@@ -62,8 +62,19 @@ let
     CHECKSUM_URL="https://github.com/rancher/rke2/releases/download/$VERSION_URL/sha256sum-amd64.txt"
 
     echo "Downloading RKE2 from $TARBALL_URL..."
-    curl -sfL "$TARBALL_URL" -o /tmp/rke2.tar.gz
-    curl -sfL "$CHECKSUM_URL" -o /tmp/sha256sum.txt
+    for attempt in 1 2 3 4 5; do
+      if curl -sfL "$TARBALL_URL" -o /tmp/rke2.tar.gz && \
+         curl -sfL "$CHECKSUM_URL" -o /tmp/sha256sum.txt; then
+        break
+      fi
+      echo "Download attempt $attempt failed, retrying in 10s..."
+      rm -f /tmp/rke2.tar.gz /tmp/sha256sum.txt
+      sleep 10
+      if [ "$attempt" -eq 5 ]; then
+        echo "ERROR: Failed to download RKE2 after 5 attempts"
+        exit 1
+      fi
+    done
 
     # Verify checksum
     echo "Verifying checksum..."

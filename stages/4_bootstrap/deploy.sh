@@ -23,13 +23,25 @@ if [[ "$CLUSTER_HELMFILE_ENV" == "default" ]]; then
 
   info "Waiting for MetalLB CRDs to be established..."
   for crd in ipaddresspools.metallb.io l2advertisements.metallb.io; do
-    for i in $(seq 1 30); do
+    CRD_READY=false
+    for i in $(seq 1 60); do
       if kubectl wait crd/"$crd" --for=condition=Established --timeout=2s >/dev/null 2>&1; then
+        CRD_READY=true
         break
       fi
       sleep 2
     done
+    if [[ "$CRD_READY" != "true" ]]; then
+      error "MetalLB CRD $crd not established after 120s"
+      exit 1
+    fi
   done
+
+  info "Waiting for MetalLB controller to be ready..."
+  kubectl -n metallb-system rollout status deployment/metallb-controller --timeout=120s
+
+  info "Invalidating kubectl discovery cache..."
+  rm -rf ~/.kube/cache
 
   info "Applying MetalLB address pool..."
   kubectl apply -k "${GEN_DIR}/kustomize/metallb/"
@@ -80,6 +92,11 @@ if [[ "$CLUSTER_HELMFILE_ENV" != "default" ]]; then
 fi
 
 if [[ "$CLUSTER_HELMFILE_ENV" == "gateway-bgp" || "$CLUSTER_HELMFILE_ENV" == "istio-mesh" ]]; then
+  info "Ensuring Gateway-related namespaces exist..."
+  for ns in istio-ingress headlamp oauth2-proxy; do
+    kubectl create namespace "$ns" 2>/dev/null || true
+  done
+
   info "Applying Gateway resources (${KSS_CLUSTER})..."
   kubectl apply -k "${GEN_DIR}/kustomize/gateway/"
 fi

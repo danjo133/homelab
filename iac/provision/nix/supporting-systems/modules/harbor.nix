@@ -14,7 +14,8 @@ let
   harborAutoSetup = pkgs.writeShellScript "harbor-auto-setup" ''
     set -eu
 
-    export PATH="${pkgs.curl}/bin:${pkgs.gnutar}/bin:${pkgs.gzip}/bin:${pkgs.openssl}/bin:${pkgs.docker-compose}/bin:${pkgs.docker}/bin:${pkgs.gawk}/bin:${pkgs.gnugrep}/bin:${pkgs.gnused}/bin:${pkgs.coreutils}/bin:${pkgs.findutils}/bin:${pkgs.python3}/bin:$PATH"
+    export PATH="${pkgs.curl}/bin:${pkgs.gnutar}/bin:${pkgs.gzip}/bin:${pkgs.openssl}/bin:${pkgs.docker-compose}/bin:${pkgs.docker}/bin:${pkgs.gawk}/bin:${pkgs.gnugrep}/bin:${pkgs.gnused}/bin:${pkgs.coreutils}/bin:${pkgs.findutils}/bin:${pkgs.minio-client}/bin:$PATH"
+    export HOME=/tmp
 
     HARBOR_DIR="${harborDir}"
     HARBOR_DATA_DIR="${harborDataDir}"
@@ -147,6 +148,15 @@ HARBOREOF
     if [ -f "$MINIO_CREDS" ]; then
       echo "==> Configuring MinIO storage backend..."
       source "$MINIO_CREDS"
+
+      # Ensure the harbor bucket exists in MinIO
+      mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" --quiet
+      mc mb local/harbor --ignore-existing --quiet
+      echo "MinIO 'harbor' bucket ready"
+
+      # Use the support VM's stable IP so Docker containers can reach MinIO.
+      # MinIO listens on 0.0.0.0:9000 and port 9000 is open in the firewall,
+      # so traffic from the Harbor bridge network reaches the host via INPUT.
       cat >> "$HARBOR_DIR/harbor.yml" << MINIOEOF
 
 storage_service:
@@ -155,7 +165,7 @@ storage_service:
     secretkey: $MINIO_ROOT_PASSWORD
     region: us-east-1
     bucket: harbor
-    regionendpoint: http://127.0.0.1:9000
+    regionendpoint: http://10.69.50.10:9000
     secure: false
     v4auth: true
     chunksize: 5242880

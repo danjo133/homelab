@@ -15,9 +15,16 @@ HARBOR_URL="https://harbor.support.example.com"
 HARBOR_API="${HARBOR_URL}/api/v2.0"
 VAULT_ROOT_TOKEN=$(jq -r '.root_token' "${VAULT_KEYS_BACKUP}")
 
+# Build namespace header if configured
+NS_HEADER=""
+if [[ -n "${CLUSTER_VAULT_NAMESPACE}" ]]; then
+  NS_HEADER="-H X-Vault-Namespace:${CLUSTER_VAULT_NAMESPACE}"
+fi
+
 # Get Harbor admin credentials from Vault
 HARBOR_CREDS=$(curl -sf \
   -H "X-Vault-Token: ${VAULT_ROOT_TOKEN}" \
+  ${NS_HEADER} \
   "${VAULT_URL}/v1/secret/data/harbor/admin")
 
 if [[ -z "$HARBOR_CREDS" ]]; then
@@ -73,7 +80,7 @@ if [[ -n "$ROBOT_CHECK" ]]; then
   info "Robot account '${ROBOT_NAME}' already exists"
 else
   info "Creating robot account for pull access..."
-  ROBOT_RESULT=$(curl -sf -X POST \
+  ROBOT_RESULT=$(curl -s -X POST \
     "${HARBOR_API}/projects/${PROJECT_NAME}/robots" -u "${AUTH}" \
     -H 'Content-Type: application/json' \
     -d "{
@@ -90,13 +97,14 @@ else
           {\"resource\": \"repository\", \"action\": \"list\"}
         ]
       }]
-    }")
+    }") || true
 
-  ROBOT_SECRET=$(echo "$ROBOT_RESULT" | jq -r '.secret // empty')
+  ROBOT_SECRET=$(echo "$ROBOT_RESULT" | jq -r '.secret // empty' 2>/dev/null)
   if [[ -n "$ROBOT_SECRET" ]]; then
     # Store robot credentials in Vault for ExternalSecrets to consume
     curl -sf -X POST \
       -H "X-Vault-Token: ${VAULT_ROOT_TOKEN}" \
+      ${NS_HEADER} \
       -H "Content-Type: application/json" \
       -d "$(jq -n \
         --arg user "${ROBOT_NAME}" \

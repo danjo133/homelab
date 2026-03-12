@@ -14,7 +14,7 @@ in
     dataDir = [ minioDataDir ];
     configDir = minioConfigDir;
     rootCredentialsFile = credentialsFile;
-    listenAddress = "127.0.0.1:9000";
+    listenAddress = "0.0.0.0:9000";
     consoleAddress = "127.0.0.1:9001";
   };
 
@@ -59,8 +59,7 @@ in
     '';
   };
 
-  # Note: Firewall rules not needed for MinIO ports as Nginx proxies traffic
-  # Access is via:
-  # - https://minio.support.example.com (API)
-  # - https://minio-console.support.example.com (Console)
+  # MinIO API listens on 0.0.0.0 so Harbor's Docker containers can reach it
+  # via the bridge gateway. Port 9000 must be open in the firewall for this.
+  networking.firewall.allowedTCPPorts = [ 9000 ];
 }

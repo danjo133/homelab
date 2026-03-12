@@ -9,7 +9,15 @@ header "Deploying all identity components for ${KSS_CLUSTER}"
 # Storage prerequisite — Keycloak DB needs PVCs
 if ! kubectl get sc -o name 2>/dev/null | grep -q .; then
   warn "No StorageClass found — deploying Longhorn first..."
-  "${STAGES_DIR}/6_platform/longhorn.sh"
+  # Longhorn's ServiceMonitor requires Prometheus CRDs. If the monitoring stack
+  # hasn't been deployed yet, install Longhorn with metrics disabled. The full
+  # platform-deploy will later update Longhorn with ServiceMonitor enabled.
+  if kubectl get crd servicemonitors.monitoring.coreos.com >/dev/null 2>&1; then
+    "${STAGES_DIR}/6_platform/longhorn.sh"
+  else
+    info "Prometheus CRDs not yet installed — deploying Longhorn without ServiceMonitor..."
+    helmfile_cmd -e "${CLUSTER_HELMFILE_ENV}" -l name=longhorn --set metrics.serviceMonitor.enabled=false apply
+  fi
 fi
 
 "${STAGES_DIR}/5_identity/gatekeeper.sh"

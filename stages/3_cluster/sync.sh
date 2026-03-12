@@ -7,6 +7,7 @@ TARGET="${1:-all}"
 
 sync_master() {
   info "Syncing NixOS config to ${MASTER_VM} (${CLUSTER_MASTER_IP})..."
+  ssh_vm "${CLUSTER_MASTER_IP}" "mkdir -p /tmp/nix-config"
   rsync_to_vm "${CLUSTER_MASTER_IP}" \
     "${REMOTE_PROJECT_DIR}/iac/provision/nix/k8s-master/" \
     "/tmp/nix-config/"

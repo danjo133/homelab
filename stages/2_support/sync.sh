@@ -3,6 +3,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 
 info "Syncing NixOS config to support VM (${SUPPORT_VM_IP})..."
 
+ssh_vm "${SUPPORT_VM_IP}" "mkdir -p /tmp/nix-config"
+
 rsync_to_vm "${SUPPORT_VM_IP}" \
   "${REMOTE_PROJECT_DIR}/iac/provision/nix/supporting-systems/" \
   "/tmp/nix-config/supporting-systems/"

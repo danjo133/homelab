@@ -65,34 +65,83 @@ VMs use fixed MACs for Unifi DHCP static leases. DNS via Unifi.
 - `just`, `yq`, `jq`, `sops`, `age`, `helmfile`, `kubectl`
 - Ethernet to switch with VLAN 50 trunk
 
-### Initial Setup
+### Initial Setup (one-time)
 
 ```bash
-# 1. Build NixOS Vagrant box
+# 1. Build NixOS Vagrant box (only needed once, or after nix-box-config.nix changes)
 just vm-build-box
 
-# 2. Set the cluster you want to operate on
-export KSS_CLUSTER=kss
-
-# 3. Generate cluster configs from cluster.yaml
+# 2. Generate cluster configs from cluster.yaml (re-run after cluster.yaml changes)
 just generate
+```
 
-# 4. Bring up VMs
-just vm-up
+### Support VM (one-time, shared by all clusters)
 
-# 5. Configure support VM
+```bash
+# 3. Bring up the support VM
+just vm-up support
+
+# 4. Configure support VM (Vault, Harbor, MinIO, NFS, Nginx)
 just support-sync
 just support-rebuild
 
-# 6. Bootstrap cluster
+# 5. Backup Vault keys locally (needed by bootstrap scripts)
+just vault-backup
+```
+
+### Cluster Bring-Up
+
+Repeat this section for each cluster (`kss`, `kcs`, etc.):
+
+```bash
+# 6. Set the target cluster
+export KSS_CLUSTER=kss   # or kcs
+
+# 7. Bring up cluster VMs
+just vm-up
+
+# 8. Sync NixOS configs and rebuild all nodes
+just cluster-sync all
 just cluster-rebuild all
+
+# 9. Distribute RKE2 join token to workers
+just cluster-token
+
+# 10. Fetch kubeconfig
 just cluster-kubeconfig
-export KUBECONFIG=~/.kube/config-kss
+export KUBECONFIG=~/.kube/config-${KSS_CLUSTER}
+
+# 11. Bootstrap the cluster (Cilium/MetalLB, cert-manager, external-secrets, ArgoCD, etc.)
+#     For Cilium clusters (kcs): also deploys Istio Ambient mesh + Gateway API
 just bootstrap-deploy
 
-# 7. Deploy identity + platform services
+# 12. Deploy identity services (Keycloak, Gatekeeper, OAuth2-Proxy, OIDC RBAC, JIT)
 just identity-deploy
+
+# 13. Deploy platform services (Longhorn, Prometheus/Grafana/Loki, Trivy)
+#     Requires VAULT_ADDR and VAULT_TOKEN — see vault-token command
+export VAULT_ADDR=https://vault.support.example.com
+export VAULT_TOKEN=$(just vault-token)
 just platform-deploy
+```
+
+### Build and Push Custom Images
+
+The `jit-elevation` and `cluster-setup` services use custom container images stored in Harbor. Build and push them after the cluster's Harbor project is created (done automatically by `bootstrap-deploy`):
+
+```bash
+export KSS_CLUSTER=kss   # images are per-cluster
+just harbor-login
+iac/apps/jit-elevation/build-push.sh
+iac/apps/cluster-setup/build-push.sh
+```
+
+### Post-Deploy Verification
+
+```bash
+just cluster-status       # All nodes Ready, all pods Running
+just identity-status      # Keycloak, Gatekeeper, OAuth2-Proxy healthy
+just platform-status      # Longhorn, monitoring stack healthy
 ```
 
 ## Usage
@@ -393,7 +442,7 @@ stages/                          # Operational scripts
 iac/                             # Infrastructure definitions
   Vagrantfile                    # VM definitions
   clusters/kss/                  # Cluster config + generated outputs
-  clusters/kcs/                  # Future cluster (kept)
+  clusters/kcs/                  # Cilium/Istio cluster
   provision/nix/                 # NixOS configurations
   helmfile/                      # Kubernetes bootstrap
   kustomize/                     # GitOps manifests
