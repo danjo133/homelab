@@ -75,6 +75,15 @@ just platform-trivy           # Trivy scanner
 just platform-deploy          # All platform services
 just platform-status          # Show status
 
+# OpenTofu (env: base, kss, kcs)
+just tofu-init <env>          # Initialize environment
+just tofu-plan <env>          # Plan changes
+just tofu-apply <env>         # Apply changes
+just tofu-state <env>         # List state
+just tofu-setup-bucket        # Create MinIO state bucket
+just tofu-import-base         # Import base resources
+just tofu-import-cluster      # Import cluster resources (requires KSS_CLUSTER)
+
 # Debug
 just debug-cilium [cmd]       # status/health/endpoints/services/config/bpf/logs/restart
 just debug-network [cmd]      # diag/master/worker1/clusterip/generate
@@ -185,7 +194,27 @@ scripts/                          # Utility scripts
   fix-keycloak-scopes.sh          # Keycloak scope fix workaround
   hypervisor-exec.sh                    # Remote execution helper
 
-archive/                          # Old documentation (pending review/deletion)
+tofu/                             # OpenTofu IaC (Phase 2)
+  modules/
+    vault-base/                   # Root PKI mount, config URLs, namespaces
+    vault-cluster/                # Per-namespace: KV, PKI int, policies, secrets, K8s auth
+    keycloak-upstream/            # Upstream realm, users, roles, OIDC clients
+    harbor-cluster/               # Per-cluster Harbor project + robot account
+    minio-config/                 # MinIO bucket management
+  environments/
+    base/                         # Root Vault + upstream Keycloak + MinIO
+    kss/                          # KSS cluster namespace (Vault + Harbor)
+    kcs/                          # KCS cluster namespace (Vault + Harbor)
+  scripts/
+    setup-state-bucket.sh         # Bootstrap MinIO tofu-state bucket
+    import-base.sh                # Import base env resources
+    import-cluster.sh             # Import per-cluster env resources
+
+iac/argocd/                       # ArgoCD App-of-Apps (Phase 3 — planned)
+  projects/                       # ArgoCD AppProject definitions
+  base/                           # Shared Application YAMLs
+  clusters/                       # Per-cluster kustomization overlays
+  values/                         # Helm values (base + per-cluster overrides)
 ```
 
 ## Configuration Files
@@ -235,4 +264,5 @@ All cluster-aware scripts require `KSS_CLUSTER` to be set. No defaults. Scripts 
 - **Host**: Arch Linux with 48GB+ RAM
 - **Virtualization**: libvirt/KVM (not VirtualBox)
 - **Network**: Ethernet connection to switch with VLAN 50 trunk
-- **Tools**: just, Vagrant, vagrant-libvirt, nix, yq, jq, sops, age, helmfile, kubectl
+- **Dev shell**: `nix develop` (or `direnv allow`) provides all tools — see `flake.nix`
+- **Tools** (provided by dev shell): just, vagrant, kubectl, helm, helmfile, kustomize, kubelogin, opentofu, tflint, sops, age, jq, yq, skopeo, crane, trivy, grype, pre-commit, shellcheck, yamllint

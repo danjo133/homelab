@@ -13,7 +13,6 @@ Vagrantfile.local
 result
 result-*
 .direnv
-.envrc
 .envrc.local
 
 # Kubernetes
@@ -27,15 +26,17 @@ Chart.lock
 helmfile.lock
 *.tgz
 
-# Terraform
+# Terraform / OpenTofu
 .terraform/
-.terraform.lock.hcl
 *.tfstate
 *.tfstate.*
+*.tfplan
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+tofu/environments/*/terraform.tfvars
+# Keep .terraform.lock.hcl committed for provider pinning
 
 # IDE
 .vscode/

@@ -205,6 +205,36 @@ platform-deploy:
 platform-status:
     ./stages/6_platform/status.sh
 
+# ─── OpenTofu ─────────────────────────────────
+
+# Initialize OpenTofu environment (env: base, kss, kcs)
+tofu-init env:
+    tofu -chdir=tofu/environments/{{env}} init
+
+# Plan OpenTofu changes (env: base, kss, kcs)
+tofu-plan env:
+    tofu -chdir=tofu/environments/{{env}} plan
+
+# Apply OpenTofu changes (env: base, kss, kcs)
+tofu-apply env:
+    tofu -chdir=tofu/environments/{{env}} apply
+
+# Show OpenTofu state (env: base, kss, kcs)
+tofu-state env:
+    tofu -chdir=tofu/environments/{{env}} state list
+
+# Setup MinIO bucket for OpenTofu state
+tofu-setup-bucket:
+    ./tofu/scripts/setup-state-bucket.sh
+
+# Import existing base resources into OpenTofu state
+tofu-import-base:
+    ./tofu/scripts/import-base.sh
+
+# Import existing cluster resources into OpenTofu state (requires KSS_CLUSTER)
+tofu-import-cluster:
+    ./tofu/scripts/import-cluster.sh
+
 # ─── Debug ────────────────────────────────────
 
 # Cilium debugging (status, health, endpoints, services, config, bpf, logs, restart)

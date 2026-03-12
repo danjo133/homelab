@@ -1,0 +1,24 @@
+# Copy to terraform.tfvars and fill in values.
+# Sensitive values can also be set via environment variables:
+#   export TF_VAR_vault_token="..."
+#   export TF_VAR_keycloak_admin_password="..."
+#   export TF_VAR_minio_access_key="..."
+#   export TF_VAR_minio_secret_key="..."
+#   export TF_VAR_state_encryption_passphrase="..."
+
+vault_addr  = "https://vault.support.example.com"
+vault_token = ""
+
+keycloak_url            = "https://idp.support.example.com"
+keycloak_admin_user     = "admin"
+keycloak_admin_password = ""
+
+minio_endpoint   = "minio.support.example.com"
+minio_access_key = ""
+minio_secret_key = ""
+minio_ssl        = true
+
+state_encryption_passphrase = ""
+
+vault_namespaces = ["kss", "kcs"]
+minio_buckets    = ["harbor", "loki-kss", "loki-kcs", "tofu-state"]
