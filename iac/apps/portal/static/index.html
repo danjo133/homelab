@@ -8,7 +8,6 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,-apple-system,sans-serif;background:#0d1117;color:#c9d1d9;min-height:100vh}
 .container{max-width:1080px;margin:0 auto;padding:32px 20px}
-header{margin-bottom:32px}
 h1{font-size:1.6rem;margin-bottom:6px}
 .subtitle{color:#8b949e;font-size:0.9rem}
 .search-box{margin-bottom:28px}
@@ -32,14 +31,20 @@ h1{font-size:1.6rem;margin-bottom:6px}
 .empty{text-align:center;padding:60px 20px;color:#484f58;font-size:0.95rem}
 .error{text-align:center;padding:40px 20px;color:#da3633;font-size:0.9rem}
 .badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.7rem;background:#21262d;color:#8b949e;margin-left:8px;vertical-align:middle;font-weight:400}
+header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px}
+.logout-btn{color:#8b949e;font-size:0.8rem;text-decoration:none;padding:6px 12px;border:1px solid #21262d;border-radius:6px;transition:color 0.15s,border-color 0.15s;white-space:nowrap}
+.logout-btn:hover{color:#f85149;border-color:#f85149}
 footer{margin-top:40px;padding-top:20px;border-top:1px solid #21262d;text-align:center;color:#484f58;font-size:0.75rem}
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <h1 id="title">Cluster Portal</h1>
-    <p class="subtitle" id="subtitle">Loading...</p>
+    <div>
+      <h1 id="title">Cluster Portal</h1>
+      <p class="subtitle" id="subtitle">Loading...</p>
+    </div>
+    <a id="logout" class="logout-btn" title="Sign out" style="display:none">Logout</a>
   </header>
 
   <div id="loading" class="loading"><span class="spinner"></span> Discovering services...</div>
@@ -88,6 +93,10 @@ function render() {
   document.getElementById('subtitle').textContent = 'Services running on ' + domain;
   document.getElementById('footer-info').textContent =
     appData.total + ' services discovered \u00b7 cached at ' + (appData.cached_at || '');
+
+  var logoutBtn = document.getElementById('logout');
+  logoutBtn.href = '/oauth2/sign_out?rd=' + encodeURIComponent('https://auth.' + domain + '/realms/broker/protocol/openid-connect/logout');
+  logoutBtn.style.display = '';
 
   renderCategories(appData.categories);
 

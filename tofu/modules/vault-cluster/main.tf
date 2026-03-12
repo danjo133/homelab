@@ -4,7 +4,7 @@
 #   - KV v2 secrets engine
 #   - Intermediate PKI mount + issuing role
 #   - Policies (external-secrets, spiffe-workload, keycloak-operator)
-#   - KV secrets (with ignore_changes on data)
+#   - KV secrets
 #   - Kubernetes auth backend + role
 
 # NOTE: KV v2 engine at secret/ is created by vault-base module (in the base

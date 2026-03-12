@@ -163,8 +163,10 @@ else
 
   if [[ -z "$ROBOT_ID" || "$ROBOT_ID" == "null" ]]; then
     warn "Robot account '${ROBOT_FULL_NAME}' not found — skipping"
+    TAINT_CLUSTER_ROBOT=false
   else
     import_resource "module.harbor_cluster.harbor_robot_account.pull" "/robots/${ROBOT_ID}"
+    TAINT_CLUSTER_ROBOT=true
   fi
 fi
 
@@ -355,6 +357,18 @@ else
 
     info "Keycloak broker import complete"
   fi
+fi
+
+# ============================================================================
+# Taint write-once resources after import
+# ============================================================================
+# Harbor robot secrets are only available at creation time. After import, the
+# provider can't read them back, so the state has empty values. Tainting forces
+# recreation on next apply, which generates a fresh secret that flows to Vault.
+if [[ "${TAINT_CLUSTER_ROBOT:-false}" == "true" ]]; then
+  header "Tainting write-once resources for credential regeneration"
+  echo "  Tainting: module.harbor_cluster.harbor_robot_account.pull"
+  tofu -chdir="$ENV_DIR" taint "module.harbor_cluster.harbor_robot_account.pull" || true
 fi
 
 # ============================================================================

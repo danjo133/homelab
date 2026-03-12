@@ -22,7 +22,9 @@ module "harbor_cluster" {
   cluster_name = "kcs"
 }
 
-# Write per-cluster Harbor pull robot credentials to Vault
+# Write per-cluster Harbor pull robot credentials to Vault.
+# Robot secrets are only available at creation time — the precondition
+# guards against writing empty credentials (e.g. after state import).
 resource "vault_kv_secret_v2" "harbor_cluster_pull" {
   mount = module.vault_cluster.kv_mount_path
   name  = "harbor/kcs-pull"
@@ -33,7 +35,12 @@ resource "vault_kv_secret_v2" "harbor_cluster_pull" {
     url      = var.harbor_url
   })
 
-  lifecycle { ignore_changes = [data_json] }
+  lifecycle {
+    precondition {
+      condition     = module.harbor_cluster.robot_secret != null && module.harbor_cluster.robot_secret != ""
+      error_message = "Harbor kcs pull robot secret is empty (only available at creation). Taint the robot to regenerate: tofu taint 'module.harbor_cluster.harbor_robot_account.pull'"
+    }
+  }
 }
 
 # ============================================================================

@@ -42,3 +42,26 @@ serviceAccount:
 
 rbac:
   create: true
+
+# Wait for internet connectivity before starting external-dns.
+# Prevents fatal crash → CrashLoopBackOff cascade when Cloudflare API
+# is unreachable (e.g. during internet outages).
+initContainers:
+  - name: wait-for-internet
+    image: busybox:1.37
+    command:
+      - sh
+      - -c
+      - |
+        echo "Waiting for internet connectivity (api.cloudflare.com)..."
+        until nslookup api.cloudflare.com > /dev/null 2>&1; do
+          echo "DNS not available, retrying in 30s..."
+          sleep 30
+        done
+        echo "Internet connectivity confirmed"
+    resources:
+      requests:
+        cpu: 1m
+        memory: 8Mi
+      limits:
+        memory: 16Mi

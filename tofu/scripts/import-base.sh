@@ -222,14 +222,18 @@ PULL_ROBOT_ID=$(curl -sf -H "Authorization: Basic $HARBOR_AUTH" \
 
 if [[ -n "$PUSH_ROBOT_ID" ]]; then
   import_resource "module.harbor_apps.harbor_robot_account.push" "$PUSH_ROBOT_ID"
+  TAINT_PUSH_ROBOT=true
 else
   info "Push robot not found — will be created by tofu apply"
+  TAINT_PUSH_ROBOT=false
 fi
 
 if [[ -n "$PULL_ROBOT_ID" ]]; then
   import_resource "module.harbor_apps.harbor_robot_account.pull" "$PULL_ROBOT_ID"
+  TAINT_PULL_ROBOT=true
 else
   info "Pull robot not found — will be created by tofu apply"
+  TAINT_PULL_ROBOT=false
 fi
 
 # Harbor Vault secrets (may not exist on first run)
@@ -272,6 +276,28 @@ import_resource "vault_kv_secret_v2.convenience_ziti_admin" "convenience/secret/
 import_resource "vault_kv_secret_v2.convenience_teleport_admin" "convenience/secret/data/teleport/admin"
 import_resource "vault_kv_secret_v2.convenience_minio_admin" "convenience/secret/data/minio/admin"
 import_resource "vault_kv_secret_v2.convenience_harbor_admin" "convenience/secret/data/harbor/admin"
+
+# ============================================================================
+# 8. Taint write-once resources after import
+# ============================================================================
+# Harbor robot secrets are only available at creation time. After import, the
+# provider can't read them back, so the state has empty values. Tainting forces
+# recreation on next apply, which generates fresh secrets that flow to Vault.
+#
+# NOTE: Ziti routers/identities are NOT tainted — their enrollment tokens are
+# one-time-use and null after enrollment is expected (not an error). Tainting
+# would destroy enrolled devices and require re-enrollment.
+header "Tainting write-once resources for credential regeneration"
+
+if [[ "$TAINT_PUSH_ROBOT" == "true" ]]; then
+  echo "  Tainting: module.harbor_apps.harbor_robot_account.push"
+  tofu -chdir="$BASE_DIR" taint "module.harbor_apps.harbor_robot_account.push" || true
+fi
+
+if [[ "$TAINT_PULL_ROBOT" == "true" ]]; then
+  echo "  Tainting: module.harbor_apps.harbor_robot_account.pull"
+  tofu -chdir="$BASE_DIR" taint "module.harbor_apps.harbor_robot_account.pull" || true
+fi
 
 # ============================================================================
 # Summary

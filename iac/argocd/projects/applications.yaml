@@ -24,6 +24,8 @@ spec:
       namespace: kube-public
     - server: https://kubernetes.default.svc
       namespace: open-webui
+    - server: https://kubernetes.default.svc
+      namespace: globalpulse
   clusterResourceWhitelist:
     - group: ""
       kind: Namespace

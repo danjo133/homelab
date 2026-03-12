@@ -21,3 +21,4 @@ resources:
   - httproute-portal.yaml
   - httproute-longhorn.yaml
   - httproute-open-webui.yaml
+  - httproute-globalpulse.yaml

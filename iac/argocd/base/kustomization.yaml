@@ -35,3 +35,6 @@ resources:
   - headlamp.yaml
   - open-webui.yaml
   - open-webui-config.yaml
+  - open-terminal.yaml
+  - searxng.yaml
+  - mcpo.yaml

@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-terminal
+  namespace: open-webui
+  labels:
+    app.kubernetes.io/name: open-terminal
+    app.kubernetes.io/component: terminal
+    app.kubernetes.io/part-of: open-webui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: open-terminal
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: open-terminal
+        app.kubernetes.io/component: terminal
+        app.kubernetes.io/part-of: open-webui
+    spec:
+      containers:
+        - name: open-terminal
+          image: ghcr.io/open-webui/open-terminal:latest
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: OPEN_TERMINAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: open-terminal-api-key
+                  key: api-key
+          volumeMounts:
+            - name: data
+              mountPath: /home/user
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /docs
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /docs
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: open-terminal-data

@@ -47,9 +47,9 @@ resource "vault_mount" "cluster_kv" {
 
 # Seed broker-client secret into each cluster namespace so that per-cluster
 # environments can read it via data.vault_kv_secret_v2.broker_client without
-# a manual seed step. Conditional on non-empty secret (first apply may not
-# have it yet). ignore_changes prevents subsequent applies from overwriting
-# manual rotations.
+# a manual seed step. Conditional on seed_broker_client (set to true during
+# base apply when the upstream Keycloak module provides the secret).
+#
 # Convenience namespace — admin/operational reference secrets that don't
 # feed into cluster ExternalSecrets but are useful for human reference.
 resource "vault_namespace" "convenience" {
@@ -77,8 +77,6 @@ resource "vault_kv_secret_v2" "broker_client" {
   data_json = jsonencode({
     "client-secret" = var.broker_client_secret
   })
-
-  lifecycle { ignore_changes = [data_json] }
 
   depends_on = [vault_mount.cluster_kv]
 }

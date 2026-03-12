@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: globalpulse
+  namespace: globalpulse
+  labels:
+    app: globalpulse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: globalpulse
+  template:
+    metadata:
+      labels:
+        app: globalpulse
+    spec:
+      containers:
+        - name: globalpulse
+          image: harbor.support.example.com/library/globalpulse:latest
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "3000"
+            - name: VITE_VARIANT
+              value: full
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10

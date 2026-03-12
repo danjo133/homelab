@@ -64,6 +64,8 @@ spec:
       namespace: teleport
     - server: https://kubernetes.default.svc
       namespace: kube-public
+    - server: https://kubernetes.default.svc
+      namespace: globalpulse
     # apps-discovery cross-namespace ExternalSecrets
     - server: https://kubernetes.default.svc
       namespace: apps

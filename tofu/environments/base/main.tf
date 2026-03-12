@@ -29,8 +29,9 @@ module "harbor_apps" {
 }
 
 # Write Harbor apps robot credentials to each cluster namespace.
-# Robot secrets are only available at creation time; ignore_changes prevents
-# subsequent applies from overwriting with empty values after import.
+# Robot secrets are only available at creation time — the precondition
+# guards against writing empty credentials (e.g. after state import).
+# If importing existing robots, taint them so tofu apply recreates with fresh secrets.
 resource "vault_kv_secret_v2" "harbor_apps_push" {
   for_each  = toset(var.vault_namespaces)
   namespace = each.value
@@ -42,7 +43,12 @@ resource "vault_kv_secret_v2" "harbor_apps_push" {
     password = module.harbor_apps.push_robot_secret
   })
 
-  lifecycle { ignore_changes = [data_json] }
+  lifecycle {
+    precondition {
+      condition     = module.harbor_apps.push_robot_secret != null && module.harbor_apps.push_robot_secret != ""
+      error_message = "Harbor push robot secret is empty (only available at creation). Taint the robot to regenerate: tofu taint 'module.harbor_apps.harbor_robot_account.push'"
+    }
+  }
 
   depends_on = [module.vault_base]
 }
@@ -58,14 +64,18 @@ resource "vault_kv_secret_v2" "harbor_apps_pull" {
     password = module.harbor_apps.pull_robot_secret
   })
 
-  lifecycle { ignore_changes = [data_json] }
+  lifecycle {
+    precondition {
+      condition     = module.harbor_apps.pull_robot_secret != null && module.harbor_apps.pull_robot_secret != ""
+      error_message = "Harbor pull robot secret is empty (only available at creation). Taint the robot to regenerate: tofu taint 'module.harbor_apps.harbor_robot_account.pull'"
+    }
+  }
 
   depends_on = [module.vault_base]
 }
 
 # Seed Harbor admin credentials into each cluster namespace so that
 # ExternalSecrets can create imagePullSecrets for cluster workloads.
-# ignore_changes prevents tofu from overwriting manual password rotations.
 resource "vault_kv_secret_v2" "harbor_admin" {
   for_each  = toset(var.vault_namespaces)
   namespace = each.value
@@ -77,8 +87,6 @@ resource "vault_kv_secret_v2" "harbor_admin" {
     password = var.harbor_admin_password
     url      = var.harbor_url
   })
-
-  lifecycle { ignore_changes = [data_json] }
 
   depends_on = [module.vault_base]
 }
@@ -236,8 +244,6 @@ resource "vault_kv_secret_v2" "cloudflare" {
     "api-token" = var.cloudflare_api_token
   })
 
-  lifecycle { ignore_changes = [data_json] }
-
   depends_on = [module.vault_base]
 }
 
@@ -257,8 +263,6 @@ resource "vault_kv_secret_v2" "grafana_admin" {
     username = "admin"
     password = random_password.grafana_admin.result
   })
-
-  lifecycle { ignore_changes = [data_json] }
 
   depends_on = [module.vault_base]
 }
@@ -286,8 +290,6 @@ resource "vault_kv_secret_v2" "keycloak_db_credentials" {
     "admin-password" = random_password.keycloak_db_admin.result
   })
 
-  lifecycle { ignore_changes = [data_json] }
-
   depends_on = [module.vault_base]
 }
 
@@ -314,7 +316,44 @@ resource "vault_kv_secret_v2" "open_webui_db_credentials" {
     "postgres-password" = random_password.open_webui_db_admin.result
   })
 
-  lifecycle { ignore_changes = [data_json] }
+  depends_on = [module.vault_base]
+}
+
+# Open Terminal API key — authentication for terminal execution API
+resource "random_password" "open_terminal_api_key" {
+  length  = 32
+  special = false
+}
+
+resource "vault_kv_secret_v2" "open_terminal_api_key" {
+  for_each  = toset(var.vault_namespaces)
+  namespace = each.value
+  mount     = module.vault_base.cluster_kv_mount_paths[each.value]
+  name      = "open-terminal/api-key"
+
+  data_json = jsonencode({
+    "api-key" = random_password.open_terminal_api_key.result
+  })
+
+  depends_on = [module.vault_base]
+}
+
+# MCPO credentials — GitLab PAT for MCP server + API key for proxy auth
+resource "random_password" "mcpo_api_key" {
+  length  = 32
+  special = false
+}
+
+resource "vault_kv_secret_v2" "mcpo_credentials" {
+  for_each  = toset(var.vault_namespaces)
+  namespace = each.value
+  mount     = module.vault_base.cluster_kv_mount_paths[each.value]
+  name      = "mcpo/credentials"
+
+  data_json = jsonencode({
+    "api-key"      = random_password.mcpo_api_key.result
+    "gitlab-token" = var.gitlab_token
+  })
 
   depends_on = [module.vault_base]
 }
@@ -335,8 +374,6 @@ resource "vault_kv_secret_v2" "oauth2_proxy" {
     "cookie-secret" = random_password.oauth2_proxy_cookie.result
   })
 
-  lifecycle { ignore_changes = [data_json] }
-
   depends_on = [module.vault_base]
 }
 
@@ -351,8 +388,6 @@ resource "vault_kv_secret_v2" "minio_loki" {
     "access-key" = var.minio_access_key
     "secret-key" = var.minio_secret_key
   })
-
-  lifecycle { ignore_changes = [data_json] }
 
   depends_on = [module.vault_base]
 }
@@ -371,8 +406,6 @@ resource "vault_kv_secret_v2" "convenience_keycloak_admin" {
     password = var.keycloak_admin_password
   })
 
-  lifecycle { ignore_changes = [data_json] }
-
   depends_on = [module.vault_base]
 }
 
@@ -382,8 +415,6 @@ resource "vault_kv_secret_v2" "convenience_keycloak_test_users" {
   name      = "keycloak/test-users"
 
   data_json = jsonencode(module.keycloak_upstream.user_passwords)
-
-  lifecycle { ignore_changes = [data_json] }
 
   depends_on = [module.vault_base]
 }
@@ -398,8 +429,6 @@ resource "vault_kv_secret_v2" "convenience_keycloak_teleport_client" {
     "client-secret" = module.keycloak_upstream.teleport_client_secret
   })
 
-  lifecycle { ignore_changes = [data_json] }
-
   depends_on = [module.vault_base]
 }
 
@@ -412,8 +441,6 @@ resource "vault_kv_secret_v2" "convenience_keycloak_gitlab_client" {
     "client-id"     = "gitlab"
     "client-secret" = module.keycloak_upstream.gitlab_client_secret
   })
-
-  lifecycle { ignore_changes = [data_json] }
 
   depends_on = [module.vault_base]
 }
@@ -428,8 +455,6 @@ resource "vault_kv_secret_v2" "convenience_gitlab_admin" {
     password = var.gitlab_admin_password
   })
 
-  lifecycle { ignore_changes = [data_json] }
-
   depends_on = [module.vault_base]
 }
 
@@ -442,8 +467,6 @@ resource "vault_kv_secret_v2" "convenience_ziti_admin" {
     username = "admin"
     password = var.ziti_admin_password
   })
-
-  lifecycle { ignore_changes = [data_json] }
 
   depends_on = [module.vault_base]
 }
@@ -458,8 +481,6 @@ resource "vault_kv_secret_v2" "convenience_teleport_admin" {
     password = var.teleport_admin_password
   })
 
-  lifecycle { ignore_changes = [data_json] }
-
   depends_on = [module.vault_base]
 }
 
@@ -472,8 +493,6 @@ resource "vault_kv_secret_v2" "convenience_minio_admin" {
     "access-key" = var.minio_access_key
     "secret-key" = var.minio_secret_key
   })
-
-  lifecycle { ignore_changes = [data_json] }
 
   depends_on = [module.vault_base]
 }
@@ -488,8 +507,6 @@ resource "vault_kv_secret_v2" "convenience_harbor_admin" {
     password = var.harbor_admin_password
     url      = var.harbor_url
   })
-
-  lifecycle { ignore_changes = [data_json] }
 
   depends_on = [module.vault_base]
 }

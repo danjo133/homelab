@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcpo
+  namespace: open-webui
+  labels:
+    app.kubernetes.io/name: mcpo
+    app.kubernetes.io/component: mcp-proxy
+    app.kubernetes.io/part-of: open-webui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mcpo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mcpo
+        app.kubernetes.io/component: mcp-proxy
+        app.kubernetes.io/part-of: open-webui
+    spec:
+      containers:
+        - name: mcpo
+          image: ghcr.io/open-webui/mcpo:latest
+          args:
+            - "--config"
+            - "/app/config/config.json"
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: GITLAB_PERSONAL_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: mcpo-credentials
+                  key: gitlab-token
+            - name: GITLAB_API_URL
+              value: "https://gitlab.support.example.com/api/v4"
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /gitlab/docs
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          livenessProbe:
+            httpGet:
+              path: /gitlab/docs
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+      volumes:
+        - name: config
+          configMap:
+            name: mcpo-config

@@ -1,6 +1,7 @@
 # ─── Vault Storage ─────────────────────────────────────────────────────────────
 
-# Store per-cluster join tokens in each Vault namespace
+# Store per-cluster join tokens in each Vault namespace.
+# Source is random_password (stable in state) — no precondition needed.
 resource "vault_kv_secret_v2" "cluster_join_token" {
   for_each  = toset(var.vault_namespaces)
   namespace = each.value
@@ -11,6 +12,4 @@ resource "vault_kv_secret_v2" "cluster_join_token" {
     "join-token" = random_password.cluster_token[each.key].result
     "proxy-addr" = "teleport.support.example.com:3080"
   })
-
-  lifecycle { ignore_changes = [data_json] }
 }

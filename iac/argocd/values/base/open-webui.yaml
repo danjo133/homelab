@@ -47,3 +47,28 @@ extraEnvVars:
         key: database-url
   - name: ENABLE_LOGIN_FORM
     value: "false"
+  - name: ENABLE_RAG_WEB_SEARCH
+    value: "True"
+  - name: RAG_WEB_SEARCH_ENGINE
+    value: "searxng"
+  - name: RAG_WEB_SEARCH_RESULT_COUNT
+    value: "5"
+  - name: RAG_WEB_SEARCH_CONCURRENT_REQUESTS
+    value: "10"
+  - name: SEARXNG_QUERY_URL
+    value: "http://searxng.open-webui.svc:8080/search?q=<query>"
+  # Code execution via Open Terminal
+  - name: CODE_EXECUTION_ENGINE
+    value: "jupyter"
+  - name: CODE_EXECUTION_JUPYTER_URL
+    value: "http://open-terminal.open-webui.svc:8000"
+  - name: CODE_EXECUTION_JUPYTER_AUTH
+    value: "token"
+  - name: CODE_EXECUTION_JUPYTER_AUTH_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: open-terminal-api-key
+        key: api-key
+  # MCP tool server (MCPO → GitLab)
+  - name: TOOL_SERVER_CONNECTIONS
+    value: '[{"type":"openapi","url":"http://mcpo.open-webui.svc:8000/gitlab","path":"openapi.json","auth_type":"none","key":"","config":{"enable":true},"info":{"name":"GitLab","description":"GitLab MCP server via MCPO proxy"}}]'

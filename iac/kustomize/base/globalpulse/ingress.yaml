@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: globalpulse
+  namespace: globalpulse
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.oauth2-proxy.svc.cluster.local/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://oauth2-proxy.CLUSTER_DOMAIN/oauth2/start?rd=$scheme://$host$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups,X-Auth-Request-Access-Token"
+    portal.example.com/name: "World Monitor"
+    portal.example.com/description: "Real-time global intelligence dashboard"
+    portal.example.com/icon: "\U0001F30D"
+    portal.example.com/category: "Applications"
+    portal.example.com/order: "60"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - world.CLUSTER_DOMAIN
+      secretName: globalpulse-tls
+  rules:
+    - host: world.CLUSTER_DOMAIN
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: globalpulse
+                port:
+                  number: 80

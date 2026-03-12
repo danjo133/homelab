@@ -38,6 +38,7 @@ resources:
   - kiali-config.yaml
   - ziti-router-config.yaml
   - teleport-kube-agent-config.yaml
+  - globalpulse.yaml
   # Apps auto-discovery
   - apps-discovery.yaml
   - appset-own-chart.yaml
