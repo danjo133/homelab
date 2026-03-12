@@ -5,11 +5,6 @@
 let
   minioDataDir = "/var/lib/minio/data";
   minioConfigDir = "/etc/minio";
-  # Credentials file - NOT in Nix store
-  # Create this file manually or via bootstrap script:
-  # /etc/minio/credentials containing:
-  # MINIO_ROOT_USER=admin
-  # MINIO_ROOT_PASSWORD=<secure-password>
   credentialsFile = "/etc/minio/credentials";
 in
 {
@@ -31,11 +26,38 @@ in
     MINIO_BROWSER_REDIRECT_URL = "https://minio-console.support.example.com";
   };
 
-  # Ensure credentials file exists (will need to be populated by bootstrap script)
+  # Ensure directories exist
   systemd.tmpfiles.rules = [
     "d ${minioConfigDir} 0750 minio minio -"
     "d ${minioDataDir} 0750 minio minio -"
   ];
+
+  # Auto-generate credentials on first boot
+  systemd.services.minio-init-credentials = {
+    description = "Initialize MinIO root credentials";
+    wantedBy = [ "minio.service" ];
+    before = [ "minio.service" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ pkgs.openssl ];
+    script = ''
+      if [ ! -f ${credentialsFile} ]; then
+        echo "Generating MinIO root credentials..."
+        MINIO_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=' | head -c 32)
+        cat > ${credentialsFile} << EOF
+      MINIO_ROOT_USER=admin
+      MINIO_ROOT_PASSWORD=$MINIO_PASSWORD
+      EOF
+        chmod 600 ${credentialsFile}
+        chown minio:minio ${credentialsFile}
+        echo "MinIO credentials written to ${credentialsFile}"
+      else
+        echo "MinIO credentials already exist"
+      fi
+    '';
+  };
 
   # Note: Firewall rules not needed for MinIO ports as Nginx proxies traffic
   # Access is via:

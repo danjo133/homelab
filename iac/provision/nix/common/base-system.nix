@@ -18,6 +18,10 @@
   # Only accept gateway from VLAN 50 interface (ens7)
   networking.useDHCP = true;
   networking.dhcpcd.extraConfig = ''
+    # Send hostname in DHCP requests (Option 12)
+    # This allows the DHCP server (Unifi) to register our hostname
+    hostname
+
     # For the first interface (libvirt NAT), don't set gateway
     interface ens6
       nogateway

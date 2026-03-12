@@ -50,6 +50,8 @@ override.tf.json
 .env.local
 config.local.yaml
 secrets.yaml
+# Exception: sops-encrypted secrets are safe to track
+!iac/provision/nix/supporting-systems/secrets/secrets.yaml
 
 # Trivy
 trivy-results.json

@@ -1,0 +1,24 @@
+# SOPS configuration for KSS homelab secrets
+#
+# Setup instructions:
+# 1. Generate age keypair if needed:
+#    age-keygen -o ~/.vagrant.d/sops_age_keys.txt
+#
+# 2. Copy the public key (age1...) and update the 'support' key below
+#
+# 3. Create/edit encrypted secrets:
+#    sops iac/provision/nix/supporting-systems/secrets/secrets.yaml
+#
+# 4. The file will open in your editor - add your secrets, save, and it auto-encrypts
+
+keys:
+  # Support VM - dedicated age key stored at ~/.vagrant.d/sops_age_keys.txt
+  # Synced to VM at /etc/sops/keys/age-keys.txt during 'make sync-support'
+  - &support age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+creation_rules:
+  # Supporting systems secrets
+  - path_regex: 'iac/provision/nix/supporting-systems/secrets/.*\.yaml$'
+    key_groups:
+      - age:
+          - *support

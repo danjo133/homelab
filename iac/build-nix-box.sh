@@ -65,11 +65,14 @@ if [ -f "${OUTPUT_DIR}/result/nixos.qcow2" ]; then
 }
 EOF
     
-    # Create a minimal Vagrantfile
+    # Create a minimal Vagrantfile for the box
+    # Note: Do not include deprecated options like libvirt_ip_command
     cat > "${BOX_TEMP_DIR}/Vagrantfile" << 'EOF'
 Vagrant.configure("2") do |config|
   config.vm.provider "libvirt" do |libvirt|
     libvirt.driver = "kvm"
+    # Use QEMU guest agent for IP detection (avoids deprecated libvirt_ip_command)
+    libvirt.qemu_use_agent = false
   end
 end
 EOF

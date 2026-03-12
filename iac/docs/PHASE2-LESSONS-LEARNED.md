@@ -2,6 +2,10 @@
 
 This document captures the assumptions, issues encountered, and solutions discovered while deploying an RKE2 Kubernetes cluster on NixOS VMs. It serves as both a tutorial and a troubleshooting guide for future reference.
 
+> **Update**: After Phase 2, we moved from mDNS (Avahi) to proper DNS via Unifi static DHCP leases.
+> VMs now have fixed MAC addresses and send hostnames via DHCP Option 12. The mDNS issues documented
+> below led to this architectural change. See `CLAUDE.md` for the current DNS configuration.
+
 ## Overview
 
 **Goal**: Deploy a 4-node RKE2 Kubernetes cluster (1 master + 3 workers) on NixOS VMs managed by Vagrant/libvirt.

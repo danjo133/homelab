@@ -154,7 +154,63 @@ cat ~/.vagrant.d/ecdsa_private_key.pub
 
 > **Important**: If you're setting up a new environment, you must update `iac/nix-box-config.nix` with your public key in the `system.activationScripts.vagrantSsh` section.
 
-### Step 6: Configure VLAN Network Bridge
+### Step 6: Install SOPS and Age for Secrets Management
+
+The support VM uses [sops](https://github.com/getsops/sops) with [age](https://github.com/FiloSottile/age) encryption to manage secrets (e.g., Cloudflare API tokens for Let's Encrypt certificates).
+
+```bash
+# Install sops and age
+sudo pacman -S sops age
+
+# Generate an age keypair for secrets encryption
+age-keygen -o ~/.vagrant.d/sops_age_keys.txt
+
+# Display the public key (you'll need this for .sops.yaml)
+grep "public key" ~/.vagrant.d/sops_age_keys.txt
+```
+
+The output will look like:
+```
+# public key: age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+Update `.sops.yaml` at the repository root with your public key:
+
+```yaml
+keys:
+  - &support age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+creation_rules:
+  - path_regex: 'iac/provision/nix/supporting-systems/secrets/.*\.yaml$'
+    key_groups:
+      - age:
+          - *support
+```
+
+#### Creating and Editing Encrypted Secrets
+
+```bash
+# Create or edit secrets (opens in $EDITOR)
+sops iac/provision/nix/supporting-systems/secrets/secrets.yaml
+```
+
+The file is automatically encrypted on save. Example plaintext content:
+
+```yaml
+# This comment will be encrypted too
+cloudflare_api_token: your-cloudflare-api-token-here
+```
+
+#### How Secrets Work
+
+1. **Encryption**: You encrypt secrets on your workstation using the age public key
+2. **Sync**: `make sync-support` copies the age private key to the VM at `/etc/sops/keys/age-keys.txt`
+3. **Decryption**: During `nixos-rebuild`, sops-nix decrypts secrets to `/run/secrets/`
+4. **Usage**: Services read secrets from `/run/secrets/<secret_name>`
+
+> **Security Note**: The age private key (`~/.vagrant.d/sops_age_keys.txt`) should never be committed to git. It's already in `.gitignore`.
+
+### Step 7: Configure VLAN Network Bridge
 
 The VMs need access to VLAN 50 on your network. This requires:
 1. Ethernet cable connected to a switch port configured for VLAN 50
@@ -189,7 +245,7 @@ bridge link show
 # Once Ethernet is connected, it should NOT show "NO-CARRIER"
 ```
 
-### Step 7: Build the NixOS Vagrant Box
+### Step 8: Build the NixOS Vagrant Box
 
 ```bash
 cd iac
@@ -204,7 +260,7 @@ nix shell nixpkgs#nixos-generators
 vagrant box add --name local/nixos-25.11-vagrant --provider libvirt nixos-25.11-vagrant.box
 ```
 
-### Step 8: Start VMs
+### Step 9: Start VMs
 
 ```bash
 cd iac
@@ -379,6 +435,34 @@ sudo systemctl enable iptables
 
 The `setup-libvirt-network.sh` script now adds these rules automatically.
 
+### SOPS Decryption Errors
+
+If `nixos-rebuild` fails with sops errors like "Error getting data key":
+
+1. Verify the age key was synced to the VM:
+   ```bash
+   vagrant ssh support -c 'sudo cat /etc/sops/keys/age-keys.txt | head -2'
+   # Should show: # created: ... and # public key: age1...
+   ```
+
+2. Check the public key in `.sops.yaml` matches the age key:
+   ```bash
+   grep "public key" ~/.vagrant.d/sops_age_keys.txt
+   # Compare with the key in .sops.yaml
+   ```
+
+3. Re-encrypt secrets if keys were regenerated:
+   ```bash
+   # This updates the encrypted data keys for new recipients
+   sops updatekeys iac/provision/nix/supporting-systems/secrets/secrets.yaml
+   ```
+
+4. Re-sync the key and rebuild:
+   ```bash
+   make sync-support
+   make rebuild-support
+   ```
+
 ### Network Bridge Issues
 
 To completely reset the network setup:
@@ -475,11 +559,11 @@ Reserve IPs for VMs based on MAC address for consistent addressing:
 
 | VM | IP |
 |----|-----|
-| support | 10.69.50.20 |
-| k8s-master | 10.69.50.21 |
-| k8s-worker-1 | 10.69.50.22 |
-| k8s-worker-2 | 10.69.50.23 |
-| k8s-worker-3 | 10.69.50.24 |
+| support | 10.69.50.10 |
+| k8s-master | 10.69.50.20 |
+| k8s-worker-1 | 10.69.50.31 |
+| k8s-worker-2 | 10.69.50.32 |
+| k8s-worker-3 | 10.69.50.33 |
 
 ## Files Reference
 
@@ -489,6 +573,10 @@ Reserve IPs for VMs based on MAC address for consistent addressing:
 | `iac/nix-box-config.nix` | NixOS configuration for the base Vagrant box |
 | `iac/build-nix-box.sh` | Script to build the NixOS Vagrant box |
 | `iac/setup-libvirt-network.sh` | Script to create VLAN bridge network |
+| `.sops.yaml` | SOPS configuration with age public keys |
+| `iac/provision/nix/supporting-systems/secrets/secrets.yaml` | Encrypted secrets for support VM |
+| `iac/provision/nix/supporting-systems/modules/sops.nix` | NixOS sops-nix module configuration |
+| `~/.vagrant.d/sops_age_keys.txt` | Age keypair for secrets (not in repo) |
 
 ## Next Steps
 

@@ -69,7 +69,8 @@ make vault-restore-keys    # Restore Vault keys to VM
 make vault-show-token      # Show Vault root token
 
 # MinIO bucket setup (run once after VM is up)
-vagrant ssh support -c 'sudo /etc/nixos/scripts/bootstrap-minio.sh'
+# First sync config, then run the bootstrap script
+make sync-support && vagrant ssh support -c 'sudo /tmp/nix-config/scripts/bootstrap-minio.sh'
 
 # Kubernetes cluster management (from project root)
 make k8s-master-up         # Start k8s-master VM
@@ -109,6 +110,26 @@ Traffic flow:
 - VMs (VLAN 50) → Other VLANs: Blocked
 ```
 
+### DNS Configuration (Unifi)
+
+VMs use fixed MAC addresses for their VLAN 50 interface. Configure static DHCP leases in Unifi:
+
+| VM | MAC Address | Hostname | Suggested IP |
+|----|-------------|----------|--------------|
+| support | `52:54:00:69:50:10` | support | 10.69.50.10 |
+| k8s-master | `52:54:00:69:50:20` | k8s-master | 10.69.50.20 |
+| k8s-worker-1 | `52:54:00:69:50:31` | k8s-worker-1 | 10.69.50.31 |
+| k8s-worker-2 | `52:54:00:69:50:32` | k8s-worker-2 | 10.69.50.32 |
+| k8s-worker-3 | `52:54:00:69:50:33` | k8s-worker-3 | 10.69.50.33 |
+
+**Unifi Setup Steps:**
+1. Go to Settings → Networks → VLAN 50
+2. Under DHCP, add fixed IP assignments for each MAC address
+3. Create DNS records for each hostname pointing to the fixed IPs
+4. Optionally create CNAME records for services (e.g., `vault.support.example.com` → `support`)
+
+VMs send their hostname via DHCP Option 12, so Unifi should display correct names after VM restart.
+
 ### Domain Structure
 
 - Root domain: `example.com` (Cloudflare)
@@ -144,7 +165,7 @@ iac/                          # Primary infrastructure code
 │   │   ├── configuration.nix # Main entry point
 │   │   ├── hardware-configuration.nix
 │   │   ├── modules/
-│   │   │   ├── base.nix      # Hostname, mDNS, common packages
+│   │   │   ├── base.nix      # Hostname, common packages, firewall
 │   │   │   ├── nginx.nix     # Reverse proxy, TLS termination
 │   │   │   ├── vault.nix     # HashiCorp Vault with auto-init/unseal
 │   │   │   ├── minio.nix     # S3-compatible storage

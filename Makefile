@@ -23,8 +23,13 @@ REMOTE_VAGRANT_DIR := $(REMOTE_PROJECT_DIR)/iac
 # SSH key for direct VM access
 VAGRANT_SSH_KEY := ~/.vagrant.d/ecdsa_private_key
 
-# Support VM - get IP from vagrant on iter
-SUPPORT_VM_IP ?= $(shell ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh support -c \"ip -4 addr show ens7 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'\" 2>/dev/null" | tr -d '\r' || echo "10.69.50.91")
+# VM IPs - using fixed IPs from Unifi DHCP static leases
+# See CLAUDE.md DNS Configuration section for MAC/IP mapping
+SUPPORT_VM_IP ?= 10.69.50.10
+K8S_MASTER_IP ?= 10.69.50.20
+K8S_WORKER_1_IP ?= 10.69.50.31
+K8S_WORKER_2_IP ?= 10.69.50.32
+K8S_WORKER_3_IP ?= 10.69.50.33
 
 # Help target
 help:
@@ -118,23 +123,28 @@ sync-support: ## Sync NixOS configuration to support VM
 	@ssh $(REMOTE_HOST) "rsync -avz --delete \
 		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
 		$(REMOTE_PROJECT_DIR)/iac/provision/nix/supporting-systems/ \
-		vagrant@$(SUPPORT_VM_IP):/tmp/nix-config/"
+		vagrant@$(SUPPORT_VM_IP):/tmp/nix-config/supporting-systems/"
 	@ssh $(REMOTE_HOST) "rsync -avz \
 		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
 		$(REMOTE_PROJECT_DIR)/iac/provision/nix/common/ \
 		vagrant@$(SUPPORT_VM_IP):/tmp/nix-config/common/"
+	@echo "$(BLUE)Syncing sops age key to support VM...$(NC)"
+	@ssh $(REMOTE_HOST) "ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY) vagrant@$(SUPPORT_VM_IP) \
+		'sudo mkdir -p /etc/sops/keys && sudo chmod 700 /etc/sops/keys'"
+	@ssh $(REMOTE_HOST) "cat ~/.vagrant.d/sops_age_keys.txt | ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY) vagrant@$(SUPPORT_VM_IP) \
+		'sudo tee /etc/sops/keys/age-keys.txt > /dev/null && sudo chmod 600 /etc/sops/keys/age-keys.txt'"
 	@echo "$(GREEN)Config synced to /tmp/nix-config/ on support VM$(NC)"
 
 rebuild-support: sync-support ## Rebuild support VM NixOS config (test mode)
 	@echo "$(BLUE)Rebuilding NixOS configuration (test mode)...$(NC)"
 	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh support -c \
-		'sudo nixos-rebuild test -I nixos-config=/tmp/nix-config/configuration.nix'"
+		'sudo nixos-rebuild test -I nixos-config=/tmp/nix-config/supporting-systems/configuration.nix'"
 	@echo "$(GREEN)Configuration applied (test mode - not permanent)$(NC)"
 
 rebuild-support-switch: sync-support ## Rebuild and switch support VM NixOS config permanently
 	@echo "$(BLUE)Rebuilding NixOS configuration (switch mode)...$(NC)"
 	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh support -c \
-		'sudo nixos-rebuild switch -I nixos-config=/tmp/nix-config/configuration.nix'"
+		'sudo nixos-rebuild switch -I nixos-config=/tmp/nix-config/supporting-systems/configuration.nix'"
 	@echo "$(GREEN)Configuration applied permanently$(NC)"
 
 support-status: ## Check status of services on support VM
@@ -189,12 +199,6 @@ vault-show-token: ## Show Vault root token (requires backup)
 
 K8S_MASTER_NIX_DIR := $(shell pwd)/iac/provision/nix/k8s-master
 K8S_WORKER_NIX_DIR := $(shell pwd)/iac/provision/nix/k8s-worker
-
-# Get VM IPs dynamically
-K8S_MASTER_IP = $(shell ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-master -c \"ip -4 addr show ens7 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'\" 2>/dev/null" | tr -d '\r')
-K8S_WORKER_1_IP = $(shell ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-1 -c \"ip -4 addr show ens7 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'\" 2>/dev/null" | tr -d '\r')
-K8S_WORKER_2_IP = $(shell ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-2 -c \"ip -4 addr show ens7 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'\" 2>/dev/null" | tr -d '\r')
-K8S_WORKER_3_IP = $(shell ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-3 -c \"ip -4 addr show ens7 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'\" 2>/dev/null" | tr -d '\r')
 
 # K8s Master VM management
 k8s-master-up: ## Start k8s-master VM

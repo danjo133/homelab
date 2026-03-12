@@ -30,6 +30,16 @@ rsync -avz --delete \
     "${SSH_USER}@${VM_IP}:/tmp/nix-config/"
 
 echo ""
+echo "==> Sync complete."
+
+echo ""
+echo "==> Create age key for sops decryption on support VM..."
+ssh -o StrictHostKeyChecking=no "${SSH_USER}@${VM_IP}" \
+    "mkdir -p /home/${SSH_USER}/.config/sops/age/ && \
+     nix-shell -p ssh-to-age --run "ssh-to-age -private-key -i ~/.ssh/id_ed25519 > ~/.config/sops/age/keys.txt""
+
+
+echo ""
 echo "==> Rebuilding NixOS configuration (mode: ${MODE})..."
 
 ssh -o StrictHostKeyChecking=no "${SSH_USER}@${VM_IP}" \

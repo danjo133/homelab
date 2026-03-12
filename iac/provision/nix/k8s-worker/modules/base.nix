@@ -1,24 +1,12 @@
 # Base system configuration for k8s-worker nodes
-# Hostname derived from DHCP, mDNS, firewall rules for workers
+# Hostname set per-worker via k8s-worker-N/configuration.nix, firewall rules for workers
 
 { config, pkgs, lib, ... }:
 
 {
-  # Hostname - will be set by activation script based on VM name
-  # Default empty allows hostname to be set dynamically
+  # Hostname - set by k8s-worker-N/configuration.nix via mkForce
+  # Default empty; will be overridden per-worker node
   networking.hostName = lib.mkDefault "";
-
-  # Enable Avahi for mDNS/DNS-SD
-  services.avahi = {
-    enable = true;
-    nssmdns4 = true;
-    publish = {
-      enable = true;
-      addresses = true;
-      domain = true;
-      workstation = true;
-    };
-  };
 
   # Firewall configuration for Kubernetes workers
   networking.firewall = {

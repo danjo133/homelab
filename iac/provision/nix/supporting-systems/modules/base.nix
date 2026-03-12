@@ -1,24 +1,11 @@
 # Base system configuration for support VM
-# Hostname, mDNS, common packages, firewall base
+# Hostname, common packages, firewall base
 
 { config, pkgs, lib, ... }:
 
 {
-  # Hostname - will be advertised via mDNS
+  # Hostname - sent via DHCP to Unifi for DNS registration
   networking.hostName = "support";
-
-  # Enable Avahi for mDNS/DNS-SD
-  # This allows the VM to register as support.local on the network
-  services.avahi = {
-    enable = true;
-    nssmdns4 = true;
-    publish = {
-      enable = true;
-      addresses = true;
-      domain = true;
-      workstation = true;
-    };
-  };
 
   # Common packages needed for administration and services
   environment.systemPackages = with pkgs; [

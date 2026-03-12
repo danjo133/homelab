@@ -1,6 +1,17 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+# MAC address assignments for VLAN 50 interface
+# Pattern: 52:54:00:69:50:XX (52:54:00 = libvirt prefix, 69:50 = VLAN 50)
+# Configure these as static DHCP leases in Unifi with corresponding hostnames
+MAC_ADDRESSES = {
+  "support"      => "52:54:00:69:50:10",
+  "k8s-master"   => "52:54:00:69:50:20",
+  "k8s-worker-1" => "52:54:00:69:50:31",
+  "k8s-worker-2" => "52:54:00:69:50:32",
+  "k8s-worker-3" => "52:54:00:69:50:33",
+}
+
 Vagrant.configure("2") do |config|
   # Base configuration for all boxes
   # Using local NixOS qcow image with libvirt
@@ -13,18 +24,8 @@ Vagrant.configure("2") do |config|
   # Prevent terminal escape sequences from corrupting Vagrant commands
   config.ssh.shell = "TERM=dumb bash -l"
   # Disable Vagrant's hostname setting - NixOS box doesn't have /etc/nixos structure
-  # Hostname is set via libvirt domain definition instead
+  # Hostname is set via NixOS configuration
   config.vm.hostname = nil
-
-  # Network settings - direct bridge attachment to VLAN 50 bridge
-  # VMs will get IPs from DHCP on the 10.69.50.0/24 network (served by Unifi router)
-  # Using public_network with direct bridge avoids vagrant-libvirt DHCP management issues
-  # auto_config: false prevents Vagrant from trying to use ifconfig (not on NixOS)
-  config.vm.network :public_network,
-    dev: "br-k8s",
-    mode: "bridge",
-    type: "bridge",
-    auto_config: false
 
   # Shared folder configuration - disabled for NixOS
   config.vm.synced_folder ".", "/vagrant", disabled: true
@@ -38,6 +39,8 @@ Vagrant.configure("2") do |config|
     libvirt.graphics_port = -1
     libvirt.graphics_autoport = true
     libvirt.qemu_use_session = false
+    # Disable QEMU guest agent (we use DHCP for IP, not agent queries)
+    libvirt.qemu_use_agent = false
   end
 
   # Set libvirt as the default provider
@@ -46,7 +49,13 @@ Vagrant.configure("2") do |config|
   # Supporting Systems VM
   # Hosts: Vault, Harbor, MinIO, NFS
   config.vm.define "support" do |support|
-    # Hostname will be set via NixOS configuration, not Vagrant
+    support.vm.network :public_network,
+      dev: "br-k8s",
+      mode: "bridge",
+      type: "bridge",
+      mac: MAC_ADDRESSES["support"],
+      auto_config: false
+
     support.vm.provider "libvirt" do |libvirt|
       libvirt.memory = 8192
       libvirt.cpus = 4
@@ -58,7 +67,13 @@ Vagrant.configure("2") do |config|
 
   # Kubernetes Master Node
   config.vm.define "k8s-master" do |master|
-    # Hostname will be set via NixOS configuration, not Vagrant
+    master.vm.network :public_network,
+      dev: "br-k8s",
+      mode: "bridge",
+      type: "bridge",
+      mac: MAC_ADDRESSES["k8s-master"],
+      auto_config: false
+
     master.vm.provider "libvirt" do |libvirt|
       libvirt.memory = 8192
       libvirt.cpus = 4
@@ -71,7 +86,13 @@ Vagrant.configure("2") do |config|
   # Kubernetes Worker Nodes (3x)
   (1..3).each do |i|
     config.vm.define "k8s-worker-#{i}" do |worker|
-      # Hostname will be set via NixOS configuration, not Vagrant
+      worker.vm.network :public_network,
+        dev: "br-k8s",
+        mode: "bridge",
+        type: "bridge",
+        mac: MAC_ADDRESSES["k8s-worker-#{i}"],
+        auto_config: false
+
       worker.vm.provider "libvirt" do |libvirt|
         libvirt.memory = 8192
         libvirt.cpus = 4

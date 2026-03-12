@@ -11,11 +11,17 @@
     # VM-specific
     ./hardware-configuration.nix
     ./modules/base.nix
-    ./modules/nginx.nix
+    ./modules/nginx.nix      # Uses self-signed certs by default
     ./modules/vault.nix
     ./modules/minio.nix
     ./modules/nfs.nix
     ./modules/harbor.nix
+
+    # OPTIONAL: Uncomment for Let's Encrypt certificates
+    # Requires: sops-nix setup with Cloudflare API token
+    # See .sops.yaml at repo root for setup instructions
+    ./modules/sops.nix
+    ./modules/acme.nix
   ];
 
   # Boot configuration

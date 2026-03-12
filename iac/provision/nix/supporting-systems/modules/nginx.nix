@@ -1,11 +1,13 @@
 # Nginx reverse proxy configuration
 # TLS termination for all services
-# Auto-generates self-signed wildcard certificate if not exists
+#
+# By default uses self-signed certificates (works out of box)
+# For Let's Encrypt, also import ./acme.nix (requires sops setup)
 
 { config, pkgs, lib, ... }:
 
 let
-  # Certificate paths
+  # Certificate paths (self-signed by default, overridden by acme.nix)
   certDir = "/etc/nginx/ssl";
   certFile = "${certDir}/wildcard.crt";
   keyFile = "${certDir}/wildcard.key";
@@ -72,8 +74,8 @@ in
     # Vault UI and API
     virtualHosts."vault.support.example.com" = {
       forceSSL = true;
-      sslCertificate = certFile;
-      sslCertificateKey = keyFile;
+      sslCertificate = lib.mkDefault certFile;
+      sslCertificateKey = lib.mkDefault keyFile;
       locations."/" = {
         proxyPass = "http://127.0.0.1:8200";
         proxyWebsockets = true;
@@ -86,8 +88,8 @@ in
     # MinIO API
     virtualHosts."minio.support.example.com" = {
       forceSSL = true;
-      sslCertificate = certFile;
-      sslCertificateKey = keyFile;
+      sslCertificate = lib.mkDefault certFile;
+      sslCertificateKey = lib.mkDefault keyFile;
       locations."/" = {
         proxyPass = "http://127.0.0.1:9000";
         extraConfig = ''
@@ -105,8 +107,8 @@ in
     # MinIO Console
     virtualHosts."minio-console.support.example.com" = {
       forceSSL = true;
-      sslCertificate = certFile;
-      sslCertificateKey = keyFile;
+      sslCertificate = lib.mkDefault certFile;
+      sslCertificateKey = lib.mkDefault keyFile;
       locations."/" = {
         proxyPass = "http://127.0.0.1:9001";
         proxyWebsockets = true;
@@ -116,8 +118,8 @@ in
     # Harbor Registry
     virtualHosts."harbor.support.example.com" = {
       forceSSL = true;
-      sslCertificate = certFile;
-      sslCertificateKey = keyFile;
+      sslCertificate = lib.mkDefault certFile;
+      sslCertificateKey = lib.mkDefault keyFile;
       locations."/" = {
         proxyPass = "http://127.0.0.1:8080";
         extraConfig = ''
@@ -143,7 +145,8 @@ in
     "d ${certDir} 0750 nginx nginx -"
   ];
 
-  # Auto-generate certificates before nginx starts
+  # Auto-generate self-signed certificates before nginx starts
+  # (disabled if acme.nix is imported)
   systemd.services.nginx-cert-gen = {
     description = "Generate Nginx SSL certificates";
     before = [ "nginx.service" ];

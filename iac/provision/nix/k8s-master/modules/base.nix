@@ -1,23 +1,11 @@
 # Base system configuration for k8s-master
-# Hostname, mDNS, firewall rules for control plane
+# Hostname, firewall rules for control plane
 
 { config, pkgs, lib, ... }:
 
 {
-  # Hostname
+  # Hostname - sent via DHCP to Unifi for DNS registration
   networking.hostName = "k8s-master";
-
-  # Enable Avahi for mDNS/DNS-SD
-  services.avahi = {
-    enable = true;
-    nssmdns4 = true;
-    publish = {
-      enable = true;
-      addresses = true;
-      domain = true;
-      workstation = true;
-    };
-  };
 
   # Firewall configuration for Kubernetes control plane
   networking.firewall = {
