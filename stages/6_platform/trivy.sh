@@ -5,6 +5,6 @@ load_cluster_vars
 require_kubeconfig
 
 info "Deploying Trivy Operator..."
-helmfile_cmd -l name=trivy-operator apply
+helmfile_cmd -e "${CLUSTER_HELMFILE_ENV}" -l name=trivy-operator apply
 success "Trivy Operator deployed"
 echo "Check: kubectl get vulnerabilityreports -A"

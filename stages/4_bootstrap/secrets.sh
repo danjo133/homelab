@@ -33,5 +33,4 @@ fi
 
 info "Applying cert-manager ClusterIssuers and certificates (${KSS_CLUSTER})..."
 kubectl apply -k "${GEN_DIR}/kustomize/cert-manager/"
-kubectl apply -k "${GEN_DIR}/kustomize/monitoring/"
 success "Secrets and cert-manager resources applied"

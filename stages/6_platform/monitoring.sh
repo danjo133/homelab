@@ -14,13 +14,13 @@ info "Waiting for monitoring secrets..."
 kubectl wait --for=condition=Ready externalsecret/grafana-admin-secret -n monitoring --timeout=60s 2>/dev/null || true
 
 info "Deploying kube-prometheus-stack..."
-helmfile_cmd -l name=kube-prometheus-stack apply
+helmfile_cmd -e "${CLUSTER_HELMFILE_ENV}" -l name=kube-prometheus-stack apply
 
 info "Deploying Loki..."
-helmfile_cmd -l name=loki apply
+helmfile_cmd -e "${CLUSTER_HELMFILE_ENV}" -l name=loki apply
 
 info "Deploying Promtail..."
-helmfile_cmd -l name=promtail apply
+helmfile_cmd -e "${CLUSTER_HELMFILE_ENV}" -l name=promtail apply
 
 success "Monitoring stack deployed"
 echo "Grafana: https://grafana.${CLUSTER_DOMAIN}"

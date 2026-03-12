@@ -110,6 +110,8 @@ releases:
   - name: cilium
     namespace: kube-system
     createNamespace: true
+    labels:
+      stage: bootstrap
     chart: cilium/cilium
     version: "1.19.0"
     installed: {{ .Values | getOrNil "useCilium" | default false }}
@@ -130,6 +132,8 @@ releases:
   - name: tetragon
     namespace: kube-system
     createNamespace: true
+    labels:
+      stage: bootstrap
     chart: cilium/tetragon
     version: "1.2.x"
     installed: {{ .Values | getOrNil "useCilium" | default false }}
@@ -144,6 +148,8 @@ releases:
   - name: metallb
     namespace: metallb-system
     createNamespace: true
+    labels:
+      stage: bootstrap
     chart: metallb/metallb
     version: "0.14.x"
     installed: {{ .Values | getOrNil "useMetalLB" | default false }}
@@ -156,6 +162,8 @@ releases:
   - name: nginx-ingress
     namespace: ingress-nginx
     createNamespace: true
+    labels:
+      stage: bootstrap
     chart: ingress-nginx/ingress-nginx
     version: "4.11.x"
     installed: {{ .Values.useNginx }}
@@ -177,6 +185,8 @@ releases:
   - name: istio-base
     namespace: istio-system
     createNamespace: true
+    labels:
+      stage: bootstrap
     chart: istio/base
     version: "1.28.x"
     installed: {{ .Values.useIstio }}
@@ -191,6 +201,8 @@ releases:
   - name: istiod
     namespace: istio-system
     createNamespace: true
+    labels:
+      stage: bootstrap
     chart: istio/istiod
     version: "1.28.x"
     installed: {{ .Values.useIstio }}
@@ -203,6 +215,8 @@ releases:
   - name: istio-ingressgateway
     namespace: istio-ingress
     createNamespace: true
+    labels:
+      stage: bootstrap
     chart: istio/gateway
     version: "1.28.x"
     installed: {{ .Values.useIstio }}
@@ -217,6 +231,8 @@ releases:
   - name: cert-manager
     namespace: cert-manager
     createNamespace: true
+    labels:
+      stage: bootstrap
     chart: jetstack/cert-manager
     version: "v1.16.x"
     values:
@@ -232,6 +248,8 @@ releases:
   - name: external-secrets
     namespace: external-secrets
     createNamespace: true
+    labels:
+      stage: bootstrap
     chart: external-secrets/external-secrets
     version: "0.10.x"
     values:
@@ -245,6 +263,8 @@ releases:
   - name: external-dns
     namespace: external-dns
     createNamespace: true
+    labels:
+      stage: bootstrap
     chart: external-dns/external-dns
     version: "1.15.x"
     installed: {{ or .Values.useGatewayAPI .Values.useNginx }}
@@ -269,6 +289,8 @@ releases:
   - name: argocd
     namespace: argocd
     createNamespace: true
+    labels:
+      stage: bootstrap
     chart: argo/argo-cd
     version: "7.7.x"
     values:
@@ -282,6 +304,8 @@ releases:
   - name: keycloak-db
     namespace: keycloak
     createNamespace: true
+    labels:
+      stage: identity
     chart: bitnami/postgresql
     version: "16.x"
     values:
@@ -301,6 +325,8 @@ releases:
   - name: oauth2-proxy
     namespace: oauth2-proxy
     createNamespace: true
+    labels:
+      stage: identity
     chart: oauth2-proxy/oauth2-proxy
     version: "7.x"
     installed: false
@@ -316,6 +342,8 @@ releases:
   - name: spire
     namespace: spire-system
     createNamespace: true
+    labels:
+      stage: identity
     chart: spiffe/spire
     version: "0.23.x"
     installed: false
@@ -330,6 +358,8 @@ releases:
   - name: gatekeeper
     namespace: gatekeeper-system
     createNamespace: true
+    labels:
+      stage: identity
     chart: gatekeeper/gatekeeper
     version: "3.18.x"
     installed: false
@@ -342,6 +372,8 @@ releases:
   - name: longhorn
     namespace: longhorn-system
     createNamespace: true
+    labels:
+      stage: platform
     chart: longhorn/longhorn
     version: "1.7.x"
     disableValidationOnInstall: true
@@ -359,6 +391,8 @@ releases:
   - name: kube-prometheus-stack
     namespace: monitoring
     createNamespace: true
+    labels:
+      stage: platform
     chart: prometheus-community/kube-prometheus-stack
     version: "65.x"
     timeout: 900
@@ -377,6 +411,8 @@ releases:
   - name: loki
     namespace: monitoring
     createNamespace: true
+    labels:
+      stage: platform
     chart: grafana/loki
     version: "6.x"
     values:
@@ -390,6 +426,8 @@ releases:
   - name: promtail
     namespace: monitoring
     createNamespace: true
+    labels:
+      stage: platform
     chart: grafana/promtail
     version: "6.x"
     values:
@@ -403,6 +441,8 @@ releases:
   - name: trivy-operator
     namespace: trivy-system
     createNamespace: true
+    labels:
+      stage: platform
     chart: aqua/trivy-operator
     version: "0.24.x"
     disableValidationOnInstall: true

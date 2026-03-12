@@ -5,6 +5,6 @@ load_cluster_vars
 require_kubeconfig
 
 info "Deploying Longhorn..."
-helmfile_cmd -l name=longhorn apply
+helmfile_cmd -e "${CLUSTER_HELMFILE_ENV}" -l name=longhorn apply
 success "Longhorn deployed"
 echo "Check: kubectl get pods -n longhorn-system"

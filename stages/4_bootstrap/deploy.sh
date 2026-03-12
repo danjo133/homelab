@@ -44,8 +44,8 @@ helmfile_cmd -e "${CLUSTER_HELMFILE_ENV}" -l name=external-secrets apply
 # Must happen before releases that consume secrets (external-dns, argocd, etc.)
 "${STAGES_DIR}/4_bootstrap/secrets.sh"
 
-# Phase 3: Deploy everything (idempotent — already-deployed releases are unchanged)
-helmfile_cmd -e "${CLUSTER_HELMFILE_ENV}" apply
+# Phase 3: Deploy bootstrap releases (idempotent — already-deployed releases are unchanged)
+helmfile_cmd -e "${CLUSTER_HELMFILE_ENV}" -l stage=bootstrap apply
 
 # Post-deploy steps
 if [[ "$CLUSTER_HELMFILE_ENV" != "default" ]]; then
