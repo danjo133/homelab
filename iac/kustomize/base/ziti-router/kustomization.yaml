@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Ziti router enrollment JWT ExternalSecret
+# Syncs router enrollment token from Vault to K8s secret for the Helm chart
+
+resources:
+  - external-secret.yaml

@@ -54,10 +54,7 @@ just cluster-kubeconfig       # Fetch kubeconfig
 just cluster-status           # Show nodes and pods
 
 # Bootstrap (requires KUBECONFIG)
-just bootstrap-vault-auth     # Per-cluster Vault auth
-just bootstrap-secrets        # ClusterSecretStore + ExternalSecrets
-just bootstrap-deploy         # Full: vault-auth + helmfile + secrets
-just bootstrap-harbor-project # Ensure per-cluster Harbor project exists
+just bootstrap-argocd         # Bootstrap ArgoCD + apply root-app (one-time)
 just harbor-login             # Docker login to Harbor (creds from Vault)
 just bootstrap-status         # Show bootstrap deployment status
 
@@ -166,12 +163,12 @@ stages/                           # Operational scripts
   1_vms/                          # up, down, destroy, status, ssh, build-box
   2_support/                      # sync, rebuild, status, vault-backup/restore/token
   3_cluster/                      # sync, rebuild, token, kubeconfig, status
-  4_bootstrap/                    # vault-auth, secrets, deploy
+  4_bootstrap/                    # ArgoCD bootstrap, status
   5_identity/                     # keycloak, oidc, spire, gatekeeper, jit
   6_platform/                     # longhorn, monitoring, trivy
   debug/                          # cilium, network, cluster-diag
 
-iac/                              # Infrastructure definitions (NixOS, Vagrant, helmfile)
+iac/                              # Infrastructure definitions (NixOS, Vagrant, ArgoCD)
   Vagrantfile                     # VM definitions (reads cluster.yaml)
   clusters/
     kss/                          # Working cluster
@@ -184,7 +181,7 @@ iac/                              # Infrastructure definitions (NixOS, Vagrant, 
     k8s-master/                   # Master NixOS config
     k8s-worker/                   # Worker NixOS config (parameterized)
     common/                       # Shared NixOS modules
-  helmfile/                       # Kubernetes bootstrap helm releases
+  helmfile/                       # Bootstrap helmfile (Cilium/Istio/ArgoCD only)
   kustomize/                      # Base GitOps manifests
   scripts/                        # Bootstrap scripts (called by stages)
   network/                        # Network config generation
@@ -288,8 +285,7 @@ Code is pushed to GitLab (`https://github.com/example-user/homelab.git`), which 
 2. Create Helm values in `iac/argocd/values/base/<name>.yaml`
 3. Add to `iac/argocd/base/kustomization.yaml` in the correct wave
 4. Update the relevant ArgoCD AppProject (`iac/argocd/projects/`) with sourceRepos and destination namespaces
-5. Optionally add helmfile release + values for bootstrap path
-6. Commit and push — ArgoCD syncs automatically
+5. Commit and push — ArgoCD syncs automatically
 
 **Adding Kubernetes resources (CRs, secrets, config):**
 1. Add manifests to the appropriate `iac/kustomize/base/<component>/` directory
@@ -298,7 +294,7 @@ Code is pushed to GitLab (`https://github.com/example-user/homelab.git`), which 
 4. Commit and push — ArgoCD syncs via kustomize overlay
 
 **Modifying Helm values:**
-1. Edit `iac/argocd/values/base/<name>.yaml` (ArgoCD path) and/or `iac/helmfile/values/<name>.yaml.gotmpl` (bootstrap path)
+1. Edit `iac/argocd/values/base/<name>.yaml` (or per-cluster override in `iac/argocd/values/<cluster>/`)
 2. Commit and push — ArgoCD detects the values change and syncs
 
 ### What NOT to Do

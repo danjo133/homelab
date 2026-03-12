@@ -15,6 +15,7 @@ spec:
     - https://grafana.github.io/helm-charts
     - https://aquasecurity.github.io/helm-charts
     - https://cloudnative-pg.github.io/charts
+    - https://openziti.io/helm-charts
   destinations:
     - server: https://kubernetes.default.svc
       namespace: argocd
@@ -30,6 +31,8 @@ spec:
       namespace: spire-system
     - server: https://kubernetes.default.svc
       namespace: cnpg-system
+    - server: https://kubernetes.default.svc
+      namespace: ziti-system
     - server: https://kubernetes.default.svc
       namespace: kube-system
   clusterResourceWhitelist:

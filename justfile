@@ -77,6 +77,10 @@ vault-restore:
 vault-token:
     ./stages/2_support/vault-token.sh
 
+# Show OpenZiti status
+ziti-status:
+    ./stages/2_support/ziti-status.sh
+
 # ─── Kubernetes Cluster ───────────────────────
 
 # Sync NixOS config (target: master, worker-N, all)

@@ -1,0 +1,40 @@
+# ziti-router — OpenZiti edge router for K8s workloads
+
+# Controller connection
+ctrl:
+  endpoint: "ziti.support.example.com:1280"
+
+# Enrollment JWT from K8s secret (created by ExternalSecret from Vault)
+enrollmentJwt: ""
+enrollmentJwtFromSecret: true
+enrollmentJwtSecretName: ziti-router-jwt
+
+# Router mode: host = forward to local services (no intercept/tproxy)
+tunnel:
+  mode: host
+
+# Disable link listeners (not a transit router)
+linkListeners:
+  transport:
+    enabled: false
+
+# Persistence for router state
+persistence:
+  enabled: true
+  size: 128Mi
+  accessMode: ReadWriteOnce
+
+# Security context
+podSecurityContext:
+  fsGroup: 2171
+
+# Resources
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+tolerations:
+  - operator: Exists

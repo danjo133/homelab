@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ziti-router
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  sources:
+    - repoURL: https://github.com/example-user/homelab.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://openziti.io/helm-charts
+      chart: ziti-router
+      targetRevision: "1.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/ziti-router.yaml
+          - $values/iac/argocd/values/CLUSTER_NAME/ziti-router.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ziti-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

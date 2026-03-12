@@ -1,0 +1,6 @@
+# kss cluster ziti-router overrides
+
+# Advertised address for this cluster's router
+edge:
+  advertisedHost: ziti-router.simple-k8s.example.com
+  advertisedPort: 443

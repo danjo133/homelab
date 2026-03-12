@@ -19,6 +19,7 @@
     ./modules/keycloak.nix
     ./modules/teleport.nix
     ./modules/gitlab.nix
+    ./modules/ziti.nix
 
     # OPTIONAL: Uncomment for Let's Encrypt certificates
     # Requires: sops-nix setup with Cloudflare API token

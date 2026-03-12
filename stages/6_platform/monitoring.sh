@@ -46,8 +46,5 @@ kubectl apply -k "${GEN_DIR}/kustomize/monitoring/"
 info "Deploying Loki..."
 helmfile_cmd -e "${CLUSTER_HELMFILE_ENV}" -l name=loki apply
 
-info "Deploying Promtail..."
-helmfile_cmd -e "${CLUSTER_HELMFILE_ENV}" -l name=promtail apply
-
 success "Monitoring stack deployed"
 echo "Grafana: https://grafana.${CLUSTER_DOMAIN}"

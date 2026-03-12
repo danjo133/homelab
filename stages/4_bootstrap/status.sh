@@ -82,8 +82,8 @@ fi
 echo ""
 echo -e "  ${BLUE}Secret infrastructure:${NC}"
 
-check_helm "cert-manager" cert-manager cert-manager
-check_helm "external-secrets" external-secrets external-secrets
+check "cert-manager" kubectl get deploy cert-manager -n cert-manager
+check "external-secrets" kubectl get deploy external-secrets -n external-secrets
 
 # --- Vault + secrets ---
 echo ""
@@ -110,13 +110,13 @@ check "Harbor pull secrets" kubectl get externalsecret harbor-pull-secret -n def
 echo ""
 echo -e "  ${BLUE}Bootstrap services:${NC}"
 
-if [[ "$ENV" == "default" || "$ENV" == "bgp-simple" || "$ENV" == "base" ]]; then
-  check_helm "nginx-ingress" nginx-ingress ingress-nginx
+if [[ "$ENV" == "default" || "$ENV" == "base" ]]; then
+  check "nginx-ingress" kubectl get deploy nginx-ingress-ingress-nginx-controller -n ingress-nginx
 else
   skip "nginx-ingress"
 fi
 
-check_helm "external-dns" external-dns external-dns
+check "external-dns" kubectl get deploy external-dns -n external-dns
 check_helm "ArgoCD" argocd argocd
 
 # --- Post-deploy ---

@@ -17,6 +17,7 @@ resources:
   - gatekeeper.yaml
   - spire.yaml
   - cnpg-operator.yaml
+  - ziti-router.yaml
   # Wave 1: Identity
   - keycloak-operator.yaml
   - oauth2-proxy.yaml

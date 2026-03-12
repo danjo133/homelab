@@ -6,7 +6,19 @@
 
 let
   gitlabDir = "/var/lib/gitlab";
-  gitlabImage = "gitlab/gitlab-ce:18.8.4-ce.0";
+  gitlabImage = "gitlab/gitlab-ce:18.9.0-ce.0";
+
+  # Required upgrade stops for GitLab sequential upgrades.
+  # When upgrading across major/minor versions, GitLab requires stopping at
+  # specific versions in order. Update this list when changing gitlabImage.
+  # See: https://docs.gitlab.com/update/upgrade_paths/
+  upgradeStops = [
+    "gitlab/gitlab-ce:17.8.7-ce.0"
+    "gitlab/gitlab-ce:17.11.7-ce.0"
+    "gitlab/gitlab-ce:18.2.8-ce.0"
+    "gitlab/gitlab-ce:18.5.5-ce.0"
+    "gitlab/gitlab-ce:18.8.4-ce.0"
+  ];
   vaultAddr = "http://127.0.0.1:8200";
   keysFile = "/var/lib/openbao/init-keys.json";
   setupMarker = "${gitlabDir}/.setup-complete";
@@ -32,12 +44,101 @@ let
 
     echo "==> GitLab Auto-Setup"
 
-    # If already set up, just ensure containers are running
+    # Helper: write docker-compose.yml for a given image
+    write_compose() {
+      cat > "$GITLAB_DIR/docker-compose.yml" << COMPOSEEOF
+services:
+  gitlab:
+    image: $1
+    container_name: gitlab
+    restart: always
+    hostname: gitlab.support.example.com
+    ports:
+      - "8929:8929"
+      - "2222:22"
+    volumes:
+      - $GITLAB_DIR/config:/etc/gitlab
+      - $GITLAB_DIR/logs:/var/log/gitlab
+      - $GITLAB_DIR/data:/var/opt/gitlab
+    shm_size: '256m'
+COMPOSEEOF
+    }
+
+    # Helper: wait for GitLab to become healthy (up to 20 min)
+    wait_healthy() {
+      echo "  Waiting for GitLab to become healthy..."
+      for i in $(seq 1 120); do
+        if docker exec gitlab gitlab-ctl status >/dev/null 2>&1; then
+          # Check if rails is responding
+          if docker exec gitlab curl -sf http://localhost:8929/-/readiness >/dev/null 2>&1; then
+            echo "  GitLab is healthy"
+            return 0
+          fi
+        fi
+        echo "  Attempt $i/120 (10s intervals)..."
+        sleep 10
+      done
+      echo "  ERROR: GitLab health check timed out after 20 minutes"
+      return 1
+    }
+
+    # If already set up, handle upgrades via sequential stops
     if [ -f "$SETUP_MARKER" ]; then
-      echo "GitLab already installed, starting containers..."
       cd "$GITLAB_DIR"
+
+      # Detect current data version from the GitLab data directory
+      VERSION_FILE="$GITLAB_DIR/data/gitlab-rails/VERSION"
+      if [ -f "$VERSION_FILE" ]; then
+        DATA_VERSION=$(cat "$VERSION_FILE")
+      else
+        DATA_VERSION="unknown"
+      fi
+
+      # Extract target version from image tag (e.g. "18.8.4" from "gitlab/gitlab-ce:18.8.4-ce.0")
+      TARGET_VERSION=$(echo "$GITLAB_IMAGE" | sed 's/.*:\(.*\)-ce\..*/\1/')
+      echo "Data version:   $DATA_VERSION"
+      echo "Target version: $TARGET_VERSION"
+
+      if [ "$DATA_VERSION" = "$TARGET_VERSION" ]; then
+        echo "Already at target version, ensuring running..."
+        write_compose "$GITLAB_IMAGE"
+        docker-compose up -d
+        echo "GitLab started"
+        exit 0
+      fi
+
+      # Walk through required upgrade stops, skipping versions <= current data version
+      UPGRADE_STOPS="${builtins.concatStringsSep " " upgradeStops}"
+      for STOP_IMAGE in $UPGRADE_STOPS; do
+        STOP_VERSION=$(echo "$STOP_IMAGE" | sed 's/.*:\(.*\)-ce\..*/\1/')
+
+        # Skip stops that are at or below current data version
+        if printf '%s\n%s\n' "$STOP_VERSION" "$DATA_VERSION" | sort -V | head -1 | grep -qx "$STOP_VERSION"; then
+          echo "Skipping $STOP_VERSION (data already at $DATA_VERSION)"
+          continue
+        fi
+
+        echo "==> Upgrading to $STOP_IMAGE (from $DATA_VERSION)..."
+        docker rm -f gitlab 2>/dev/null || true
+        write_compose "$STOP_IMAGE"
+        docker-compose pull
+        docker-compose up -d
+        wait_healthy
+
+        # Re-read data version after upgrade
+        if [ -f "$VERSION_FILE" ]; then
+          DATA_VERSION=$(cat "$VERSION_FILE")
+          echo "  Data version now: $DATA_VERSION"
+        fi
+      done
+
+      # Final upgrade to target
+      echo "==> Upgrading to target $GITLAB_IMAGE..."
+      docker rm -f gitlab 2>/dev/null || true
+      write_compose "$GITLAB_IMAGE"
+      docker-compose pull
       docker-compose up -d
-      echo "GitLab started"
+      echo "GitLab upgrade complete"
       exit 0
     fi
 
@@ -215,24 +316,7 @@ MINIOEOF
     # Generate docker-compose.yml
     # ========================================================================
     echo "==> Generating docker-compose.yml..."
-
-    cat > "$GITLAB_DIR/docker-compose.yml" << COMPOSEEOF
-version: '3.8'
-services:
-  gitlab:
-    image: $GITLAB_IMAGE
-    container_name: gitlab
-    restart: always
-    hostname: gitlab.support.example.com
-    ports:
-      - "8929:8929"
-      - "2222:22"
-    volumes:
-      - $GITLAB_DIR/config:/etc/gitlab
-      - $GITLAB_DIR/logs:/var/log/gitlab
-      - $GITLAB_DIR/data:/var/opt/gitlab
-    shm_size: '256m'
-COMPOSEEOF
+    write_compose "$GITLAB_IMAGE"
 
     # Pull and start
     echo "==> Pulling GitLab image..."
@@ -279,7 +363,7 @@ in
       Type = "oneshot";
       RemainAfterExit = true;
       ExecStart = gitlabAutoSetup;
-      TimeoutStartSec = "15min";  # GitLab image is large and startup is slow
+      TimeoutStartSec = "90min";  # Sequential upgrades can take a long time
     };
 
     unitConfig = {

@@ -30,8 +30,8 @@ echo "--- Loki ---"
 kubectl get pods -n monitoring -l app.kubernetes.io/name=loki 2>/dev/null || echo "  Not deployed"
 
 echo ""
-echo "--- Promtail ---"
-kubectl get pods -n monitoring -l app.kubernetes.io/name=promtail 2>/dev/null || echo "  Not deployed"
+echo "--- Alloy ---"
+kubectl get pods -n monitoring -l app.kubernetes.io/name=alloy 2>/dev/null || echo "  Not deployed"
 
 echo ""
 echo "--- Trivy Operator ---"

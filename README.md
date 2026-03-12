@@ -113,23 +113,13 @@ just cluster-token
 just cluster-kubeconfig
 export KUBECONFIG=~/.kube/config-${KSS_CLUSTER}
 
-# 11. Bootstrap the cluster (Cilium/MetalLB, cert-manager, external-secrets, ArgoCD, etc.)
-#     For Cilium clusters (kcs): also deploys Istio Ambient mesh + Gateway API
-just bootstrap-deploy
-
-# 12. Deploy identity services (Keycloak, Gatekeeper, OAuth2-Proxy, OIDC RBAC, JIT)
-just identity-deploy
-
-# 13. Deploy platform services (Longhorn, Prometheus/Grafana/Loki, Trivy)
-#     Requires VAULT_ADDR and VAULT_TOKEN — see vault-token command
-export VAULT_ADDR=https://vault.support.example.com
-export VAULT_TOKEN=$(just vault-token)
-just platform-deploy
+# 11. Bootstrap ArgoCD + apply root-app (deploys everything via app-of-apps)
+just bootstrap-argocd
 ```
 
 ### Build and Push Custom Images
 
-The `jit-elevation` and `cluster-setup` services use custom container images stored in Harbor. Build and push them after the cluster's Harbor project is created (done automatically by `bootstrap-deploy`):
+The `jit-elevation` and `cluster-setup` services use custom container images stored in Harbor. Build and push them after the cluster's Harbor project is created:
 
 ```bash
 export KSS_CLUSTER=kss   # images are per-cluster
@@ -200,16 +190,14 @@ just help                  # Show all commands
 
 | Command | Description |
 |---------|-------------|
-| `just bootstrap-vault-auth` | Setup per-cluster Vault auth |
-| `just bootstrap-secrets` | Deploy ClusterSecretStore + ExternalSecrets |
-| `just bootstrap-deploy` | Full bootstrap: vault-auth + helmfile + secrets |
+| `just bootstrap-argocd` | Bootstrap ArgoCD + apply root-app (one-time) |
+| `just bootstrap-status` | Show bootstrap deployment status |
 
 ### Identity
 
 | Command | Description |
 |---------|-------------|
 | `just identity-keycloak-operator` | Deploy Keycloak CRDs + operator |
-| `just identity-keycloak-secrets` | Bootstrap Keycloak secrets in Vault |
 | `just identity-keycloak` | Deploy Keycloak broker instance |
 | `just identity-fix-scopes` | Fix client scope assignments (API workaround) |
 | `just identity-oidc-rbac` | Deploy OIDC RBAC bindings |
@@ -223,7 +211,6 @@ just help                  # Show all commands
 
 | Command | Description |
 |---------|-------------|
-| `just platform-secrets` | Bootstrap phase4 secrets in Vault |
 | `just platform-longhorn` | Deploy Longhorn storage |
 | `just platform-monitoring` | Deploy monitoring stack |
 | `just platform-trivy` | Deploy Trivy scanner |
@@ -436,7 +423,7 @@ stages/                          # Operational scripts
   1_vms/                         # VM lifecycle (up, down, destroy, ssh)
   2_support/                     # Support VM management
   3_cluster/                     # K8s cluster lifecycle
-  4_bootstrap/                   # Vault auth, secrets, helmfile deploy
+  4_bootstrap/                   # ArgoCD bootstrap, status
   5_identity/                    # Keycloak, OIDC, SPIRE, Gatekeeper
   6_platform/                    # Longhorn, monitoring, Trivy
   debug/                         # Cilium, network, cluster diagnostics
@@ -446,7 +433,7 @@ iac/                             # Infrastructure definitions
   clusters/kss/                  # Cluster config + generated outputs
   clusters/kcs/                  # Cilium/Istio cluster
   provision/nix/                 # NixOS configurations
-  helmfile/                      # Kubernetes bootstrap
+  helmfile/                      # Bootstrap helmfile (Cilium/Istio/ArgoCD only)
   kustomize/                     # GitOps manifests
   scripts/                       # Bootstrap scripts (called by stages)
   network/                       # Network config generation
@@ -523,7 +510,7 @@ Optional: if `VAULT_ADDR` and `VAULT_TOKEN` are set, the deploy script also conf
 
 ### cert-manager
 
-Automated TLS certificate management via Let's Encrypt. Deployed as part of `just bootstrap-deploy`.
+Automated TLS certificate management via Let's Encrypt. Deployed via ArgoCD.
 
 - **Namespace:** `cert-manager`
 - **ACME solver:** Cloudflare DNS-01 (supports wildcard certs)
@@ -535,7 +522,7 @@ All ingresses use `cert-manager.io/cluster-issuer: letsencrypt-prod` for automat
 
 ### External-DNS
 
-Automatically creates DNS records from Kubernetes ingress and service resources. Deployed as part of `just bootstrap-deploy`.
+Automatically creates DNS records from Kubernetes ingress and service resources. Deployed via ArgoCD.
 
 - **Namespace:** `external-dns`
 - **Provider:** Cloudflare
@@ -547,7 +534,7 @@ Automatically creates DNS records from Kubernetes ingress and service resources.
 
 ### ArgoCD
 
-GitOps continuous deployment. Deployed as part of `just bootstrap-deploy`.
+GitOps continuous deployment. Bootstrapped via `just bootstrap-argocd`.
 
 - **Namespace:** `argocd`
 - **URL:** `https://argocd.simple-k8s.example.com`
@@ -614,9 +601,9 @@ metadata:
 
 ### Helmfile environment
 
-The `istio-mesh` helmfile environment (`helmfile_env: istio-mesh` in cluster.yaml) deploys: Cilium (istio-bgp profile), Tetragon, istio-base, istiod, istio-cni, ztunnel, cert-manager, external-secrets, external-dns (with gateway-httproute source), and ArgoCD.
+The `istio-mesh` helmfile environment (`helmfile_env: istio-mesh` in cluster.yaml) bootstraps Cilium (istio-bgp profile) and ArgoCD. Everything else (Tetragon, istio-base, istiod, istio-cni, ztunnel, cert-manager, external-secrets, external-dns) is deployed via ArgoCD app-of-apps.
 
-The Gateway resource and HTTPRoutes are generated by `just generate` and applied by `just bootstrap-deploy`.
+The Gateway resource and HTTPRoutes are generated by `just generate` and deployed via ArgoCD kustomize overlays.
 
 ## Platform Services
 
@@ -658,6 +645,6 @@ Log aggregation backend. Deployed with `just platform-monitoring`.
 - **Schema:** v13 with TSDB store
 - **Retention:** 30 days
 - **Credentials:** ExternalSecret from Vault at `minio/loki`
-- **Log collection:** Promtail DaemonSet on all nodes, ships to Loki
+- **Log collection:** Alloy DaemonSet on all nodes, ships to Loki
 
 Logs are queried through Grafana's Explore view or LogQL.

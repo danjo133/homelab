@@ -27,3 +27,10 @@ provider "gitlab" {
   base_url = "${var.gitlab_url}/api/v4/"
   token    = var.gitlab_token
 }
+
+# OpenZiti controller management API
+provider "ziti" {
+  username = var.ziti_admin_user
+  password = var.ziti_admin_password
+  host     = [var.ziti_api_url]
+}

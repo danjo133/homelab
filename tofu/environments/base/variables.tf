@@ -78,6 +78,26 @@ variable "gitlab_argocd_password" {
   sensitive   = true
 }
 
+# --- OpenZiti ---
+
+variable "ziti_api_url" {
+  description = "Ziti controller management API URL"
+  type        = string
+  default     = "https://ziti.support.example.com:1280/edge/management/v1"
+}
+
+variable "ziti_admin_user" {
+  description = "Ziti admin username"
+  type        = string
+  default     = "admin"
+}
+
+variable "ziti_admin_password" {
+  description = "Ziti admin password"
+  type        = string
+  sensitive   = true
+}
+
 # --- Module configuration ---
 
 variable "vault_namespaces" {

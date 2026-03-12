@@ -22,5 +22,9 @@ terraform {
       source  = "hashicorp/tls"
       version = "~> 4.0"
     }
+    ziti = {
+      source  = "netfoundry/ziti"
+      version = "~> 1.0"
+    }
   }
 }
