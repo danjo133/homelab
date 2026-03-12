@@ -58,6 +58,8 @@ spec:
       namespace: oauth2-proxy
     - server: https://kubernetes.default.svc
       namespace: ziti-system
+    - server: https://kubernetes.default.svc
+      namespace: kube-public
     # apps-discovery cross-namespace ExternalSecrets
     - server: https://kubernetes.default.svc
       namespace: apps

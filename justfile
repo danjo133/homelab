@@ -234,6 +234,14 @@ tofu-import-base:
 tofu-import-cluster:
     ./tofu/scripts/import-cluster.sh
 
+# Seed broker IdP secrets into Vault (social IdP creds, upstream secret)
+tofu-seed-broker:
+    ./tofu/scripts/seed-broker-secrets.sh
+
+# Migrate broker realm from KeycloakRealmImport to OpenTofu (requires KSS_CLUSTER)
+tofu-migrate-broker:
+    ./tofu/scripts/migrate-broker-realm.sh
+
 # ─── Debug ────────────────────────────────────
 
 # Cilium debugging (status, health, endpoints, services, config, bpf, logs, restart)

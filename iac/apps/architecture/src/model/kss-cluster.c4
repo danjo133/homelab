@@ -1,0 +1,189 @@
+model {
+
+  extend homelab.kss {
+
+    kssMaster = node 'kss-master' {
+      description 'RKE2 control plane. IP: 10.69.50.20'
+      technology 'NixOS, RKE2 server'
+    }
+
+    kssWorkers = node 'kss-workers (x3)' {
+      description 'RKE2 agents. IPs: 10.69.50.31-33'
+      technology 'NixOS, RKE2 agent'
+    }
+
+    // CNI & Networking
+    canal = operator 'Canal CNI' {
+      #networking
+      description 'Default RKE2 CNI: Flannel VXLAN + Calico network policy'
+      technology 'Canal'
+    }
+
+    metallb = operator 'MetalLB' {
+      #networking
+      description 'L2 LoadBalancer. Pool: 10.69.50.192/28'
+      technology 'MetalLB'
+    }
+
+    nginxIngress = operator 'nginx Ingress' {
+      #networking
+      description 'Ingress controller for HTTP/HTTPS routing'
+      technology 'ingress-nginx'
+    }
+
+    externalDns = operator 'external-dns' {
+      #networking
+      description 'Syncs Ingress/Service DNS records to Cloudflare'
+      technology 'external-dns'
+    }
+
+    // Core operators
+    certManager = operator 'cert-manager' {
+      #security
+      description 'TLS certs via Let\'s Encrypt DNS-01 through Cloudflare'
+      technology 'cert-manager'
+    }
+
+    externalSecrets = operator 'external-secrets' {
+      #security
+      description 'Syncs Vault secrets to K8s Secrets via ClusterSecretStore'
+      technology 'external-secrets-operator'
+    }
+
+    // GitOps
+    argocd = service 'ArgoCD' {
+      #gitops
+      description 'GitOps CD. App-of-apps from GitLab. OIDC SSO via Keycloak'
+      technology 'ArgoCD'
+    }
+
+    imageUpdater = service 'Image Updater' {
+      #gitops
+      description 'Watches Harbor for new tags, updates ArgoCD app annotations'
+      technology 'ArgoCD Image Updater'
+    }
+
+    // Identity
+    keycloakBroker = service 'Keycloak (Broker)' {
+      #identity
+      description 'Per-cluster IdP broker. Federates from upstream. auth.simple-k8s.example.com'
+      technology 'Keycloak, CloudNativePG'
+    }
+
+    oauth2proxy = service 'OAuth2-Proxy' {
+      #identity
+      description 'OIDC SSO reverse proxy. nginx auth_request integration'
+      technology 'OAuth2-Proxy'
+    }
+
+    gatekeeper = operator 'OPA Gatekeeper' {
+      #security
+      description 'Admission control: deny privileged, warn labels/limits'
+      technology 'OPA Gatekeeper'
+    }
+
+    spire = operator 'SPIRE' {
+      #identity
+      description 'SPIFFE workload identity. Trust domain: simple-k8s.example.com'
+      technology 'SPIRE server + agent + CSI'
+    }
+
+    cnpg = operator 'CloudNativePG' {
+      description 'PostgreSQL operator for Keycloak database'
+      technology 'CloudNativePG'
+    }
+
+    // Monitoring
+    prometheus = service 'Prometheus' {
+      #monitoring
+      description '7-day retention, 10Gi storage. Scrapes cluster metrics'
+      technology 'Prometheus'
+    }
+
+    grafana = service 'Grafana' {
+      #monitoring
+      description 'Dashboards and visualization. OIDC SSO via Keycloak'
+      technology 'Grafana'
+    }
+
+    loki = service 'Loki' {
+      #monitoring
+      description 'Log aggregation. SingleBinary mode, MinIO S3 backend, 30-day retention'
+      technology 'Loki'
+    }
+
+    alloy = service 'Alloy' {
+      #monitoring
+      description 'DaemonSet log collector, ships to Loki'
+      technology 'Grafana Alloy'
+    }
+
+    // Storage
+    longhorn = operator 'Longhorn' {
+      #storage
+      description 'Distributed block storage. 2 replicas, NFS backup target'
+      technology 'Longhorn'
+    }
+
+    // Security
+    trivy = operator 'Trivy Operator' {
+      #security
+      description 'Continuous vulnerability scanning of images and configs'
+      technology 'Trivy'
+    }
+
+    // Applications
+    headlamp = app 'Headlamp' {
+      description 'K8s web dashboard with OIDC auth'
+      technology 'Headlamp'
+    }
+
+    portal = app 'Portal' {
+      description 'Service discovery landing page via Ingress annotations'
+      technology 'Python'
+    }
+
+    architecture = app 'Architecture' {
+      description 'Infrastructure architecture diagrams (this app)'
+      technology 'LikeC4, nginx'
+    }
+
+    jitElevation = app 'JIT Elevation' {
+      #identity
+      description 'Temporary privilege escalation via RFC 8693 token exchange'
+      technology 'Python'
+    }
+
+    clusterSetup = app 'Cluster Setup' {
+      #identity
+      description 'Self-service OIDC kubeconfig download'
+      technology 'Python'
+    }
+
+    zitiRouterKss = service 'OpenZiti Router' {
+      #networking
+      description 'Overlay router in host tunnel mode. Namespace: ziti-system'
+      technology 'OpenZiti'
+    }
+
+    // Relationships
+    argocd -> homelab.supportVM.gitlab 'polls for changes via SSH'
+    imageUpdater -> homelab.supportVM.harbor 'polls for new image tags'
+    externalSecrets -> homelab.supportVM.vault 'syncs secrets via K8s auth'
+    certManager -> cloudflare 'DNS-01 ACME challenges'
+    externalDns -> cloudflare 'creates/deletes DNS records'
+    loki -> homelab.supportVM.minio 'stores logs via S3'
+    longhorn -> homelab.supportVM.nfs 'backup target'
+    alloy -> loki 'ships logs'
+    prometheus -> grafana 'data source'
+    loki -> grafana 'data source'
+    keycloakBroker -> homelab.supportVM.keycloakUpstream 'OIDC identity brokering'
+    cnpg -> keycloakBroker 'PostgreSQL database'
+    oauth2proxy -> keycloakBroker 'OIDC authentication'
+    argocd -> keycloakBroker 'OIDC SSO'
+    grafana -> keycloakBroker 'OIDC SSO'
+    nginxIngress -> oauth2proxy 'auth_request subrequest'
+    zitiRouterKss -> homelab.supportVM.zitiController 'fabric control plane'
+    metallb -> nginxIngress 'assigns LoadBalancer IP'
+  }
+}

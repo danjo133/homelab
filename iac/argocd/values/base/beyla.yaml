@@ -1,0 +1,36 @@
+# Grafana Beyla — eBPF auto-instrumentation agent
+# Generates RED metrics (Rate, Errors, Duration) for HTTP/gRPC services
+
+preset: application
+
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+serviceMonitor:
+  enabled: true
+  metrics:
+    endpoint:
+      interval: 30s
+
+config:
+  data:
+    discovery:
+      services:
+        - k8s_namespace: .+
+    routes:
+      unmatched: heuristic
+    prometheus_export:
+      port: 9090
+      path: /metrics
+    attributes:
+      kubernetes:
+        enable: true

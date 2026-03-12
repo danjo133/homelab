@@ -1,0 +1,44 @@
+views {
+
+  view gitopsPipeline of gitopsFlow {
+    title 'GitOps Pipeline'
+    description 'Code push -> GitLab -> ArgoCD sync -> cluster. Image updater loop'
+
+    include
+      gitopsFlow,
+      gitopsFlow.*,
+      admin,
+      homelab.kss,
+      homelab.kcs,
+      homelab.supportVM.harbor
+
+    include
+      admin -> gitopsFlow.*,
+      gitopsFlow.* -> gitopsFlow.*,
+      gitopsFlow.* -> homelab.*,
+      gitopsFlow.appSets -> homelab.supportVM.harbor
+  }
+
+  view gitopsDeployFlow {
+    title 'GitOps - Application Deploy Flow'
+    description 'How a code change becomes a running deployment'
+
+    include
+      admin,
+      homelab.supportVM.gitlab,
+      homelab.supportVM.harbor,
+      homelab.kss.argocd,
+      homelab.kss.imageUpdater,
+      gitopsFlow.rootApp,
+      gitopsFlow.appOfApps,
+      gitopsFlow.appSets
+
+    include
+      admin -> homelab.supportVM.gitlab,
+      homelab.supportVM.gitlab -> homelab.kss.argocd,
+      homelab.kss.argocd -> gitopsFlow.rootApp,
+      gitopsFlow.rootApp -> gitopsFlow.appOfApps,
+      gitopsFlow.appSets -> homelab.supportVM.gitlab,
+      homelab.kss.imageUpdater -> homelab.supportVM.harbor
+  }
+}

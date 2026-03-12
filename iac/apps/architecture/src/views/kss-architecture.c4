@@ -1,0 +1,44 @@
+views {
+
+  view kssCluster of homelab.kss {
+    title 'KSS Cluster Architecture'
+    description 'Canal CNI, MetalLB L2, nginx ingress. All operators and applications'
+
+    include
+      homelab.kss,
+      homelab.kss.*
+
+    include
+      homelab.kss.* -> homelab.kss.*
+  }
+
+  view kssExternal {
+    title 'KSS Cluster - External Dependencies'
+    description 'How KSS cluster services connect to support VM and external services'
+
+    include
+      homelab.kss,
+      homelab.kss.argocd,
+      homelab.kss.imageUpdater,
+      homelab.kss.externalSecrets,
+      homelab.kss.certManager,
+      homelab.kss.externalDns,
+      homelab.kss.loki,
+      homelab.kss.longhorn,
+      homelab.kss.keycloakBroker,
+      homelab.kss.zitiRouterKss,
+      homelab.supportVM,
+      homelab.supportVM.gitlab,
+      homelab.supportVM.harbor,
+      homelab.supportVM.vault,
+      homelab.supportVM.minio,
+      homelab.supportVM.nfs,
+      homelab.supportVM.keycloakUpstream,
+      homelab.supportVM.zitiController,
+      cloudflare
+
+    include
+      homelab.kss.* -> homelab.supportVM.*,
+      homelab.kss.* -> cloudflare
+  }
+}

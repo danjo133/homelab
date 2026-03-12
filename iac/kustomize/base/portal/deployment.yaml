@@ -5,7 +5,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: portal
-  namespace: apps
+  namespace: kube-public
   labels:
     app: portal
 spec:

@@ -1,0 +1,41 @@
+model {
+
+  networkInfra = system 'Network Infrastructure' {
+    description 'Physical and virtual network topology'
+
+    vlan10 = network 'VLAN 10 (Management)' {
+      description 'Home network, workstation access. 10.x.x.x'
+    }
+
+    vlan50 = network 'VLAN 50 (Cluster)' {
+      description 'All VMs, cluster traffic, internet access. 10.69.50.0/24'
+    }
+
+    libvirtNat = network 'Libvirt NAT' {
+      description 'Vagrant SSH management only. 192.168.121.0/24. No default gateway'
+    }
+
+    brK8s = network 'br-k8s Bridge' {
+      description 'Bridge on hypervisor host connecting VMs to VLAN 50 via enp8s0.50'
+    }
+
+    kssLbPool = network 'kss LB Pool' {
+      description 'MetalLB L2 pool: 10.69.50.192/28'
+    }
+
+    kcsLbPool = network 'kcs LB Pool' {
+      description 'Cilium BGP pool: 10.69.50.208/28'
+    }
+  }
+
+  // Network connectivity
+  networkInfra.vlan10 -> networkInfra.vlan50 'allowed via Unifi firewall'
+  homelab.hypervisor -> networkInfra.brK8s 'hosts bridge interface'
+  networkInfra.brK8s -> networkInfra.vlan50 'VLAN tagged traffic via enp8s0.50'
+  networkInfra.libvirtNat -> homelab.hypervisor 'Vagrant SSH only (ens6)'
+  networkInfra.vlan50 -> homelab.supportVM 'ens7: 10.69.50.10'
+  networkInfra.vlan50 -> homelab.kss 'ens7: 10.69.50.20-33'
+  networkInfra.vlan50 -> homelab.kcs 'ens7: 10.69.50.50-63'
+  homelab.kss.metallb -> networkInfra.kssLbPool 'announces L2 IPs'
+  homelab.kcs.cilium -> networkInfra.kcsLbPool 'announces via BGP (ASN 64513)'
+}

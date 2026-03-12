@@ -17,17 +17,6 @@ resource "vault_kv_secret_v2" "keycloak_admin" {
   lifecycle { ignore_changes = [data_json] }
 }
 
-resource "vault_kv_secret_v2" "keycloak_broker_client" {
-  mount = vault_mount.kv.path
-  name  = "keycloak/broker-client"
-
-  data_json = jsonencode({
-    "client-secret" = "placeholder"
-  })
-
-  lifecycle { ignore_changes = [data_json] }
-}
-
 resource "vault_kv_secret_v2" "keycloak_test_users" {
   mount = vault_mount.kv.path
   name  = "keycloak/test-users"
@@ -37,73 +26,6 @@ resource "vault_kv_secret_v2" "keycloak_test_users" {
     "bob-password"       = "placeholder"
     "carol-password"     = "placeholder"
     "admin-password" = "placeholder"
-  })
-
-  lifecycle { ignore_changes = [data_json] }
-}
-
-resource "vault_kv_secret_v2" "keycloak_argocd_client" {
-  mount = vault_mount.kv.path
-  name  = "keycloak/argocd-client"
-
-  data_json = jsonencode({
-    "client-secret" = "placeholder"
-  })
-
-  lifecycle { ignore_changes = [data_json] }
-}
-
-resource "vault_kv_secret_v2" "keycloak_oauth2_proxy_client" {
-  mount = vault_mount.kv.path
-  name  = "keycloak/oauth2-proxy-client"
-
-  data_json = jsonencode({
-    "client-id"     = "oauth2-proxy"
-    "client-secret" = "placeholder"
-  })
-
-  lifecycle { ignore_changes = [data_json] }
-}
-
-resource "vault_kv_secret_v2" "keycloak_grafana_client" {
-  mount = vault_mount.kv.path
-  name  = "keycloak/grafana-client"
-
-  data_json = jsonencode({
-    "client-secret" = "placeholder"
-  })
-
-  lifecycle { ignore_changes = [data_json] }
-}
-
-resource "vault_kv_secret_v2" "keycloak_jit_service" {
-  mount = vault_mount.kv.path
-  name  = "keycloak/jit-service"
-
-  data_json = jsonencode({
-    "client-secret" = "placeholder"
-  })
-
-  lifecycle { ignore_changes = [data_json] }
-}
-
-resource "vault_kv_secret_v2" "keycloak_kiali_client" {
-  mount = vault_mount.kv.path
-  name  = "keycloak/kiali-client"
-
-  data_json = jsonencode({
-    "client-secret" = "placeholder"
-  })
-
-  lifecycle { ignore_changes = [data_json] }
-}
-
-resource "vault_kv_secret_v2" "keycloak_headlamp_client" {
-  mount = vault_mount.kv.path
-  name  = "keycloak/headlamp-client"
-
-  data_json = jsonencode({
-    "client-secret" = "placeholder"
   })
 
   lifecycle { ignore_changes = [data_json] }

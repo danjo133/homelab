@@ -1,0 +1,35 @@
+views {
+
+  view kcsCluster of homelab.kcs {
+    title 'KCS Cluster Architecture'
+    description 'Cilium + BGP, Istio Ambient mesh, Gateway API ingress. All operators and apps'
+
+    include
+      homelab.kcs,
+      homelab.kcs.*
+
+    include
+      homelab.kcs.* -> homelab.kcs.*
+  }
+
+  view kcsNetworkStack {
+    title 'KCS Network Stack'
+    description 'Cilium CNI + Istio Ambient mesh: how traffic flows from external to pod'
+
+    include
+      homelab.kcs.cilium,
+      homelab.kcs.istiod,
+      homelab.kcs.istioCni,
+      homelab.kcs.ztunnel,
+      homelab.kcs.gateway,
+      homelab.kcs.tetragon,
+      homelab.kcs.oauth2proxyKcs,
+      user
+
+    include
+      user -> homelab.kcs.gateway,
+      homelab.kcs.cilium -> homelab.kcs.gateway,
+      homelab.kcs.istiod -> homelab.kcs.*,
+      homelab.kcs.gateway -> homelab.kcs.oauth2proxyKcs
+  }
+}

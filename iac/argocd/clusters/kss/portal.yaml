@@ -13,7 +13,7 @@ spec:
     path: iac/argocd/clusters/kss/kustomize/portal
   destination:
     server: https://kubernetes.default.svc
-    namespace: apps
+    namespace: kube-public
   syncPolicy:
     automated:
       prune: true

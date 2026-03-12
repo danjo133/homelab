@@ -1,0 +1,79 @@
+model {
+
+  admin = person 'Platform Admin' {
+    description 'Manages infrastructure, deploys services, handles incidents'
+  }
+
+  user = person 'End User' {
+    description 'Accesses cluster services via browser'
+  }
+
+  cloudflare = external 'Cloudflare' {
+    description 'DNS hosting for example.com, ACME DNS-01 challenges'
+  }
+
+  letsencrypt = external 'Let\'s Encrypt' {
+    description 'Free TLS certificates via ACME protocol'
+  }
+
+  github = external 'GitHub' {
+    description 'Upstream repos mirrored to GitLab'
+  }
+
+  homelab = system 'KSS Homelab' {
+    description 'Kubernetes homelab infrastructure on Arch Linux / libvirt / NixOS'
+
+    workstation = host 'workstation' {
+      description 'Local workstation (Arch Linux). Code editing via sshfs mount at ~/mnt/homelab'
+      technology 'Arch Linux'
+    }
+
+    hypervisor = host 'hypervisor' {
+      description 'Hypervisor host. Runs Vagrant + libvirt/KVM. Project at ~/dev/homelab'
+      technology 'Arch Linux, libvirt/KVM'
+    }
+
+    unifi = network 'Unifi Router' {
+      description 'DNS, DHCP static leases, firewall, VLAN management'
+      technology 'Unifi Dream Machine'
+    }
+
+    supportVM = vm 'Support VM' {
+      description 'Shared infrastructure services (NixOS). IP: 10.69.50.10'
+      technology 'NixOS, Docker Compose'
+    }
+
+    kss = cluster 'kss Cluster' {
+      description 'Primary K8s cluster. Canal CNI, MetalLB L2, nginx ingress'
+      technology 'RKE2 v1.31, NixOS'
+    }
+
+    kcs = cluster 'kcs Cluster' {
+      description 'Advanced K8s cluster. Cilium + BGP, Istio Ambient, Gateway API'
+      technology 'RKE2 v1.31, NixOS'
+    }
+  }
+
+  // Top-level relationships
+  admin -> homelab.workstation 'edits code, runs just commands'
+  homelab.workstation -> homelab.hypervisor 'sshfs mount, SSH commands'
+  homelab.hypervisor -> homelab.supportVM 'vagrant up, SSH'
+  homelab.hypervisor -> homelab.kss 'vagrant up, SSH, kubectl'
+  homelab.hypervisor -> homelab.kcs 'vagrant up, SSH, kubectl'
+
+  user -> homelab.kss 'HTTPS via browser'
+  user -> homelab.kcs 'HTTPS via browser'
+  user -> homelab.supportVM 'HTTPS to Vault, Harbor, GitLab, Teleport'
+
+  homelab.kss -> homelab.supportVM 'Vault secrets, Harbor images, NFS storage, GitLab source'
+  homelab.kcs -> homelab.supportVM 'Vault secrets, Harbor images, NFS storage, GitLab source'
+
+  homelab.kss -> cloudflare 'external-dns creates DNS records'
+  homelab.kcs -> cloudflare 'external-dns creates DNS records'
+  homelab.kss -> letsencrypt 'cert-manager ACME via Cloudflare DNS-01'
+  homelab.kcs -> letsencrypt 'cert-manager ACME via Cloudflare DNS-01'
+
+  homelab.unifi -> homelab.supportVM 'DHCP static lease, DNS'
+  homelab.unifi -> homelab.kss 'DHCP static lease, DNS'
+  homelab.unifi -> homelab.kcs 'DHCP static lease, DNS'
+}

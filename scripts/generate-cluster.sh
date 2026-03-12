@@ -63,10 +63,6 @@ OIDC_ENABLED=$(yq -r '.oidc.enabled // "false"' "$CLUSTER_YAML")
 OIDC_ISSUER_URL=$(yq -r '.oidc.issuer_url // ""' "$CLUSTER_YAML")
 OIDC_CLIENT_ID=$(yq -r '.oidc.client_id // "kubernetes"' "$CLUSTER_YAML")
 
-# Read optional identity config
-ROOT_IDP_URL=$(yq -r '.identity.root_idp_url // ""' "$CLUSTER_YAML")
-BROKER_REALM=$(yq -r '.identity.broker_realm // "broker"' "$CLUSTER_YAML")
-
 # Read worker info
 WORKER_COUNT=$(yq '.workers | length' "$CLUSTER_YAML")
 
@@ -921,65 +917,7 @@ else
 YAMLEOF
 fi
 
-cat >> "$GEN_DIR/kustomize/keycloak/kustomization.yaml" << YAMLEOF
-  # Per-cluster redirect URIs for OIDC clients
-  # Client index: 0=kubernetes, 1=oauth2-proxy, 2=argocd, 3=grafana, 4=jit-service, 5=kiali, 6=headlamp
-  - target:
-      kind: KeycloakRealmImport
-      name: broker-realm
-    patch: |
-      - op: replace
-        path: /spec/realm/clients/0/redirectUris
-        value:
-          - "http://localhost:8000"
-          - "http://localhost:18000"
-          - "http://127.0.0.1:8000"
-          - "http://127.0.0.1:18000"
-          - "https://jit.$DOMAIN/*"
-      - op: replace
-        path: /spec/realm/clients/0/webOrigins
-        value:
-          - "http://localhost:8000"
-          - "http://localhost:18000"
-          - "https://jit.$DOMAIN"
-      - op: replace
-        path: /spec/realm/clients/1/redirectUris
-        value:
-          - "https://oauth2-proxy.$DOMAIN/oauth2/callback"
-          - "https://*.$DOMAIN/oauth2/callback"
-      - op: replace
-        path: /spec/realm/clients/2/redirectUris
-        value:
-          - "https://argocd.$DOMAIN/auth/callback"
-      - op: replace
-        path: /spec/realm/clients/2/webOrigins
-        value:
-          - "https://argocd.$DOMAIN"
-      - op: replace
-        path: /spec/realm/clients/3/redirectUris
-        value:
-          - "https://grafana.$DOMAIN/login/generic_oauth"
-      - op: replace
-        path: /spec/realm/clients/3/webOrigins
-        value:
-          - "https://grafana.$DOMAIN"
-      - op: replace
-        path: /spec/realm/clients/5/redirectUris
-        value:
-          - "https://kiali.$DOMAIN/*"
-      - op: replace
-        path: /spec/realm/clients/5/webOrigins
-        value:
-          - "https://kiali.$DOMAIN"
-      - op: replace
-        path: /spec/realm/clients/6/redirectUris
-        value:
-          - "https://k8s.$DOMAIN/*"
-      - op: replace
-        path: /spec/realm/clients/6/webOrigins
-        value:
-          - "https://k8s.$DOMAIN"
-YAMLEOF
+# Realm import removed — broker realm now managed by OpenTofu (tofu/modules/keycloak-broker)
 
 # ============================================================================
 # 11. Generate kustomize/oidc-rbac/ (OIDC group -> ClusterRole bindings)

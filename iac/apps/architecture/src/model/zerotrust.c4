@@ -1,0 +1,75 @@
+model {
+
+  zitiOverlay = system 'OpenZiti Overlay Network' {
+    description 'Zero-trust network overlay for accessing services without VPN'
+
+    controller = service 'Ziti Controller' {
+      #networking
+      description 'Control plane on support VM. Mgmt: 2029, Client API: 2034'
+      technology 'OpenZiti Controller'
+    }
+
+    supportRouter = service 'Support Router' {
+      #networking
+      description 'On support VM. Routes to *.support.example.com:443'
+      technology 'OpenZiti Router'
+    }
+
+    kssRouter = service 'KSS Cluster Router' {
+      #networking
+      description 'K8s pod in ziti-system. Routes to kss ingress VIP 10.69.50.192'
+      technology 'OpenZiti Router (Helm)'
+    }
+
+    kcsRouter = service 'KCS Cluster Router' {
+      #networking
+      description 'K8s pod in ziti-system. Routes to kcs gateway VIP 10.69.50.209'
+      technology 'OpenZiti Router (Helm)'
+    }
+
+    supportWeb = service 'support-web service' {
+      description 'Intercept: *.support.example.com:443 -> support router -> nginx'
+    }
+
+    kssIngress = service 'kss-ingress service' {
+      description 'Intercept: *.simple-k8s.example.com:443 -> kss router -> nginx ingress LB'
+    }
+
+    kcsIngress = service 'kcs-ingress service' {
+      description 'Intercept: *.mesh-k8s.example.com:443 -> kcs router -> Istio gateway LB'
+    }
+
+    laptop = device 'Laptop' {
+      description 'Ziti Desktop Edge tunneler. Enrolled via JWT from Vault'
+    }
+
+    phone = device 'Phone' {
+      description 'Ziti Mobile Edge tunneler'
+    }
+
+    tablet = device 'Tablet' {
+      description 'Ziti Mobile Edge tunneler'
+    }
+  }
+
+  // Overlay relationships
+  zitiOverlay.controller -> zitiOverlay.supportRouter 'fabric control'
+  zitiOverlay.controller -> zitiOverlay.kssRouter 'fabric control'
+  zitiOverlay.controller -> zitiOverlay.kcsRouter 'fabric control'
+
+  zitiOverlay.supportRouter -> zitiOverlay.supportWeb 'hosts service'
+  zitiOverlay.kssRouter -> zitiOverlay.kssIngress 'hosts service'
+  zitiOverlay.kcsRouter -> zitiOverlay.kcsIngress 'hosts service'
+
+  zitiOverlay.supportWeb -> homelab.supportVM.nginx 'tunnels to 127.0.0.1:443'
+  zitiOverlay.kssIngress -> homelab.kss.nginxIngress 'tunnels to 10.69.50.192:443'
+  zitiOverlay.kcsIngress -> homelab.kcs.gateway 'tunnels to 10.69.50.209:443'
+
+  zitiOverlay.laptop -> zitiOverlay.controller 'enrolled via JWT, dials services'
+  zitiOverlay.phone -> zitiOverlay.controller 'enrolled via JWT, dials services'
+  zitiOverlay.tablet -> zitiOverlay.controller 'enrolled via JWT, dials services'
+
+  zitiOverlay.laptop -> zitiOverlay.supportWeb 'dials'
+  zitiOverlay.laptop -> zitiOverlay.kssIngress 'dials'
+  zitiOverlay.laptop -> zitiOverlay.kcsIngress 'dials'
+}

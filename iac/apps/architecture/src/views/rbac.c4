@@ -1,0 +1,25 @@
+views {
+
+  view rbacMapping {
+    title 'RBAC - Group to Role Mapping'
+    description 'How Keycloak groups map to K8s ClusterRoles, ArgoCD roles, and Grafana roles'
+
+    include
+      identityGroups,
+      identityGroups.*,
+      k8sClusterAdmin,
+      k8sOperatorRole,
+      argocdAdmin,
+      argocdReadonly,
+      grafanaAdmin,
+      grafanaViewer
+
+    include
+      identityGroups.* -> k8sClusterAdmin,
+      identityGroups.* -> k8sOperatorRole,
+      identityGroups.* -> argocdAdmin,
+      identityGroups.* -> argocdReadonly,
+      identityGroups.* -> grafanaAdmin,
+      identityGroups.* -> grafanaViewer
+  }
+}

@@ -28,47 +28,6 @@ spec:
     hostname: auth.simple-k8s.example.com
   proxy:
     headers: xforwarded
-  # Inject secrets as env vars for realm import ${VAR} substitution
-  unsupported:
-    podTemplate:
-      spec:
-        containers:
-          - env:
-              - name: UPSTREAM_CLIENT_SECRET
-                valueFrom:
-                  secretKeyRef:
-                    name: upstream-idp-secret
-                    key: client-secret
-              - name: ARGOCD_CLIENT_SECRET
-                valueFrom:
-                  secretKeyRef:
-                    name: argocd-client-secret
-                    key: client-secret
-              - name: OAUTH2_PROXY_CLIENT_SECRET
-                valueFrom:
-                  secretKeyRef:
-                    name: oauth2-proxy-client-secret
-                    key: client-secret
-              - name: GRAFANA_CLIENT_SECRET
-                valueFrom:
-                  secretKeyRef:
-                    name: grafana-client-secret
-                    key: client-secret
-              - name: JIT_CLIENT_SECRET
-                valueFrom:
-                  secretKeyRef:
-                    name: jit-client-secret
-                    key: client-secret
-              - name: KIALI_CLIENT_SECRET
-                valueFrom:
-                  secretKeyRef:
-                    name: kiali-client-secret
-                    key: client-secret
-              - name: HEADLAMP_CLIENT_SECRET
-                valueFrom:
-                  secretKeyRef:
-                    name: headlamp-client-secret
-                    key: client-secret
   # Ingress managed separately (keycloak-ingress.yaml) for proper TLS/cert-manager support
   ingress:
     enabled: false

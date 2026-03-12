@@ -1,0 +1,47 @@
+model {
+
+  storageInfra = system 'Storage Infrastructure' {
+    description 'Persistent storage across the homelab'
+
+    longhornStorage = database 'Longhorn Volumes' {
+      #storage
+      description 'Distributed block storage on worker node disks. 2 replicas for HA'
+      technology 'Longhorn'
+    }
+
+    minioStorage = database 'MinIO Buckets' {
+      #storage
+      description 'S3 buckets: harbor, loki-kss, loki-kcs, tofu-state'
+      technology 'MinIO'
+    }
+
+    nfsExports = database 'NFS Exports' {
+      #storage
+      description '/export/kubernetes-rwx (RWX PVs), /export/backups, /export/longhorn'
+      technology 'NFS v4'
+    }
+
+    vaultKv = database 'Vault KV Stores' {
+      #security
+      description 'Per-cluster KV v2: secrets for services, OIDC clients, credentials'
+      technology 'Vault KV v2'
+    }
+  }
+
+  // Storage consumers
+  homelab.kss.longhorn -> storageInfra.longhornStorage 'provisions PVCs on workers'
+  homelab.kcs.longhornKcs -> storageInfra.longhornStorage 'provisions PVCs on workers'
+  storageInfra.longhornStorage -> storageInfra.nfsExports 'backup target: nfs://10.69.50.10:/export/longhorn'
+
+  homelab.kss.loki -> storageInfra.minioStorage 'bucket: loki-kss'
+  homelab.kcs.lokiKcs -> storageInfra.minioStorage 'bucket: loki-kcs'
+  homelab.supportVM.harbor -> storageInfra.minioStorage 'bucket: harbor'
+
+  homelab.kss.prometheus -> storageInfra.longhornStorage 'PVC: 10Gi'
+  homelab.kcs.prometheusKcs -> storageInfra.longhornStorage 'PVC: 10Gi'
+  homelab.kss.keycloakBroker -> storageInfra.longhornStorage 'PostgreSQL PVC'
+  homelab.kcs.keycloakBrokerKcs -> storageInfra.longhornStorage 'PostgreSQL PVC'
+
+  homelab.kss.externalSecrets -> storageInfra.vaultKv 'reads secrets: kss/*'
+  homelab.kcs.externalSecretsKcs -> storageInfra.vaultKv 'reads secrets: kcs/*'
+}

@@ -13,6 +13,9 @@ memory: 256Mi
 # Enable OAuth2 Proxy SSO (Keycloak via nginx auth_request)
 sso: false
 
+# Extra annotations added to Ingress/HTTPRoute (e.g. portal metadata)
+ingressAnnotations: {}
+
 # Environment variables
 env: []
 envFrom: []

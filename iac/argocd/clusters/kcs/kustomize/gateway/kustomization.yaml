@@ -15,3 +15,5 @@ resources:
   - httproute-headlamp.yaml
   - httproute-hubble.yaml
   - httproute-kiali.yaml
+  - httproute-architecture.yaml
+  - httproute-portal.yaml

@@ -8,6 +8,8 @@ resource "vault_auth_backend" "kubernetes" {
 }
 
 resource "vault_kubernetes_auth_backend_config" "config" {
+  count = var.k8s_host != "" ? 1 : 0
+
   backend            = vault_auth_backend.kubernetes.path
   kubernetes_host    = var.k8s_host
   token_reviewer_jwt = var.k8s_token_reviewer_jwt

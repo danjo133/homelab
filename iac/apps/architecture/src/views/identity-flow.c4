@@ -1,0 +1,53 @@
+views {
+
+  view identityFlow {
+    title 'Identity & Authentication Flow'
+    description 'OIDC authentication: user -> OAuth2-Proxy -> broker Keycloak -> upstream IdP'
+
+    include
+      user,
+      homelab.kss.nginxIngress,
+      homelab.kss.oauth2proxy,
+      homelab.kss.keycloakBroker,
+      homelab.supportVM.keycloakUpstream,
+      homelab.kss.argocd,
+      homelab.kss.grafana,
+      homelab.kss.headlamp,
+      homelab.kss.jitElevation,
+      homelab.kss.clusterSetup,
+      homelab.kss.cnpg
+
+    include
+      user -> homelab.kss.nginxIngress,
+      homelab.kss.nginxIngress -> homelab.kss.oauth2proxy,
+      homelab.kss.oauth2proxy -> homelab.kss.keycloakBroker,
+      homelab.kss.keycloakBroker -> homelab.supportVM.keycloakUpstream,
+      homelab.kss.argocd -> homelab.kss.keycloakBroker,
+      homelab.kss.grafana -> homelab.kss.keycloakBroker,
+      homelab.kss.cnpg -> homelab.kss.keycloakBroker
+  }
+
+  view identityFlowKcs {
+    title 'Identity Flow (KCS - Istio)'
+    description 'OIDC via Istio ext-authz: user -> Gateway -> ext-authz -> OAuth2-Proxy -> Keycloak'
+
+    include
+      user,
+      homelab.kcs.gateway,
+      homelab.kcs.oauth2proxyKcs,
+      homelab.kcs.keycloakBrokerKcs,
+      homelab.supportVM.keycloakUpstream,
+      homelab.kcs.argocdKcs,
+      homelab.kcs.grafanaKcs,
+      homelab.kcs.cnpgKcs
+
+    include
+      user -> homelab.kcs.gateway,
+      homelab.kcs.gateway -> homelab.kcs.oauth2proxyKcs,
+      homelab.kcs.oauth2proxyKcs -> homelab.kcs.keycloakBrokerKcs,
+      homelab.kcs.keycloakBrokerKcs -> homelab.supportVM.keycloakUpstream,
+      homelab.kcs.argocdKcs -> homelab.kcs.keycloakBrokerKcs,
+      homelab.kcs.grafanaKcs -> homelab.kcs.keycloakBrokerKcs,
+      homelab.kcs.cnpgKcs -> homelab.kcs.keycloakBrokerKcs
+  }
+}

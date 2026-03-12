@@ -1,0 +1,103 @@
+model {
+
+  extend homelab.supportVM {
+
+    nginx = service 'Nginx' {
+      #networking
+      description 'TLS termination reverse proxy for all support services'
+      technology 'NixOS module'
+    }
+
+    vault = service 'Vault' {
+      #security
+      description 'Secrets management: KV v2, PKI, K8s auth. Auto-init, auto-unseal'
+      technology 'HashiCorp Vault'
+    }
+
+    harbor = service 'Harbor' {
+      #storage
+      description 'Container registry with Trivy scanning, proxy caches for Docker Hub/Quay/GCR/GHCR'
+      technology 'Harbor v2.14, Docker Compose'
+    }
+
+    minio = service 'MinIO' {
+      #storage
+      description 'S3-compatible storage: Loki logs, Harbor blobs, OpenTofu state'
+      technology 'MinIO'
+    }
+
+    nfs = service 'NFS Server' {
+      #storage
+      description 'Exports: kubernetes-rwx, backups, longhorn. Port 2049'
+      technology 'NFS v4'
+    }
+
+    keycloakUpstream = service 'Keycloak (Upstream)' {
+      #identity
+      description 'Root IdP: users, roles, groups, OIDC clients. Managed by OpenTofu'
+      technology 'Keycloak, PostgreSQL'
+    }
+
+    teleport = service 'Teleport' {
+      #security
+      description 'SSH, K8s proxy, web access plane. Own TLS on port 3080'
+      technology 'Teleport OSS'
+    }
+
+    gitlab = service 'GitLab CE' {
+      #gitops
+      description 'Git hosting, CI/CD. Source of truth for ArgoCD. SSH on port 2222'
+      technology 'GitLab CE, Docker Compose'
+    }
+
+    gitlabRunner = service 'GitLab Runner' {
+      #gitops
+      description 'CI/CD executor using Docker containers'
+      technology 'GitLab Runner, Docker'
+    }
+
+    githubMirror = service 'GitHub Mirror' {
+      #gitops
+      description 'Timer-based sync of GitHub org repos to GitLab'
+      technology 'Bash, systemd timer'
+    }
+
+    zitiController = service 'OpenZiti Controller' {
+      #networking
+      description 'Zero-trust overlay control plane. Mgmt: 2029, Client: 2034'
+      technology 'OpenZiti, Docker Compose'
+    }
+
+    zitiRouter = service 'OpenZiti Router (Support)' {
+      #networking
+      description 'Routes overlay traffic to support VM services. Edge: 2045'
+      technology 'OpenZiti, Docker Compose'
+    }
+
+    zitiZac = service 'ZAC' {
+      #networking
+      description 'OpenZiti Admin Console web UI'
+      technology 'ZAC'
+    }
+
+    // Internal relationships
+    nginx -> vault 'reverse proxy :8200'
+    nginx -> harbor 'reverse proxy :8080'
+    nginx -> minio 'reverse proxy :9000/:9001'
+    nginx -> gitlab 'reverse proxy :8929'
+    nginx -> keycloakUpstream 'reverse proxy :8180'
+    nginx -> zitiZac 'reverse proxy'
+
+    harbor -> minio 'blob storage via S3 API'
+    gitlab -> harbor 'CI/CD pushes images'
+    gitlabRunner -> gitlab 'executes CI jobs'
+    githubMirror -> gitlab 'mirrors repos'
+
+    zitiController -> zitiRouter 'fabric control'
+    zitiRouter -> nginx 'tunnels to *.support.example.com:443'
+
+    keycloakUpstream -> vault 'OIDC client secrets stored in Vault'
+    teleport -> vault 'join tokens stored in Vault'
+    gitlab -> keycloakUpstream 'OIDC SSO'
+  }
+}

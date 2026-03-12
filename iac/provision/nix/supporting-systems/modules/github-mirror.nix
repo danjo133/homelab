@@ -163,7 +163,7 @@ let
             -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "X-Forwarded-Proto: https" \
             -H "Content-Type: application/json" \
             -d "$(jq -n --arg key "$VAR_KEY" --arg val "$VAR_VAL" --argjson masked "$MASKED" \
-              '{key: $key, value: $val, masked: $masked, protected: false}')" >/dev/null
+              '{key: $key, value: $val, masked: $masked, protected: false, raw: true}')" >/dev/null
           echo "  Set $VAR_KEY"
         done
       else

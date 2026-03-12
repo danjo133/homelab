@@ -1,0 +1,70 @@
+model {
+
+  // Identity groups and OIDC clients are modeled here for the identity flow views
+
+  identityGroups = system 'Identity Groups' {
+    description 'Keycloak group-based access control'
+
+    platformAdmins = group 'platform-admins' {
+      description 'Full cluster + ArgoCD + Grafana admin access'
+    }
+
+    k8sAdmins = group 'k8s-admins' {
+      description 'Full cluster admin + ArgoCD admin'
+    }
+
+    k8sOperators = group 'k8s-operators' {
+      description 'Read-only cluster + ArgoCD readonly'
+    }
+
+    webAdmins = group 'web-admins' {
+      description 'ArgoCD admin + Grafana admin'
+    }
+
+    webOperators = group 'web-operators' {
+      description 'ArgoCD readonly + Grafana viewer'
+    }
+  }
+
+  // Role mappings
+  k8sClusterAdmin = role 'cluster-admin' {
+    description 'Full Kubernetes cluster access (ClusterRoleBinding)'
+  }
+
+  k8sOperatorRole = role 'view + custom' {
+    description 'Read access + limited operations (ClusterRoleBinding)'
+  }
+
+  argocdAdmin = role 'ArgoCD role:admin' {
+    description 'Full ArgoCD management access'
+  }
+
+  argocdReadonly = role 'ArgoCD role:readonly' {
+    description 'Read-only ArgoCD access'
+  }
+
+  grafanaAdmin = role 'Grafana Admin' {
+    description 'Full Grafana dashboard management'
+  }
+
+  grafanaViewer = role 'Grafana Viewer' {
+    description 'Read-only Grafana access'
+  }
+
+  // Group -> Role relationships
+  identityGroups.platformAdmins -> k8sClusterAdmin 'maps to'
+  identityGroups.platformAdmins -> argocdAdmin 'maps to'
+  identityGroups.platformAdmins -> grafanaAdmin 'maps to'
+
+  identityGroups.k8sAdmins -> k8sClusterAdmin 'maps to'
+  identityGroups.k8sAdmins -> argocdAdmin 'maps to'
+
+  identityGroups.k8sOperators -> k8sOperatorRole 'maps to'
+  identityGroups.k8sOperators -> argocdReadonly 'maps to'
+
+  identityGroups.webAdmins -> argocdAdmin 'maps to'
+  identityGroups.webAdmins -> grafanaAdmin 'maps to'
+
+  identityGroups.webOperators -> argocdReadonly 'maps to'
+  identityGroups.webOperators -> grafanaViewer 'maps to'
+}

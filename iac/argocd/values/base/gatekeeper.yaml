@@ -5,6 +5,12 @@ audit:
   replicas: 1
   auditInterval: 60
   logLevel: INFO
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
 
 enableMutation: true
 

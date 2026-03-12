@@ -1,0 +1,28 @@
+views {
+
+  view landscape of homelab {
+    title 'System Landscape'
+    description 'High-level overview of all systems in the KSS homelab'
+
+    include
+      homelab,
+      homelab.workstation,
+      homelab.hypervisor,
+      homelab.unifi,
+      homelab.supportVM,
+      homelab.kss,
+      homelab.kcs,
+      admin,
+      user,
+      cloudflare,
+      letsencrypt
+
+    include
+      admin -> homelab.*,
+      user -> homelab.*,
+      homelab.* -> homelab.*,
+      homelab.* -> cloudflare,
+      homelab.* -> letsencrypt,
+      homelab.unifi -> homelab.*
+  }
+}

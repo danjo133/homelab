@@ -32,6 +32,20 @@ variable "harbor_admin_password" {
   sensitive   = true
 }
 
+# --- Broker Keycloak ---
+
+variable "broker_admin_user" {
+  description = "Broker Keycloak admin username"
+  type        = string
+  default     = "temp-admin"
+}
+
+variable "broker_admin_password" {
+  description = "Broker Keycloak admin password (auth.<cluster>.example.com)"
+  type        = string
+  sensitive   = true
+}
+
 # --- Kubernetes auth (optional — set from live cluster) ---
 
 variable "k8s_host" {

@@ -1,0 +1,134 @@
+specification {
+
+  element person {
+    style {
+      shape person
+      color amber
+    }
+  }
+
+  element external {
+    style {
+      shape rectangle
+      color muted
+    }
+  }
+
+  element system {
+    style {
+      shape rectangle
+      color slate
+    }
+  }
+
+  element host {
+    style {
+      shape rectangle
+      color indigo
+    }
+  }
+
+  element vm {
+    style {
+      shape rectangle
+      color primary
+    }
+  }
+
+  element cluster {
+    style {
+      shape rectangle
+      color sky
+    }
+  }
+
+  element node {
+    style {
+      shape rectangle
+      color sky
+      opacity 80%
+    }
+  }
+
+  element ns {
+    style {
+      shape rectangle
+      color slate
+      opacity 80%
+    }
+  }
+
+  element service {
+    style {
+      shape rectangle
+      color green
+    }
+  }
+
+  element operator {
+    style {
+      shape rectangle
+      color blue
+    }
+  }
+
+  element app {
+    style {
+      shape rectangle
+      color secondary
+    }
+  }
+
+  element database {
+    style {
+      shape storage
+      color amber
+    }
+  }
+
+  element network {
+    style {
+      shape rectangle
+      color gray
+    }
+  }
+
+  element device {
+    style {
+      shape mobile
+      color secondary
+    }
+  }
+
+  element group {
+    style {
+      shape rectangle
+      color muted
+      opacity 60%
+    }
+  }
+
+  element role {
+    style {
+      shape rectangle
+      color red
+      opacity 80%
+    }
+  }
+
+  element wave {
+    style {
+      shape rectangle
+      color slate
+      opacity 70%
+    }
+  }
+
+  // Tags
+  tag security
+  tag identity
+  tag monitoring
+  tag storage
+  tag networking
+  tag gitops
+}

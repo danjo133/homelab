@@ -1,0 +1,48 @@
+model {
+
+  gitopsFlow = system 'GitOps Pipeline' {
+    description 'Code-to-cluster delivery via GitLab and ArgoCD'
+
+    gitlabRepo = service 'GitLab infra/kss repo' {
+      #gitops
+      description 'Source of truth: cluster manifests, Helm values, kustomize overlays'
+      technology 'Git'
+    }
+
+    rootApp = service 'Root Application' {
+      #gitops
+      description 'ArgoCD app-of-apps entry point. Points to iac/argocd/clusters/<cluster>/'
+      technology 'ArgoCD Application'
+    }
+
+    appOfApps = service 'App-of-Apps Kustomization' {
+      #gitops
+      description 'Per-cluster kustomization: shared base + cluster-specific Applications'
+      technology 'Kustomize'
+    }
+
+    appSets = service 'ApplicationSets' {
+      #gitops
+      description 'Auto-discover apps from GitLab apps/* group. Generic chart + own chart patterns'
+      technology 'ArgoCD ApplicationSet, SCM Provider'
+    }
+
+    helmfileBootstrap = service 'Helmfile Bootstrap' {
+      #gitops
+      description 'One-time: deploys Cilium CNI (kcs) + ArgoCD. Only components not managed by ArgoCD'
+      technology 'Helmfile'
+    }
+  }
+
+  // GitOps flow
+  admin -> gitopsFlow.gitlabRepo 'git push (via GitLab SSH)'
+  gitopsFlow.gitlabRepo -> gitopsFlow.rootApp 'ArgoCD watches main branch'
+  gitopsFlow.rootApp -> gitopsFlow.appOfApps 'syncs cluster kustomization'
+  gitopsFlow.appOfApps -> homelab.kss 'deploys all Applications via sync waves'
+  gitopsFlow.appOfApps -> homelab.kcs 'deploys all Applications via sync waves'
+  gitopsFlow.appSets -> gitopsFlow.gitlabRepo 'discovers repos in apps/* group'
+  gitopsFlow.appSets -> homelab.supportVM.harbor 'image updater polls for new tags'
+
+  gitopsFlow.helmfileBootstrap -> homelab.kss 'one-time: ArgoCD'
+  gitopsFlow.helmfileBootstrap -> homelab.kcs 'one-time: Cilium + ArgoCD'
+}

@@ -3,20 +3,12 @@ kind: Kustomization
 
 # Keycloak Broker IdP - in-cluster Keycloak instance
 # Federates from root IdP on support VM
+# Realm configuration managed by OpenTofu (tofu/modules/keycloak-broker)
 
 resources:
   - keycloak-db-cluster.yaml
   - keycloak-instance.yaml
   - keycloak-ingress.yaml
-  - broker-realm-import.yaml
-  # ExternalSecrets for Keycloak client secrets (needed by keycloak-instance env vars)
-  - upstream-idp-secret.yaml
-  - oauth2-proxy-client-secret.yaml
-  - argocd-client-secret.yaml
-  - grafana-client-secret.yaml
-  - jit-client-secret.yaml
-  - kiali-client-secret.yaml
-  - headlamp-client-secret.yaml
   # NOTE: keycloak-db-secret.yaml and argocd-oidc-secret.yaml are deployed
   # during bootstrap (external-secrets kustomize) because they are needed
   # before the cnpg Cluster and ArgoCD can start.

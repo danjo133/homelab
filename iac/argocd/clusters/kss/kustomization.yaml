@@ -24,6 +24,7 @@ resources:
   - jit-elevation.yaml
   - cluster-setup.yaml
   - portal.yaml
+  - architecture.yaml
   - headlamp-config.yaml
   - ziti-router-config.yaml
   # Apps auto-discovery

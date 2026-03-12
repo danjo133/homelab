@@ -1,0 +1,207 @@
+model {
+
+  extend homelab.kcs {
+
+    kcsMaster = node 'kcs-master' {
+      description 'RKE2 control plane. IP: 10.69.50.50'
+      technology 'NixOS, RKE2 server'
+    }
+
+    kcsWorkers = node 'kcs-workers (x3)' {
+      description 'RKE2 agents. IPs: 10.69.50.61-63'
+      technology 'NixOS, RKE2 agent'
+    }
+
+    // CNI & Networking
+    cilium = operator 'Cilium' {
+      #networking
+      description 'eBPF CNI, kube-proxy replacement, BGP LoadBalancer IP advertisement'
+      technology 'Cilium'
+    }
+
+    tetragon = operator 'Tetragon' {
+      #security
+      description 'eBPF runtime security: process, syscall, network tracing'
+      technology 'Tetragon'
+    }
+
+    // Istio Ambient Mesh
+    istiod = operator 'istiod' {
+      #networking
+      description 'Istio control plane, Gateway API controller'
+      technology 'Istio'
+    }
+
+    istioCni = operator 'istio-cni' {
+      #networking
+      description 'DaemonSet: configures ztunnel traffic redirection'
+      technology 'Istio CNI'
+    }
+
+    ztunnel = operator 'ztunnel' {
+      #networking
+      description 'DaemonSet: L4 proxy handling mTLS between pods (no sidecars)'
+      technology 'Istio ztunnel'
+    }
+
+    gateway = service 'Istio Gateway' {
+      #networking
+      description 'Gateway API ingress. Auto-created Envoy pod from Gateway resource'
+      technology 'Istio, Envoy'
+    }
+
+    externalDnsKcs = operator 'external-dns' {
+      #networking
+      description 'Syncs DNS records to Cloudflare'
+      technology 'external-dns'
+    }
+
+    // Core operators
+    certManagerKcs = operator 'cert-manager' {
+      #security
+      description 'TLS certs via Let\'s Encrypt DNS-01'
+      technology 'cert-manager'
+    }
+
+    externalSecretsKcs = operator 'external-secrets' {
+      #security
+      description 'Syncs Vault secrets to K8s Secrets'
+      technology 'external-secrets-operator'
+    }
+
+    // GitOps
+    argocdKcs = service 'ArgoCD' {
+      #gitops
+      description 'GitOps CD. App-of-apps from GitLab. OIDC SSO'
+      technology 'ArgoCD'
+    }
+
+    imageUpdaterKcs = service 'Image Updater' {
+      #gitops
+      description 'Watches Harbor for new tags'
+      technology 'ArgoCD Image Updater'
+    }
+
+    // Identity
+    keycloakBrokerKcs = service 'Keycloak (Broker)' {
+      #identity
+      description 'Per-cluster IdP broker. auth.mesh-k8s.example.com'
+      technology 'Keycloak, CloudNativePG'
+    }
+
+    oauth2proxyKcs = service 'OAuth2-Proxy' {
+      #identity
+      description 'OIDC SSO via Istio ext-authz AuthorizationPolicy'
+      technology 'OAuth2-Proxy'
+    }
+
+    gatekeeperKcs = operator 'OPA Gatekeeper' {
+      #security
+      description 'Admission control policies'
+      technology 'OPA Gatekeeper'
+    }
+
+    spireKcs = operator 'SPIRE' {
+      #identity
+      description 'SPIFFE workload identity. Trust domain: mesh-k8s.example.com'
+      technology 'SPIRE'
+    }
+
+    cnpgKcs = operator 'CloudNativePG' {
+      description 'PostgreSQL operator for Keycloak'
+      technology 'CloudNativePG'
+    }
+
+    // Monitoring
+    prometheusKcs = service 'Prometheus' {
+      #monitoring
+      description 'Metrics collection and alerting'
+      technology 'Prometheus'
+    }
+
+    grafanaKcs = service 'Grafana' {
+      #monitoring
+      description 'Dashboards. OIDC SSO via Keycloak'
+      technology 'Grafana'
+    }
+
+    lokiKcs = service 'Loki' {
+      #monitoring
+      description 'Log aggregation, MinIO backend'
+      technology 'Loki'
+    }
+
+    alloyKcs = service 'Alloy' {
+      #monitoring
+      description 'DaemonSet log collector'
+      technology 'Grafana Alloy'
+    }
+
+    // Storage & Security
+    longhornKcs = operator 'Longhorn' {
+      #storage
+      description 'Distributed block storage'
+      technology 'Longhorn'
+    }
+
+    trivyKcs = operator 'Trivy Operator' {
+      #security
+      description 'Vulnerability scanning'
+      technology 'Trivy'
+    }
+
+    // Applications
+    headlampKcs = app 'Headlamp' {
+      description 'K8s web dashboard'
+      technology 'Headlamp'
+    }
+
+    kiali = app 'Kiali' {
+      #monitoring
+      description 'Istio service mesh observability UI'
+      technology 'Kiali'
+    }
+
+    jitElevationKcs = app 'JIT Elevation' {
+      #identity
+      description 'Temporary privilege escalation'
+      technology 'Python'
+    }
+
+    clusterSetupKcs = app 'Cluster Setup' {
+      #identity
+      description 'OIDC kubeconfig download'
+      technology 'Python'
+    }
+
+    zitiRouterKcs = service 'OpenZiti Router' {
+      #networking
+      description 'Overlay router in ziti-system namespace'
+      technology 'OpenZiti'
+    }
+
+    // Relationships
+    argocdKcs -> homelab.supportVM.gitlab 'polls for changes via SSH'
+    imageUpdaterKcs -> homelab.supportVM.harbor 'polls for new image tags'
+    externalSecretsKcs -> homelab.supportVM.vault 'syncs secrets via K8s auth'
+    certManagerKcs -> cloudflare 'DNS-01 ACME challenges'
+    externalDnsKcs -> cloudflare 'creates/deletes DNS records'
+    lokiKcs -> homelab.supportVM.minio 'stores logs via S3'
+    longhornKcs -> homelab.supportVM.nfs 'backup target'
+    alloyKcs -> lokiKcs 'ships logs'
+    prometheusKcs -> grafanaKcs 'data source'
+    lokiKcs -> grafanaKcs 'data source'
+    keycloakBrokerKcs -> homelab.supportVM.keycloakUpstream 'OIDC identity brokering'
+    cnpgKcs -> keycloakBrokerKcs 'PostgreSQL database'
+    oauth2proxyKcs -> keycloakBrokerKcs 'OIDC authentication'
+    argocdKcs -> keycloakBrokerKcs 'OIDC SSO'
+    grafanaKcs -> keycloakBrokerKcs 'OIDC SSO'
+    istiod -> gateway 'configures Envoy via xDS'
+    istiod -> ztunnel 'configures L4 mTLS'
+    gateway -> oauth2proxyKcs 'ext-authz policy'
+    cilium -> gateway 'advertises LB IP via BGP'
+    zitiRouterKcs -> homelab.supportVM.zitiController 'fabric control plane'
+    kiali -> istiod 'reads mesh config'
+    kiali -> prometheusKcs 'reads metrics'
+  }
+}

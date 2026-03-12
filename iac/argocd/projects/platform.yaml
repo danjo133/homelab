@@ -24,6 +24,8 @@ spec:
     - server: https://kubernetes.default.svc
       namespace: monitoring
     - server: https://kubernetes.default.svc
+      namespace: beyla-system
+    - server: https://kubernetes.default.svc
       namespace: trivy-system
     - server: https://kubernetes.default.svc
       namespace: gatekeeper-system

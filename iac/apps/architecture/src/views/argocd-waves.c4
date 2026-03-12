@@ -1,0 +1,34 @@
+views {
+
+  view argocdWaves {
+    title 'ArgoCD Sync Waves'
+    description 'Deployment ordering: CRDs -> operators -> config -> identity -> monitoring -> security -> apps'
+
+    include
+      homelab.kss.certManager,
+      homelab.kss.externalSecrets,
+      homelab.kss.externalDns,
+      homelab.kss.metallb,
+      homelab.kss.nginxIngress,
+      homelab.kss.canal,
+      homelab.kss.argocd,
+      homelab.kss.longhorn,
+      homelab.kss.gatekeeper,
+      homelab.kss.spire,
+      homelab.kss.cnpg,
+      homelab.kss.zitiRouterKss,
+      homelab.kss.keycloakBroker,
+      homelab.kss.oauth2proxy,
+      homelab.kss.prometheus,
+      homelab.kss.grafana,
+      homelab.kss.loki,
+      homelab.kss.alloy,
+      homelab.kss.trivy,
+      homelab.kss.headlamp,
+      homelab.kss.portal,
+      homelab.kss.architecture,
+      homelab.kss.jitElevation,
+      homelab.kss.clusterSetup,
+      homelab.kss.imageUpdater
+  }
+}

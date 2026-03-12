@@ -1,0 +1,40 @@
+views {
+
+  view zitiOverview of zitiOverlay {
+    title 'OpenZiti Zero-Trust Overlay'
+    description 'Controller, routers, overlay services, and client enrollment'
+
+    include
+      zitiOverlay,
+      zitiOverlay.*
+
+    include
+      zitiOverlay.* -> zitiOverlay.*
+  }
+
+  view zitiTrafficFlow {
+    title 'OpenZiti - Traffic Flow'
+    description 'How client device traffic reaches cluster services through the overlay'
+
+    include
+      zitiOverlay.laptop,
+      zitiOverlay.controller,
+      zitiOverlay.supportRouter,
+      zitiOverlay.kssRouter,
+      zitiOverlay.kcsRouter,
+      zitiOverlay.supportWeb,
+      zitiOverlay.kssIngress,
+      zitiOverlay.kcsIngress,
+      homelab.supportVM.nginx,
+      homelab.kss.nginxIngress,
+      homelab.kcs.gateway
+
+    include
+      zitiOverlay.laptop -> zitiOverlay.*,
+      zitiOverlay.controller -> zitiOverlay.*,
+      zitiOverlay.* -> zitiOverlay.*,
+      zitiOverlay.supportWeb -> homelab.supportVM.nginx,
+      zitiOverlay.kssIngress -> homelab.kss.nginxIngress,
+      zitiOverlay.kcsIngress -> homelab.kcs.gateway
+  }
+}

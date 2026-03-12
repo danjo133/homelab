@@ -17,7 +17,8 @@ build:
     - IMAGE_NAME=$(echo "$CI_PROJECT_NAME" | tr 'A-Z' 'a-z')
     - mkdir -p /kaniko/.docker
     - >-
-      echo "{\"auths\":{\"harbor.support.example.com\":{\"username\":\"${HARBOR_PUSH_USER}\",\"password\":\"${HARBOR_PUSH_PASSWORD}\"}}}"
+      AUTH=$(printf '%s:%s' "${HARBOR_PUSH_USER}" "${HARBOR_PUSH_PASSWORD}" | base64 | tr -d '\n')
+      && printf '{"auths":{"harbor.support.example.com":{"auth":"%s"}}}' "$AUTH"
       > /kaniko/.docker/config.json
     - >-
       /kaniko/executor

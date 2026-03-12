@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: portal-config
-  namespace: apps
+  namespace: kube-public
 data:
   CLUSTER_NAME: "CLUSTER_NAME"
   CLUSTER_DOMAIN: "CLUSTER_DOMAIN"

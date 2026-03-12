@@ -1,0 +1,37 @@
+views {
+
+  view supportDetail of homelab.supportVM {
+    title 'Support VM Services'
+    description 'All services on the support VM (10.69.50.10) and their interconnections'
+
+    include
+      homelab.supportVM,
+      homelab.supportVM.*
+
+    include
+      homelab.supportVM.* -> homelab.supportVM.*
+  }
+
+  view supportExternal {
+    title 'Support VM - External Connections'
+    description 'How support VM services connect to clusters and external systems'
+
+    include
+      homelab.supportVM,
+      homelab.supportVM.vault,
+      homelab.supportVM.harbor,
+      homelab.supportVM.minio,
+      homelab.supportVM.nfs,
+      homelab.supportVM.gitlab,
+      homelab.supportVM.keycloakUpstream,
+      homelab.supportVM.zitiController,
+      homelab.kss,
+      homelab.kcs,
+      github
+
+    include
+      homelab.kss -> homelab.supportVM.*,
+      homelab.kcs -> homelab.supportVM.*,
+      github -> homelab.supportVM.*
+  }
+}

@@ -4,19 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Kubernetes homelab infrastructure-as-code: RKE2 clusters on NixOS VMs, managed by Vagrant with libvirt/KVM on Arch Linux.
+Kubernetes homelab infrastructure-as-code: RKE2 clusters on NixOS VMs, managed by Vagrant with libvirt/KVM on Arch Linux. Two clusters: **kss** (Canal CNI, MetalLB, nginx ingress) and **kcs** (Cilium + BGP, Istio Ambient mesh, Gateway API). Shared support VM provides Vault, Harbor, MinIO, NFS, GitLab, Teleport, Keycloak, and OpenZiti.
 
 ## Current Status
 
 **Working:**
-- Support VM (Vault, Harbor, MinIO, NFS, Nginx, Teleport, GitLab) — fully operational
-- kss cluster (1 master + 3 workers, Canal CNI, MetalLB L2)
-- Keycloak broker with upstream IdP federation, ArgoCD OIDC, cert-manager, external-secrets
-- Monitoring (Prometheus, Grafana, Loki)
-- OPA Gatekeeper — admission control with privileged deny + resource/label warnings
-- OAuth2-Proxy — OIDC SSO via broker Keycloak, nginx auth_request integration
-- SPIRE — SPIFFE workload identity, OIDC discovery, CSI driver
+- Support VM (Vault, Harbor, MinIO, NFS, Nginx, Teleport, GitLab, Keycloak, OpenZiti) — fully operational
+- kss cluster (1 master + 3 workers, Canal CNI, MetalLB L2, nginx ingress)
 - kcs cluster (1 master + 3 workers, Cilium CNI + BGP, Istio Ambient mesh, Gateway API ingress)
+- Keycloak broker with upstream IdP federation, ArgoCD OIDC, cert-manager, external-secrets
+- Monitoring (Prometheus, Grafana, Loki, Alloy, Alertmanager)
+- OPA Gatekeeper — admission control with privileged deny + resource/label warnings
+- OAuth2-Proxy — OIDC SSO via broker Keycloak, nginx auth_request (kss) / ext-authz (kcs)
+- SPIRE — SPIFFE workload identity, OIDC discovery, CSI driver
+- OpenZiti — zero-trust overlay network with per-cluster routers and client enrollment
+- Custom apps — Portal (service discovery), JIT Elevation (RFC 8693), Cluster Setup (kubeconfig)
+- OpenTofu — Vault, Keycloak, Harbor, MinIO, Ziti configuration as code
+- ArgoCD Image Updater — auto-deploy on image push
+- ApplicationSets — auto-discover apps from GitLab repos
 
 ## Task Runner
 
@@ -44,7 +49,9 @@ just support-sync          # Sync NixOS config
 just support-rebuild       # Rebuild (switch mode)
 just support-status        # Check services
 just vault-backup          # Backup Vault keys
+just vault-restore         # Restore Vault keys
 just vault-token           # Show root token
+just ziti-status           # Check OpenZiti controller and router status
 
 # Kubernetes cluster
 just cluster-sync [target]    # Sync NixOS config (master/worker-N/all)
@@ -58,11 +65,22 @@ just bootstrap-argocd         # Bootstrap ArgoCD + apply root-app (one-time)
 just harbor-login             # Docker login to Harbor (creds from Vault)
 just bootstrap-status         # Show bootstrap deployment status
 
+# ArgoCD operations
+just argocd-status [project]  # Query applications by project or all
+just argocd-sync <app>        # Force sync specific application
+
 # Identity
+just identity-keycloak-operator  # Deploy Keycloak CRDs + operator
 just identity-keycloak        # Deploy Keycloak broker
 just identity-fix-scopes      # Fix client scope assignments
 just identity-oidc-rbac       # OIDC RBAC bindings
-just identity-deploy          # All identity components
+just identity-oauth2-proxy    # Deploy OAuth2-Proxy
+just identity-gatekeeper      # Deploy OPA Gatekeeper + policies
+just identity-spire           # Deploy SPIRE workload identity
+just identity-jit             # Deploy JIT elevation service
+just identity-cluster-setup   # Deploy cluster-setup service
+just identity-deploy          # All identity components (orchestrated)
+just identity-kubeconfig-oidc # Generate OIDC kubeconfig
 just identity-status          # Show status
 
 # Platform
@@ -91,8 +109,9 @@ just debug-cluster            # General diagnostics
 
 ### Infrastructure Layout
 
-- **Supporting Systems VM** (`support`): Vault, Harbor, MinIO, NFS
-- **Kubernetes Cluster**: 1 master + 3 workers running RKE2 on NixOS
+- **Supporting Systems VM** (`support`, 10.69.50.10): Vault, Harbor, MinIO, NFS, Nginx, Teleport, GitLab, Keycloak, OpenZiti
+- **kss cluster**: 1 master (10.69.50.20) + 3 workers (.31-.33), Canal CNI, MetalLB L2, nginx ingress
+- **kcs cluster**: 1 master (10.69.50.50) + 3 workers (.61-.63), Cilium CNI + BGP, Istio Ambient, Gateway API
 - All VMs use VLAN 50 bridged networking for cluster/internet access
 - Libvirt NAT network used only for Vagrant SSH management
 
@@ -122,6 +141,10 @@ Code is edited on `workstation` (local workstation) via sshfs mount at `~/mnt/ho
 | kss-worker-1 | `52:54:00:69:50:31` | kss-worker-1 | 10.69.50.31 |
 | kss-worker-2 | `52:54:00:69:50:32` | kss-worker-2 | 10.69.50.32 |
 | kss-worker-3 | `52:54:00:69:50:33` | kss-worker-3 | 10.69.50.33 |
+| kcs-master | `52:54:00:69:50:50` | kcs-master | 10.69.50.50 |
+| kcs-worker-1 | `52:54:00:69:50:61` | kcs-worker-1 | 10.69.50.61 |
+| kcs-worker-2 | `52:54:00:69:50:62` | kcs-worker-2 | 10.69.50.62 |
+| kcs-worker-3 | `52:54:00:69:50:63` | kcs-worker-3 | 10.69.50.63 |
 
 ### Domain Structure
 
@@ -137,17 +160,28 @@ Code is edited on `workstation` (local workstation) via sshfs mount at `~/mnt/ho
 | Host OS | Arch Linux |
 | Virtualization | libvirt/KVM via Vagrant |
 | VM OS | NixOS (declarative) |
-| Kubernetes | RKE2 |
+| Dev Shell | Nix flake (`nix develop`) |
+| Kubernetes | RKE2 (v1.31) |
 | CNI | Canal (kss) / Cilium + Tetragon (kcs) |
+| Service Mesh | Istio Ambient (kcs) |
+| Ingress | nginx (kss) / Istio Gateway API (kcs) |
 | Secrets | Vault + external-secrets |
-| Certificates | cert-manager (Let's Encrypt via CloudFlare DNS01) |
-| GitOps | ArgoCD |
+| Certificates | cert-manager (Let's Encrypt via Cloudflare DNS01) |
+| DNS | external-dns (Cloudflare sync) |
+| GitOps | ArgoCD + ArgoCD Image Updater |
 | Registry | Harbor (with proxy caches) |
-| Storage | Longhorn, MinIO, NFS |
-| Monitoring | Prometheus, Grafana, Loki |
-| Identity | Keycloak (broker + upstream IdP) |
+| Storage | Longhorn (block), MinIO (S3), NFS (RWX) |
+| Database | CloudNativePG (PostgreSQL operator) |
+| Monitoring | Prometheus, Grafana, Loki, Alloy, Alertmanager |
+| Security | Trivy Operator, Tetragon (kcs), OPA Gatekeeper |
+| Identity | Keycloak (broker + upstream IdP federation) |
+| Auth Proxy | OAuth2-Proxy (OIDC SSO) |
+| Workload Identity | SPIRE/SPIFFE |
 | Access | Teleport (SSH, K8s proxy, web access) |
-| Git | GitLab CE (repos, CI/CD) |
+| Overlay Network | OpenZiti (zero-trust tunneling) |
+| Git | GitLab CE (repos, CI/CD, runner) |
+| IaC | OpenTofu (Vault, Keycloak, Harbor, MinIO, Ziti) |
+| Dashboard | Headlamp, Kiali (kcs) |
 
 ## Directory Structure
 
@@ -156,62 +190,84 @@ justfile                          # User-facing command interface
 CLAUDE.md                         # AI context (this file)
 README.md                         # Human documentation
 .sops.yaml                        # SOPS encryption config
+flake.nix                         # Nix dev shell (all CLI tools)
 
 stages/                           # Operational scripts
-  lib/common.sh                   # Shared functions (paths, SSH, colors, validation)
+  lib/common.sh                   # Shared functions (paths, SSH, colors, cluster config)
   0_global/                       # status, generate, clean, validate
   1_vms/                          # up, down, destroy, status, ssh, build-box
-  2_support/                      # sync, rebuild, status, vault-backup/restore/token
+  2_support/                      # sync, rebuild, status, vault-*, ziti-status
   3_cluster/                      # sync, rebuild, token, kubeconfig, status
-  4_bootstrap/                    # ArgoCD bootstrap, status
-  5_identity/                     # keycloak, oidc, spire, gatekeeper, jit
+  4_bootstrap/                    # ArgoCD bootstrap, vault-auth, secrets, status
+  5_identity/                     # keycloak, oidc, spire, gatekeeper, oauth2-proxy, jit, setup
   6_platform/                     # longhorn, monitoring, trivy
   debug/                          # cilium, network, cluster-diag
 
-iac/                              # Infrastructure definitions (NixOS, Vagrant, ArgoCD)
-  Vagrantfile                     # VM definitions (reads cluster.yaml)
+iac/                              # Infrastructure definitions
+  Vagrantfile                     # VM definitions (dynamic from cluster.yaml)
+  nix-box-config.nix              # Base NixOS image config
+  setup-libvirt-network.sh        # VLAN bridge setup
+  build-nix-box.sh                # NixOS qcow2 → Vagrant box
   clusters/
-    kss/                          # Working cluster
+    kss/                          # KSS cluster
       cluster.yaml                # Single source of truth
       generated/                  # Output of generate-cluster.sh
-    kcs/                          # Future Cilium/Istio cluster
+    kcs/                          # KCS cluster (Cilium/Istio)
+      cluster.yaml
+      generated/
   provision/nix/
+    common/                       # Shared NixOS modules (vagrant user, base system)
+    k8s-common/                   # Shared K8s node config
+      cluster-options.nix         # NixOS option declarations (kss.cluster.*, kss.cni)
+      rke2-base.nix               # Kernel modules, sysctl, iSCSI, system limits
+      cni.nix                     # Conditional CNI config (Canal vs Cilium firewall)
+      registry-mirrors.nix        # Harbor proxy cache
+      vault-ca.nix                # Vault CA trust
+    k8s-master/                   # Master NixOS config + rke2-server
+    k8s-worker/                   # Worker NixOS config + rke2-agent + storage
     supporting-systems/           # Support VM NixOS config
-    k8s-common/                   # Shared K8s node config (cluster-options.nix, etc.)
-    k8s-master/                   # Master NixOS config
-    k8s-worker/                   # Worker NixOS config (parameterized)
-    common/                       # Shared NixOS modules
+      modules/                    # nginx, vault, minio, harbor, nfs, keycloak,
+                                  # teleport, gitlab, gitlab-runner, ziti,
+                                  # github-mirror, sops, acme, openbao
+      secrets/                    # SOPS-encrypted secrets
   helmfile/                       # Bootstrap helmfile (Cilium/Istio/ArgoCD only)
-  kustomize/                      # Base GitOps manifests
+  kustomize/                      # Base GitOps manifests (ArgoCD-managed)
+    base/                         # cert-manager, external-secrets, vault-auth,
+                                  # gateway, metallb, cilium, keycloak, oauth2-proxy,
+                                  # monitoring, gatekeeper-policies, headlamp, harbor,
+                                  # cluster-setup, jit-elevation, portal, apps-discovery,
+                                  # ziti-router, kiali, keycloak-operator, gateway-api-crds
+  argocd/                         # ArgoCD App-of-Apps
+    projects/                     # AppProject definitions (bootstrap, platform, identity, apps)
+    base/                         # Shared Application YAMLs + kustomization.yaml
+    clusters/                     # Per-cluster kustomization overlays + root-app
+    values/                       # Helm values (base/ + kss/ + kcs/ overrides)
+  apps/                           # Custom application source code
+    portal/                       # Service discovery landing page (Python)
+    jit-elevation/                # JIT role elevation (Python, RFC 8693)
+    cluster-setup/                # Self-service kubeconfig (Python)
   scripts/                        # Bootstrap scripts (called by stages)
   network/                        # Network config generation
 
 scripts/                          # Utility scripts
-  generate-cluster.sh             # Generates per-cluster configs from cluster.yaml
+  generate-cluster.sh             # Cluster config generator (~1300 lines)
   fix-keycloak-scopes.sh          # Keycloak scope fix workaround
   hypervisor-exec.sh                    # Remote execution helper
 
-tofu/                             # OpenTofu IaC (Phase 2)
+tofu/                             # OpenTofu IaC
   modules/
     vault-base/                   # Root PKI mount, config URLs, namespaces
-    vault-cluster/                # Per-namespace: KV, PKI int, policies, secrets, K8s auth
+    vault-cluster/                # Per-cluster: KV, PKI int, policies, K8s auth
     keycloak-upstream/            # Upstream realm, users, roles, OIDC clients
-    harbor-cluster/               # Per-cluster Harbor project + robot account
-    minio-config/                 # MinIO bucket management
+    gitlab-config/                # ArgoCD service user, repos
+    harbor-cluster/               # Per-cluster project + robot account
+    minio-config/                 # Bucket management
+    ziti-config/                  # Edge routers, services, policies, client identities
   environments/
-    base/                         # Root Vault + upstream Keycloak + MinIO
-    kss/                          # KSS cluster namespace (Vault + Harbor)
-    kcs/                          # KCS cluster namespace (Vault + Harbor)
-  scripts/
-    setup-state-bucket.sh         # Bootstrap MinIO tofu-state bucket
-    import-base.sh                # Import base env resources
-    import-cluster.sh             # Import per-cluster env resources
-
-iac/argocd/                       # ArgoCD App-of-Apps (primary deployment)
-  projects/                       # ArgoCD AppProject definitions
-  base/                           # Shared Application YAMLs
-  clusters/                       # Per-cluster kustomization overlays
-  values/                         # Helm values (base + per-cluster overrides)
+    base/                         # Root: Vault + Keycloak + GitLab + MinIO + Ziti
+    kss/                          # KSS: Vault namespace + Harbor + Ziti router
+    kcs/                          # KCS: Vault namespace + Harbor + Ziti router
+  scripts/                        # State bucket setup, import scripts
 ```
 
 ## Configuration Files
@@ -227,6 +283,7 @@ iac/argocd/                       # ArgoCD App-of-Apps (primary deployment)
 | `iac/build-nix-box.sh` | Builds NixOS qcow2 and packages as Vagrant box |
 | `stages/lib/common.sh` | Shared shell library (paths, SSH, cluster config, helpers) |
 | `justfile` | Task runner command definitions |
+| `flake.nix` | Nix dev shell with all CLI tools |
 
 ## Support VM Services
 
@@ -236,11 +293,51 @@ iac/argocd/                       # ArgoCD App-of-Apps (primary deployment)
 | MinIO API | 9000 | `https://minio.support.example.com` | S3-compatible storage |
 | MinIO Console | 9001 | `https://minio-console.support.example.com` | Web UI |
 | Harbor | 8080 | `https://harbor.support.example.com` | Container registry with Trivy |
-| NFS | 2049 | N/A (direct) | Exports: `/export/kubernetes-rwx`, `/export/backups` |
-| Teleport | 3080 | `https://teleport.support.example.com:3080` | SSH/K8s/web access plane, own TLS (not behind nginx) |
+| NFS | 2049 | N/A (direct) | Exports: `kubernetes-rwx`, `backups`, `longhorn` |
+| Teleport | 3080 | `https://teleport.support.example.com:3080` | SSH/K8s/web access, own TLS (not behind nginx) |
 | GitLab CE | 8929 | `https://gitlab.support.example.com` | Git hosting, behind nginx, Git SSH on port 2222 |
+| Keycloak | 8180 | `https://keycloak.support.example.com` | Upstream IdP (users, roles, OIDC clients) |
+| OpenZiti Controller | 2034 | Client API (enrollment, sessions) | Docker Compose, mgmt on 2029 |
+| OpenZiti ZAC | — | `https://ziti.support.example.com` | Admin console web UI |
+| OpenZiti Router | 2045/2046 | Edge data plane | Docker Compose |
 
 **Credentials** (on support VM): Vault at `/var/lib/vault/init-keys.json`, MinIO at `/etc/minio/credentials`, Harbor at `/etc/harbor/admin_password`, GitLab at `/etc/gitlab/admin_password`.
+
+## ArgoCD App-of-Apps
+
+ArgoCD manages all K8s resources via sync waves. Projects: **bootstrap** (waves -5 to -1), **platform** (0, 2, 3), **identity** (1), **applications** (4, 5).
+
+### Sync Wave Summary
+
+| Wave | Purpose | Applications |
+|------|---------|-------------|
+| -5 | CRDs | prometheus-crds, gateway-api-crds (kcs) |
+| -4 | CNI/Network | MetalLB (kss), Cilium + Tetragon (kcs) |
+| -3 | Core operators | cert-manager, external-secrets |
+| -2 | Cluster config | cluster-secrets, vault-auth, harbor-pull-secrets, ziti-router-config |
+| -1 | DNS/Ingress | external-dns, nginx-ingress (kss), Istio stack (kcs) |
+| 0 | Platform operators | ArgoCD, Longhorn, Gatekeeper, SPIRE, CNPG, Ziti router |
+| 1 | Identity | Keycloak operator + instance, OAuth2-Proxy, OIDC RBAC |
+| 2 | Monitoring | kube-prometheus-stack, Loki, Alloy |
+| 3 | Security | Gatekeeper policies, Trivy |
+| 4 | Applications | Headlamp, Portal, cluster-setup, JIT elevation, Kiali (kcs) |
+| 5 | Dynamic apps | ApplicationSets (auto-discovered from GitLab) |
+
+### Multi-Source Values
+
+```
+iac/argocd/values/
+├── base/         Shared Helm values (all clusters)
+├── kss/          KSS-specific overrides
+└── kcs/          KCS-specific overrides
+```
+
+### ApplicationSets
+
+Two ApplicationSets auto-discover apps from GitLab `apps` group:
+- **apps-generic-chart**: Repos with `deploy/values.yaml` (no custom chart) → generic-app template
+- **apps-own-chart**: Repos with `chart/Chart.yaml` → app's own Helm chart
+Both support ArgoCD Image Updater for auto-deploy on image push.
 
 ## Important Implementation Details
 
@@ -256,12 +353,21 @@ DHCP with dhcpcd configured to not set gateway on NAT interface. Vagrant user wi
 ### KSS_CLUSTER Environment Variable
 All cluster-aware scripts require `KSS_CLUSTER` to be set. No defaults. Scripts call `require_cluster` from `stages/lib/common.sh` which validates the env var and checks that the cluster.yaml exists.
 
+### NixOS Module System
+Cluster VMs use layered NixOS modules: `common/` (base) → `k8s-common/` (RKE2 base, CNI, options) → `k8s-master/` or `k8s-worker/` (role) → generated `cluster.nix` (cluster options). The `cluster-options.nix` declares `kss.cluster.*` and `kss.cni` options consumed by other modules. The `cni.nix` module conditionally configures firewall rules for Canal vs Cilium.
+
+### OpenZiti
+Zero-trust overlay network. Controller + support router on support VM (Docker Compose). Per-cluster routers as K8s pods in `ziti-system` namespace. OpenTofu manages edge routers, overlay services (support-web, kss-ingress, kcs-ingress), service policies, and client device identities. Enrollment JWTs stored in Vault.
+
+### Custom Applications
+Three Python web apps in `iac/apps/`: **portal** (annotation-based service discovery dashboard), **jit-elevation** (RFC 8693 token exchange for temporary privilege escalation), **cluster-setup** (OIDC token info + kubeconfig download). Built as container images, stored in Harbor.
+
 ## Working with This Repository
 
 ### Deployment Model
 
 ArgoCD is the primary deployment mechanism. It manages all Kubernetes resources via an app-of-apps pattern rooted in `iac/argocd/`. The only exceptions bootstrapped directly via helmfile are:
-- **Cilium CNI** — must exist before ArgoCD can run
+- **Cilium CNI** (kcs) — must exist before ArgoCD can run
 - **ArgoCD itself** — cannot deploy itself
 
 Everything else flows through ArgoCD: operator Applications (Helm charts), kustomize overlays, CRs. Changes take effect when code is pushed to GitLab and ArgoCD syncs.
@@ -285,7 +391,8 @@ Code is pushed to GitLab (`https://github.com/example-user/homelab.git`), which 
 2. Create Helm values in `iac/argocd/values/base/<name>.yaml`
 3. Add to `iac/argocd/base/kustomization.yaml` in the correct wave
 4. Update the relevant ArgoCD AppProject (`iac/argocd/projects/`) with sourceRepos and destination namespaces
-5. Commit and push — ArgoCD syncs automatically
+5. If cluster-specific overrides needed, add to `iac/argocd/values/<cluster>/<name>.yaml` and patch the Application in `iac/argocd/clusters/<cluster>/kustomization.yaml`
+6. Commit and push — ArgoCD syncs automatically
 
 **Adding Kubernetes resources (CRs, secrets, config):**
 1. Add manifests to the appropriate `iac/kustomize/base/<component>/` directory
@@ -296,6 +403,10 @@ Code is pushed to GitLab (`https://github.com/example-user/homelab.git`), which 
 **Modifying Helm values:**
 1. Edit `iac/argocd/values/base/<name>.yaml` (or per-cluster override in `iac/argocd/values/<cluster>/`)
 2. Commit and push — ArgoCD detects the values change and syncs
+
+**Adding OpenTofu resources:**
+1. Add to the appropriate module in `tofu/modules/` or environment in `tofu/environments/`
+2. Run `just tofu-plan <env>` to preview, then `just tofu-apply <env>`
 
 ### What NOT to Do
 

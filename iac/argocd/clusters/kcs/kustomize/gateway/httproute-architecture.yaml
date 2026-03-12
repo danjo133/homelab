@@ -1,0 +1,17 @@
+# HTTPRoute for Architecture Diagrams
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: architecture
+  namespace: apps
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: istio-ingress
+      sectionName: https
+  hostnames:
+    - architecture.mesh-k8s.example.com
+  rules:
+    - backendRefs:
+        - name: architecture
+          port: 80

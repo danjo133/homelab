@@ -19,3 +19,5 @@ spec:
             hosts:
               - setup.mesh-k8s.example.com
               - hubble.mesh-k8s.example.com
+              - architecture.mesh-k8s.example.com
+              - portal.mesh-k8s.example.com

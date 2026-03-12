@@ -1,0 +1,45 @@
+views {
+
+  view networkTopology {
+    title 'Network Topology'
+    description 'VLANs, bridges, IP assignments, and traffic flow'
+
+    include
+      networkInfra,
+      networkInfra.*,
+      homelab.workstation,
+      homelab.hypervisor,
+      homelab.unifi,
+      homelab.supportVM,
+      homelab.kss,
+      homelab.kcs
+
+    include
+      networkInfra.* -> networkInfra.*,
+      networkInfra.* -> homelab.*,
+      homelab.* -> networkInfra.*,
+      homelab.unifi -> homelab.*
+  }
+
+  view loadBalancing {
+    title 'Load Balancer Architecture'
+    description 'How LoadBalancer IPs are assigned and advertised per cluster'
+
+    include
+      networkInfra.kssLbPool,
+      networkInfra.kcsLbPool,
+      homelab.kss.metallb,
+      homelab.kss.nginxIngress,
+      homelab.kcs.cilium,
+      homelab.kcs.gateway,
+      user
+
+    include
+      homelab.kss.metallb -> networkInfra.kssLbPool,
+      homelab.kss.metallb -> homelab.kss.nginxIngress,
+      homelab.kcs.cilium -> networkInfra.kcsLbPool,
+      homelab.kcs.cilium -> homelab.kcs.gateway,
+      user -> homelab.kss.nginxIngress,
+      user -> homelab.kcs.gateway
+  }
+}

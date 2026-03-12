@@ -26,6 +26,7 @@ resources:
   - kube-prometheus-stack.yaml
   - loki.yaml
   - alloy.yaml
+  - beyla.yaml
   # Wave 3: Security
   - gatekeeper-policies.yaml
   - trivy.yaml

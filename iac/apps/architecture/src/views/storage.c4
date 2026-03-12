@@ -1,0 +1,40 @@
+views {
+
+  view storageOverview of storageInfra {
+    title 'Storage Architecture'
+    description 'Longhorn, MinIO, NFS, and Vault KV: backends and their consumers'
+
+    include
+      storageInfra,
+      storageInfra.*
+
+    include
+      * -> storageInfra.*
+  }
+
+  view storageConsumers {
+    title 'Storage - Service Consumers'
+    description 'Which services consume which storage backends'
+
+    include
+      storageInfra.longhornStorage,
+      storageInfra.minioStorage,
+      storageInfra.nfsExports,
+      storageInfra.vaultKv,
+      homelab.kss.longhorn,
+      homelab.kss.loki,
+      homelab.kss.prometheus,
+      homelab.kss.keycloakBroker,
+      homelab.kss.externalSecrets,
+      homelab.kcs.longhornKcs,
+      homelab.kcs.lokiKcs,
+      homelab.kcs.prometheusKcs,
+      homelab.kcs.keycloakBrokerKcs,
+      homelab.kcs.externalSecretsKcs,
+      homelab.supportVM.harbor
+
+    include
+      homelab.* -> storageInfra.*,
+      storageInfra.longhornStorage -> storageInfra.nfsExports
+  }
+}
