@@ -8,8 +8,7 @@ RED := \033[0;31m
 NC := \033[0m # No Color
 
 # Paths (local - on workstation, files are sshfs-mounted from iter)
-VAGRANT_DIR := $(shell pwd)/iac_ansible
-VAGRANT_NIX_DIR := $(shell pwd)/iac
+VAGRANT_DIR := $(shell pwd)/iac
 HELMFILE_DIR := $(shell pwd)/iac/helmfile
 KUSTOMIZE_DIR := $(shell pwd)/iac/kustomize
 DOCS_DIR := $(shell pwd)/iac/docs
@@ -21,6 +20,9 @@ REMOTE_HOST := iter
 REMOTE_PROJECT_DIR := ~/dev/homelab
 REMOTE_VAGRANT_DIR := $(REMOTE_PROJECT_DIR)/iac
 
+# SSH key for direct VM access
+VAGRANT_SSH_KEY := ~/.vagrant.d/ecdsa_private_key
+
 # Support VM - get IP from vagrant on iter
 SUPPORT_VM_IP ?= $(shell ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh support -c \"ip -4 addr show ens7 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'\" 2>/dev/null" | tr -d '\r' || echo "10.69.50.91")
 
@@ -28,281 +30,88 @@ SUPPORT_VM_IP ?= $(shell ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bi
 help:
 	@echo "$(BLUE)Kubernetes Homelab Infrastructure - Make Commands$(NC)"
 	@echo ""
-	@echo "$(GREEN)Usage:$(NC)"
-	@echo "  make help              Show this help message"
-	@echo "  make up                Bring up all Vagrant VMs"
-	@echo "  make down              Stop all Vagrant VMs (without destroying)"
-	@echo "  make provision         Provision VMs with NixOS and services"
-	@echo "  make reset             Destroy and recreate all VMs"
-	@echo "  make clean             Clean up Vagrant and local artifacts"
+	@echo "$(GREEN)VM Management (runs on iter):$(NC)"
+	@echo "  make up                Start all Vagrant VMs"
+	@echo "  make down              Stop all Vagrant VMs"
 	@echo "  make status            Show Vagrant VM status"
-	@echo "  make validate          Validate Helm and Kustomize manifests"
-	@echo "  make lint              Lint documentation and configurations"
-	@echo "  make test              Run smoke tests"
-	@echo "  make docs              Generate documentation"
-	@echo "  make k8s-status        Check Kubernetes cluster status"
-	@echo "  make k8s-config        Get kubeconfig from cluster"
+	@echo "  make reset             Destroy and recreate all VMs"
+	@echo "  make clean             Clean up Vagrant artifacts"
 	@echo ""
-	@echo "$(GREEN)Support VM (runs on iter):$(NC)"
+	@echo "$(GREEN)Support VM:$(NC)"
 	@echo "  make sync-support          Sync NixOS config to support VM"
 	@echo "  make rebuild-support       Rebuild support VM (test mode)"
 	@echo "  make rebuild-support-switch Rebuild and switch permanently"
 	@echo "  make support-status        Check service status on support VM"
 	@echo "  make support-logs          Show recent logs from support VM"
-	@echo "  make vagrant-status        Show vagrant VM status"
 	@echo "  make vagrant-ssh-support   SSH into support VM"
+	@echo ""
+	@echo "$(GREEN)Kubernetes Cluster:$(NC)"
+	@echo "  make k8s-master-up         Start k8s-master VM"
+	@echo "  make k8s-workers-up        Start all k8s-worker VMs"
+	@echo "  make sync-k8s-master       Sync NixOS config to k8s-master"
+	@echo "  make rebuild-k8s-master    Rebuild k8s-master (test mode)"
+	@echo "  make rebuild-k8s-master-switch  Rebuild and switch permanently"
+	@echo "  make sync-k8s-worker-{1,2,3}    Sync config to worker"
+	@echo "  make rebuild-k8s-worker-{1,2,3} Rebuild worker (test mode)"
+	@echo "  make k8s-cluster-status    Check cluster nodes and pods"
+	@echo "  make k8s-get-token         Show RKE2 join token"
+	@echo "  make k8s-distribute-token  Copy join token to workers"
+	@echo "  make k8s-kubeconfig        Fetch kubeconfig locally"
+	@echo "  make k8s-master-status     Check k8s-master services"
+	@echo "  make k8s-master-logs       Show RKE2 server logs"
+	@echo "  make vagrant-ssh-k8s-master SSH into k8s-master"
+	@echo "  make vagrant-ssh-k8s-worker-{1,2,3} SSH into worker"
 	@echo ""
 	@echo "$(GREEN)Vault Key Management:$(NC)"
 	@echo "  make vault-backup-keys     Backup Vault keys to local file"
 	@echo "  make vault-restore-keys    Restore Vault keys from backup"
 	@echo "  make vault-show-token      Show Vault root token"
 	@echo ""
+	@echo "$(GREEN)Validation & Testing:$(NC)"
+	@echo "  make validate          Validate Helm and Kustomize manifests"
+	@echo "  make lint              Lint documentation and configurations"
+	@echo "  make test              Run smoke tests"
+	@echo ""
 
-# Vagrant commands
-build-nix-box: ## Build custom NixOS Vagrant box
-	@echo "$(BLUE)Building custom NixOS Vagrant box...$(NC)"
-	@cd iac && bash build-nix-box.sh
-	@echo "$(GREEN)Box built successfully!$(NC)"
+# ============================================================================
+# VM Management (all run on iter via SSH)
+# ============================================================================
 
-up: ## Bring up all VMs
-	@echo "$(BLUE)Bringing up Vagrant VMs...$(NC)"
-	@cd $(VAGRANT_DIR) && vagrant up
-	@echo "$(GREEN)VMs are up!$(NC)"
+up: ## Start all Vagrant VMs
+	@echo "$(BLUE)Starting all Vagrant VMs...$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant up"
+	@echo "$(GREEN)VMs started!$(NC)"
 
 down: ## Stop all VMs without destroying
 	@echo "$(BLUE)Stopping Vagrant VMs...$(NC)"
-	@cd $(VAGRANT_DIR) && vagrant halt
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant halt"
 	@echo "$(GREEN)VMs stopped!$(NC)"
+
+status: ## Show Vagrant VM status
+	@echo "$(BLUE)Vagrant VM Status:$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant status"
 
 reset: ## Destroy and recreate all VMs (full reset)
 	@echo "$(RED)Resetting infrastructure...$(NC)"
 	@read -p "Are you sure? This will destroy all VMs. [y/N] " -n 1 -r; \
 	echo ""; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		cd $(VAGRANT_DIR) && vagrant destroy -f; \
-		cd $(VAGRANT_DIR) && vagrant up; \
-		make provision; \
+		ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant destroy -f"; \
+		ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant up"; \
 		echo "$(GREEN)Infrastructure reset complete!$(NC)"; \
 	else \
 		echo "$(BLUE)Reset cancelled$(NC)"; \
 	fi
 
-clean: ## Clean up Vagrant artifacts and local files
+clean: ## Clean up Vagrant artifacts
 	@echo "$(BLUE)Cleaning up...$(NC)"
-	@cd $(VAGRANT_DIR) && vagrant destroy -f
-	@rm -rf $(VAGRANT_DIR)/.vagrant
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant destroy -f"
 	@rm -rf .kubeconfig
 	@echo "$(GREEN)Cleanup complete!$(NC)"
 
-status: ## Show Vagrant VM status
-	@echo "$(BLUE)Vagrant VM Status:$(NC)"
-	@cd $(VAGRANT_DIR) && vagrant status
-
-# Provisioning commands
-provision: ## Provision VMs (NixOS configuration + services)
-	@echo "$(BLUE)Provisioning VMs with NixOS...$(NC)"
-	@cd $(VAGRANT_DIR) && vagrant provision
-	@echo "$(GREEN)Provisioning complete!$(NC)"
-	@echo "$(BLUE)Waiting for cluster to stabilize...$(NC)"
-	@sleep 30
-	@make k8s-status
-
-# Kubernetes commands
-k8s-status: ## Check Kubernetes cluster status
-	@echo "$(BLUE)Kubernetes Cluster Status:$(NC)"
-	@if command -v kubectl &> /dev/null; then \
-		kubectl get nodes -o wide; \
-		echo ""; \
-		echo "$(BLUE)System Pods:$(NC)"; \
-		kubectl get pods -n kube-system -o wide; \
-	else \
-		echo "$(RED)kubectl not found in PATH$(NC)"; \
-	fi
-
-k8s-config: ## Extract kubeconfig from cluster
-	@echo "$(BLUE)Extracting kubeconfig...$(NC)"
-	@if [ -f "$(VAGRANT_DIR)/.vagrant/machines/k8s-master/virtualbox/id" ]; then \
-		mkdir -p $(HOME)/.kube; \
-		scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-			vagrant@k8s-master:/etc/rancher/rke2/rke2.yaml \
-			$(HOME)/.kube/config 2>/dev/null || \
-			echo "$(RED)Failed to extract kubeconfig. Ensure k8s-master is running.$(NC)"; \
-		echo "$(GREEN)kubeconfig extracted to $(HOME)/.kube/config$(NC)"; \
-	else \
-		echo "$(RED)k8s-master VM not found$(NC)"; \
-	fi
-
-# Validation commands
-validate: validate-helm validate-kustomize validate-docs ## Run all validations
-
-validate-helm: ## Validate Helmfile
-	@echo "$(BLUE)Validating Helmfile...$(NC)"
-	@if command -v helmfile &> /dev/null; then \
-		cd $(HELMFILE_DIR) && helmfile lint; \
-		echo "$(GREEN)Helmfile validation passed!$(NC)"; \
-	else \
-		echo "$(RED)helmfile not found. Install with: helm plugin install https://github.com/roboll/helmfile$(NC)"; \
-	fi
-
-validate-kustomize: ## Validate Kustomize manifests
-	@echo "$(BLUE)Validating Kustomize manifests...$(NC)"
-	@if command -v kustomize &> /dev/null; then \
-		kustomize build $(KUSTOMIZE_DIR)/base > /dev/null && \
-		echo "$(GREEN)Kustomize validation passed!$(NC)" || \
-		echo "$(RED)Kustomize validation failed!$(NC)"; \
-	else \
-		echo "$(RED)kustomize not found. Install from https://kustomize.io$(NC)"; \
-	fi
-
-validate-docs: ## Validate documentation files
-	@echo "$(BLUE)Validating documentation...$(NC)"
-	@for file in $(DOCS_DIR)/*.md; do \
-		if [ -f "$$file" ]; then \
-			echo "Checking $$file"; \
-		fi; \
-	done
-	@echo "$(GREEN)Documentation validation passed!$(NC)"
-
-# Linting commands
-lint: lint-helm lint-kustomize lint-docs ## Run all linters
-
-lint-helm: ## Lint Helm charts
-	@echo "$(BLUE)Linting Helm charts...$(NC)"
-	@if command -v helm &> /dev/null; then \
-		cd $(HELMFILE_DIR) && \
-		for values in values/*.yaml; do \
-			echo "Linting $$values"; \
-			helm lint -f $$values > /dev/null 2>&1 || true; \
-		done; \
-		echo "$(GREEN)Helm linting complete!$(NC)"; \
-	else \
-		echo "$(RED)helm not found$(NC)"; \
-	fi
-
-lint-kustomize: ## Lint Kustomize overlays
-	@echo "$(BLUE)Linting Kustomize overlays...$(NC)"
-	@if command -v kustomize &> /dev/null; then \
-		for overlay in $(KUSTOMIZE_DIR)/overlays/*; do \
-			if [ -d "$$overlay" ]; then \
-				echo "Linting $$overlay"; \
-				kustomize build $$overlay > /dev/null || true; \
-			fi; \
-		done; \
-		echo "$(GREEN)Kustomize linting complete!$(NC)"; \
-	else \
-		echo "$(RED)kustomize not found$(NC)"; \
-	fi
-
-lint-docs: ## Lint documentation for common issues
-	@echo "$(BLUE)Linting documentation...$(NC)"
-	@find $(DOCS_DIR) -name "*.md" -exec echo "Linting {}" \;
-	@echo "$(GREEN)Documentation linting complete!$(NC)"
-
-# Testing commands
-test: test-smoke test-security ## Run all tests
-
-test-smoke: ## Run smoke tests
-	@echo "$(BLUE)Running smoke tests...$(NC)"
-	@if command -v kubectl &> /dev/null; then \
-		echo "Testing cluster connectivity..."; \
-		kubectl cluster-info; \
-		echo "Testing pod creation..."; \
-		kubectl run smoke-test --image=alpine:latest --restart=Never --rm -i -- echo "Smoke test passed"; \
-		echo "$(GREEN)Smoke tests passed!$(NC)"; \
-	else \
-		echo "$(RED)kubectl not found$(NC)"; \
-	fi
-
-test-security: ## Run security tests
-	@echo "$(BLUE)Running security tests...$(NC)"
-	@echo "Checking network policies..."; \
-	kubectl get networkpolicies -A; \
-	echo "Checking RBAC..."; \
-	kubectl get clusterroles,clusterrolebindings; \
-	echo "$(GREEN)Security tests complete!$(NC)"
-
-# Documentation commands
-docs: ## Generate or update documentation
-	@echo "$(BLUE)Documentation:$(NC)"
-	@echo "Architecture: $(DOCS_DIR)/ARCHITECTURE.md"
-	@echo "Specification: $(DOCS_DIR)/SPEC-KIT.md"
-	@echo "TODO List: $(DOCS_DIR)/TODO.md"
-	@echo "$(GREEN)Documentation files are in $(DOCS_DIR)$(NC)"
-
-# Build/Install dependencies
-install-tools: ## Install required tools
-	@echo "$(BLUE)Installing required tools...$(NC)"
-	@command -v vagrant >/dev/null 2>&1 || echo "Please install Vagrant"
-	@command -v helm >/dev/null 2>&1 || echo "Please install Helm"
-	@command -v kubectl >/dev/null 2>&1 || echo "Please install kubectl"
-	@command -v kustomize >/dev/null 2>&1 || echo "Please install Kustomize"
-	@command -v helmfile >/dev/null 2>&1 || echo "Please install Helmfile (helm plugin install https://github.com/roboll/helmfile)"
-	@echo "$(GREEN)Tool check complete!$(NC)"
-
-# Git/Version control
-git-init: ## Initialize git repository
-	@echo "$(BLUE)Initializing git repository...$(NC)"
-	@if [ -d .git ]; then \
-		echo "Git repository already initialized"; \
-	else \
-		git init; \
-		git config user.email "homelab@local"; \
-		git config user.name "Homelab Admin"; \
-		git add .; \
-		git commit -m "Initial commit: Kubernetes homelab infrastructure scaffolding"; \
-		echo "$(GREEN)Git repository initialized!$(NC)"; \
-	fi
-
-# Debugging/Troubleshooting
-debug-vault: ## Debug Vault connectivity
-	@echo "$(BLUE)Debugging Vault...$(NC)"
-	@echo "Checking if Vault is accessible..."
-	@curl -k https://trust.support.example.com:8200/v1/sys/health 2>/dev/null | jq . || echo "Vault not accessible"
-
-debug-harbor: ## Debug Harbor connectivity
-	@echo "$(BLUE)Debugging Harbor...$(NC)"
-	@echo "Checking if Harbor is accessible..."
-	@curl -k https://artifacts.support.example.com 2>/dev/null -I || echo "Harbor not accessible"
-
-debug-k8s: ## Debug Kubernetes
-	@echo "$(BLUE)Debugging Kubernetes...$(NC)"
-	@kubectl version
-	@kubectl get componentstatuses
-	@kubectl get nodes -o wide
-
-# Logs and diagnostics
-logs-master: ## Get logs from master node
-	@echo "$(BLUE)Master node logs:$(NC)"
-	@cd $(VAGRANT_DIR) && vagrant ssh k8s-master -c "journalctl -u rke2-server -n 100"
-
-logs-worker: ## Get logs from worker node
-	@echo "$(BLUE)Worker node logs:$(NC)"
-	@cd $(VAGRANT_DIR) && vagrant ssh k8s-worker-1 -c "journalctl -u rke2-agent -n 100"
-
-logs-supporting: ## Get logs from supporting systems
-	@echo "$(BLUE)Supporting systems logs:$(NC)"
-	@cd $(VAGRANT_DIR) && vagrant ssh supporting-systems -c "journalctl -n 100"
-
-# Utility targets
-.PHONY: print-config
-print-config: ## Print configuration variables
-	@echo "$(BLUE)Configuration:$(NC)"
-	@echo "Vagrant Directory: $(VAGRANT_DIR)"
-	@echo "Helmfile Directory: $(HELMFILE_DIR)"
-	@echo "Kustomize Directory: $(KUSTOMIZE_DIR)"
-	@echo "Docs Directory: $(DOCS_DIR)"
-
-# Targets for CI/CD
-ci-validate: validate lint ## Run CI validations
-	@echo "$(GREEN)CI validations passed!$(NC)"
-
-ci-test: test ## Run CI tests
-	@echo "$(GREEN)CI tests passed!$(NC)"
-
-# Support VM NixOS configuration management
-# Note: Vagrant runs on iter, files are synced via sshfs, so we rsync from iter to VM
-# Uses the vagrant ECDSA key at ~/.vagrant.d/ecdsa_private_key
-VAGRANT_SSH_KEY := ~/.vagrant.d/ecdsa_private_key
+# ============================================================================
+# Support VM NixOS Configuration Management
+# ============================================================================
 
 sync-support: ## Sync NixOS configuration to support VM
 	@echo "$(BLUE)Syncing NixOS config to support VM ($(SUPPORT_VM_IP))...$(NC)"
@@ -310,6 +119,10 @@ sync-support: ## Sync NixOS configuration to support VM
 		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
 		$(REMOTE_PROJECT_DIR)/iac/provision/nix/supporting-systems/ \
 		vagrant@$(SUPPORT_VM_IP):/tmp/nix-config/"
+	@ssh $(REMOTE_HOST) "rsync -avz \
+		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
+		$(REMOTE_PROJECT_DIR)/iac/provision/nix/common/ \
+		vagrant@$(SUPPORT_VM_IP):/tmp/nix-config/common/"
 	@echo "$(GREEN)Config synced to /tmp/nix-config/ on support VM$(NC)"
 
 rebuild-support: sync-support ## Rebuild support VM NixOS config (test mode)
@@ -334,7 +147,13 @@ support-logs: ## Show recent logs from support VM
 	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh support -c \
 		'journalctl -n 50 --no-pager'"
 
-# Vault key backup/restore for teardown support
+vagrant-ssh-support: ## SSH into support VM (via iter)
+	@ssh -t $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh support"
+
+# ============================================================================
+# Vault Key Management
+# ============================================================================
+
 VAULT_KEYS_BACKUP := $(shell pwd)/iac/.vault-keys-backup.json
 
 vault-backup-keys: ## Backup Vault unseal keys to local file
@@ -364,9 +183,280 @@ vault-show-token: ## Show Vault root token (requires backup)
 	@echo "$(BLUE)Vault Root Token:$(NC)"
 	@jq -r '.root_token' $(VAULT_KEYS_BACKUP)
 
-# Remote vagrant commands (run on iter)
-vagrant-status: ## Show vagrant status (on iter)
-	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant status"
+# ============================================================================
+# Kubernetes Cluster Management
+# ============================================================================
 
-vagrant-ssh-support: ## SSH into support VM (via iter)
-	@ssh -t $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh support"
+K8S_MASTER_NIX_DIR := $(shell pwd)/iac/provision/nix/k8s-master
+K8S_WORKER_NIX_DIR := $(shell pwd)/iac/provision/nix/k8s-worker
+
+# Get VM IPs dynamically
+K8S_MASTER_IP = $(shell ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-master -c \"ip -4 addr show ens7 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'\" 2>/dev/null" | tr -d '\r')
+K8S_WORKER_1_IP = $(shell ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-1 -c \"ip -4 addr show ens7 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'\" 2>/dev/null" | tr -d '\r')
+K8S_WORKER_2_IP = $(shell ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-2 -c \"ip -4 addr show ens7 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'\" 2>/dev/null" | tr -d '\r')
+K8S_WORKER_3_IP = $(shell ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-3 -c \"ip -4 addr show ens7 | grep -oP '(?<=inet\s)\d+(\.\d+){3}'\" 2>/dev/null" | tr -d '\r')
+
+# K8s Master VM management
+k8s-master-up: ## Start k8s-master VM
+	@echo "$(BLUE)Starting k8s-master VM...$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant up k8s-master"
+	@echo "$(GREEN)k8s-master VM started$(NC)"
+
+sync-k8s-master: ## Sync NixOS configuration to k8s-master VM
+	@echo "$(BLUE)Syncing NixOS config to k8s-master ($(K8S_MASTER_IP))...$(NC)"
+	@ssh $(REMOTE_HOST) "rsync -avz \
+		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
+		$(REMOTE_PROJECT_DIR)/iac/provision/nix/k8s-master/ \
+		vagrant@$(K8S_MASTER_IP):/tmp/nix-config/"
+	@ssh $(REMOTE_HOST) "rsync -avz \
+		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
+		$(REMOTE_PROJECT_DIR)/iac/provision/nix/k8s-common/ \
+		vagrant@$(K8S_MASTER_IP):/tmp/nix-config/k8s-common/"
+	@ssh $(REMOTE_HOST) "rsync -avz \
+		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
+		$(REMOTE_PROJECT_DIR)/iac/provision/nix/common/ \
+		vagrant@$(K8S_MASTER_IP):/tmp/nix-config/common/"
+	@echo "$(GREEN)Config synced to k8s-master:/tmp/nix-config/$(NC)"
+
+rebuild-k8s-master: sync-k8s-master ## Rebuild k8s-master NixOS config (test mode)
+	@echo "$(BLUE)Rebuilding k8s-master NixOS configuration (test mode)...$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-master -c \
+		'sudo nixos-rebuild test -I nixos-config=/tmp/nix-config/configuration.nix'"
+	@echo "$(GREEN)Configuration applied (test mode - not permanent)$(NC)"
+
+rebuild-k8s-master-switch: sync-k8s-master ## Rebuild and switch k8s-master NixOS config permanently
+	@echo "$(BLUE)Rebuilding k8s-master NixOS configuration (switch mode)...$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-master -c \
+		'sudo nixos-rebuild switch -I nixos-config=/tmp/nix-config/configuration.nix'"
+	@echo "$(GREEN)Configuration applied permanently$(NC)"
+
+# K8s Worker VMs management
+k8s-workers-up: ## Start all k8s-worker VMs
+	@echo "$(BLUE)Starting k8s-worker VMs...$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant up k8s-worker-1 k8s-worker-2 k8s-worker-3"
+	@echo "$(GREEN)k8s-worker VMs started$(NC)"
+
+# Worker 1
+sync-k8s-worker-1: ## Sync NixOS configuration to k8s-worker-1 VM
+	@echo "$(BLUE)Syncing NixOS config to k8s-worker-1 ($(K8S_WORKER_1_IP))...$(NC)"
+	@ssh $(REMOTE_HOST) "rsync -avz \
+		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
+		$(REMOTE_PROJECT_DIR)/iac/provision/nix/k8s-worker/ \
+		vagrant@$(K8S_WORKER_1_IP):/tmp/nix-config/k8s-worker/"
+	@ssh $(REMOTE_HOST) "rsync -avz \
+		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
+		$(REMOTE_PROJECT_DIR)/iac/provision/nix/k8s-worker-1/ \
+		vagrant@$(K8S_WORKER_1_IP):/tmp/nix-config/k8s-worker-1/"
+	@ssh $(REMOTE_HOST) "rsync -avz \
+		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
+		$(REMOTE_PROJECT_DIR)/iac/provision/nix/k8s-common/ \
+		vagrant@$(K8S_WORKER_1_IP):/tmp/nix-config/k8s-common/"
+	@ssh $(REMOTE_HOST) "rsync -avz \
+		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
+		$(REMOTE_PROJECT_DIR)/iac/provision/nix/common/ \
+		vagrant@$(K8S_WORKER_1_IP):/tmp/nix-config/common/"
+	@echo "$(GREEN)Config synced to k8s-worker-1:/tmp/nix-config/$(NC)"
+
+rebuild-k8s-worker-1: sync-k8s-worker-1 ## Rebuild k8s-worker-1 NixOS config (test mode)
+	@echo "$(BLUE)Rebuilding k8s-worker-1 NixOS configuration (test mode)...$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-1 -c \
+		'sudo nixos-rebuild test -I nixos-config=/tmp/nix-config/k8s-worker-1/configuration.nix'"
+	@echo "$(GREEN)Configuration applied (test mode)$(NC)"
+
+rebuild-k8s-worker-1-switch: sync-k8s-worker-1 ## Rebuild and switch k8s-worker-1 NixOS config permanently
+	@echo "$(BLUE)Rebuilding k8s-worker-1 NixOS configuration (switch mode)...$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-1 -c \
+		'sudo nixos-rebuild switch -I nixos-config=/tmp/nix-config/k8s-worker-1/configuration.nix'"
+	@echo "$(GREEN)Configuration applied permanently$(NC)"
+
+# Worker 2
+sync-k8s-worker-2: ## Sync NixOS configuration to k8s-worker-2 VM
+	@echo "$(BLUE)Syncing NixOS config to k8s-worker-2 ($(K8S_WORKER_2_IP))...$(NC)"
+	@ssh $(REMOTE_HOST) "rsync -avz \
+		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
+		$(REMOTE_PROJECT_DIR)/iac/provision/nix/k8s-worker/ \
+		vagrant@$(K8S_WORKER_2_IP):/tmp/nix-config/k8s-worker/"
+	@ssh $(REMOTE_HOST) "rsync -avz \
+		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
+		$(REMOTE_PROJECT_DIR)/iac/provision/nix/k8s-worker-2/ \
+		vagrant@$(K8S_WORKER_2_IP):/tmp/nix-config/k8s-worker-2/"
+	@ssh $(REMOTE_HOST) "rsync -avz \
+		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
+		$(REMOTE_PROJECT_DIR)/iac/provision/nix/k8s-common/ \
+		vagrant@$(K8S_WORKER_2_IP):/tmp/nix-config/k8s-common/"
+	@ssh $(REMOTE_HOST) "rsync -avz \
+		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
+		$(REMOTE_PROJECT_DIR)/iac/provision/nix/common/ \
+		vagrant@$(K8S_WORKER_2_IP):/tmp/nix-config/common/"
+	@echo "$(GREEN)Config synced to k8s-worker-2:/tmp/nix-config/$(NC)"
+
+rebuild-k8s-worker-2: sync-k8s-worker-2 ## Rebuild k8s-worker-2 NixOS config (test mode)
+	@echo "$(BLUE)Rebuilding k8s-worker-2 NixOS configuration (test mode)...$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-2 -c \
+		'sudo nixos-rebuild test -I nixos-config=/tmp/nix-config/k8s-worker-2/configuration.nix'"
+	@echo "$(GREEN)Configuration applied (test mode)$(NC)"
+
+rebuild-k8s-worker-2-switch: sync-k8s-worker-2 ## Rebuild and switch k8s-worker-2 NixOS config permanently
+	@echo "$(BLUE)Rebuilding k8s-worker-2 NixOS configuration (switch mode)...$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-2 -c \
+		'sudo nixos-rebuild switch -I nixos-config=/tmp/nix-config/k8s-worker-2/configuration.nix'"
+	@echo "$(GREEN)Configuration applied permanently$(NC)"
+
+# Worker 3
+sync-k8s-worker-3: ## Sync NixOS configuration to k8s-worker-3 VM
+	@echo "$(BLUE)Syncing NixOS config to k8s-worker-3 ($(K8S_WORKER_3_IP))...$(NC)"
+	@ssh $(REMOTE_HOST) "rsync -avz \
+		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
+		$(REMOTE_PROJECT_DIR)/iac/provision/nix/k8s-worker/ \
+		vagrant@$(K8S_WORKER_3_IP):/tmp/nix-config/k8s-worker/"
+	@ssh $(REMOTE_HOST) "rsync -avz \
+		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
+		$(REMOTE_PROJECT_DIR)/iac/provision/nix/k8s-worker-3/ \
+		vagrant@$(K8S_WORKER_3_IP):/tmp/nix-config/k8s-worker-3/"
+	@ssh $(REMOTE_HOST) "rsync -avz \
+		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
+		$(REMOTE_PROJECT_DIR)/iac/provision/nix/k8s-common/ \
+		vagrant@$(K8S_WORKER_3_IP):/tmp/nix-config/k8s-common/"
+	@ssh $(REMOTE_HOST) "rsync -avz \
+		-e 'ssh -o StrictHostKeyChecking=no -i $(VAGRANT_SSH_KEY)' \
+		$(REMOTE_PROJECT_DIR)/iac/provision/nix/common/ \
+		vagrant@$(K8S_WORKER_3_IP):/tmp/nix-config/common/"
+	@echo "$(GREEN)Config synced to k8s-worker-3:/tmp/nix-config/$(NC)"
+
+rebuild-k8s-worker-3: sync-k8s-worker-3 ## Rebuild k8s-worker-3 NixOS config (test mode)
+	@echo "$(BLUE)Rebuilding k8s-worker-3 NixOS configuration (test mode)...$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-3 -c \
+		'sudo nixos-rebuild test -I nixos-config=/tmp/nix-config/k8s-worker-3/configuration.nix'"
+	@echo "$(GREEN)Configuration applied (test mode)$(NC)"
+
+rebuild-k8s-worker-3-switch: sync-k8s-worker-3 ## Rebuild and switch k8s-worker-3 NixOS config permanently
+	@echo "$(BLUE)Rebuilding k8s-worker-3 NixOS configuration (switch mode)...$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-3 -c \
+		'sudo nixos-rebuild switch -I nixos-config=/tmp/nix-config/k8s-worker-3/configuration.nix'"
+	@echo "$(GREEN)Configuration applied permanently$(NC)"
+
+# Cluster operations
+k8s-get-token: ## Get RKE2 join token from master
+	@echo "$(BLUE)Getting RKE2 join token from k8s-master...$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-master -c \
+		'sudo cat /var/lib/rancher/rke2/server/node-token'"
+
+k8s-distribute-token: ## Copy join token from master to all workers
+	@echo "$(BLUE)Distributing RKE2 join token to workers...$(NC)"
+	@TOKEN=$$(ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-master -c 'sudo cat /var/lib/rancher/rke2/server/node-token' 2>/dev/null | tr -d '\r'"); \
+	if [ -n "$$TOKEN" ]; then \
+		for i in 1 2 3; do \
+			echo "Copying token to k8s-worker-$$i..."; \
+			ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-$$i -c 'sudo mkdir -p /var/lib/rancher/rke2 && echo \"$$TOKEN\" | sudo tee /var/lib/rancher/rke2/shared-token > /dev/null'"; \
+		done; \
+		echo "$(GREEN)Token distributed to all workers$(NC)"; \
+	else \
+		echo "$(RED)Failed to get token from master$(NC)"; \
+		exit 1; \
+	fi
+
+k8s-kubeconfig: ## Fetch kubeconfig from k8s-master to local machine
+	@echo "$(BLUE)Fetching kubeconfig from k8s-master...$(NC)"
+	@mkdir -p $(HOME)/.kube
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-master -c 'sudo cat /etc/rancher/rke2/rke2.yaml'" \
+		| sed 's/127.0.0.1/k8s-master.local/g' > $(HOME)/.kube/config-kss
+	@chmod 600 $(HOME)/.kube/config-kss
+	@echo "$(GREEN)Kubeconfig saved to $(HOME)/.kube/config-kss$(NC)"
+	@echo "Usage: export KUBECONFIG=$(HOME)/.kube/config-kss"
+
+k8s-cluster-status: ## Check Kubernetes cluster status
+	@echo "$(BLUE)Kubernetes Cluster Status:$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-master -c \
+		'sudo /var/lib/rancher/rke2/bin/kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml get nodes -o wide'" || true
+	@echo ""
+	@echo "$(BLUE)System Pods:$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-master -c \
+		'sudo /var/lib/rancher/rke2/bin/kubectl --kubeconfig /etc/rancher/rke2/rke2.yaml get pods -A'" || true
+
+k8s-master-status: ## Check k8s-master service status
+	@echo "$(BLUE)k8s-master Service Status:$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-master -c \
+		'systemctl status rke2-server rke2-server-install --no-pager'" || true
+
+k8s-master-logs: ## Show k8s-master RKE2 logs
+	@echo "$(BLUE)k8s-master RKE2 Logs:$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-master -c \
+		'journalctl -u rke2-server -n 100 --no-pager'"
+
+k8s-worker-logs: ## Show k8s-worker-1 RKE2 agent logs
+	@echo "$(BLUE)k8s-worker-1 RKE2 Agent Logs:$(NC)"
+	@ssh $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-1 -c \
+		'journalctl -u rke2-agent -n 100 --no-pager'"
+
+# SSH shortcuts
+vagrant-ssh-k8s-master: ## SSH into k8s-master VM (via iter)
+	@ssh -t $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-master"
+
+vagrant-ssh-k8s-worker-1: ## SSH into k8s-worker-1 VM (via iter)
+	@ssh -t $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-1"
+
+vagrant-ssh-k8s-worker-2: ## SSH into k8s-worker-2 VM (via iter)
+	@ssh -t $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-2"
+
+vagrant-ssh-k8s-worker-3: ## SSH into k8s-worker-3 VM (via iter)
+	@ssh -t $(REMOTE_HOST) "cd $(REMOTE_VAGRANT_DIR) && /usr/bin/vagrant ssh k8s-worker-3"
+
+# ============================================================================
+# Validation & Testing
+# ============================================================================
+
+validate: validate-helm validate-kustomize ## Run all validations
+
+validate-helm: ## Validate Helmfile
+	@echo "$(BLUE)Validating Helmfile...$(NC)"
+	@if command -v helmfile &> /dev/null; then \
+		cd $(HELMFILE_DIR) && helmfile lint; \
+		echo "$(GREEN)Helmfile validation passed!$(NC)"; \
+	else \
+		echo "$(RED)helmfile not found$(NC)"; \
+	fi
+
+validate-kustomize: ## Validate Kustomize manifests
+	@echo "$(BLUE)Validating Kustomize manifests...$(NC)"
+	@if command -v kustomize &> /dev/null; then \
+		kustomize build $(KUSTOMIZE_DIR)/base > /dev/null && \
+		echo "$(GREEN)Kustomize validation passed!$(NC)" || \
+		echo "$(RED)Kustomize validation failed!$(NC)"; \
+	else \
+		echo "$(RED)kustomize not found$(NC)"; \
+	fi
+
+lint: ## Run all linters
+	@echo "$(BLUE)Linting configurations...$(NC)"
+	@echo "Checking documentation files..."
+	@find $(DOCS_DIR) -name "*.md" -exec echo "  {}" \;
+	@echo "$(GREEN)Linting complete!$(NC)"
+
+test: ## Run smoke tests (requires running cluster)
+	@echo "$(BLUE)Running smoke tests...$(NC)"
+	@if [ -f "$(HOME)/.kube/config-kss" ]; then \
+		KUBECONFIG=$(HOME)/.kube/config-kss kubectl cluster-info; \
+	else \
+		echo "$(RED)No kubeconfig found. Run 'make k8s-kubeconfig' first.$(NC)"; \
+	fi
+
+# ============================================================================
+# Build Tools
+# ============================================================================
+
+build-nix-box: ## Build custom NixOS Vagrant box
+	@echo "$(BLUE)Building custom NixOS Vagrant box...$(NC)"
+	@cd iac && bash build-nix-box.sh
+	@echo "$(GREEN)Box built successfully!$(NC)"
+
+# ============================================================================
+# Utility
+# ============================================================================
+
+print-config: ## Print configuration variables
+	@echo "$(BLUE)Configuration:$(NC)"
+	@echo "Local Vagrant Directory: $(VAGRANT_DIR)"
+	@echo "Remote Host: $(REMOTE_HOST)"
+	@echo "Remote Vagrant Directory: $(REMOTE_VAGRANT_DIR)"
+	@echo "Helmfile Directory: $(HELMFILE_DIR)"
+	@echo "Docs Directory: $(DOCS_DIR)"

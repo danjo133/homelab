@@ -55,6 +55,7 @@
   };
 
   # Vagrant user setup
+  # TODO: make default password generateable at initialization
   users.users.vagrant = {
     isNormalUser = true;
     home = "/home/vagrant";
@@ -79,6 +80,7 @@
 
   # SSH key for vagrant user - create .ssh directory explicitly
   # Using activation script to ensure .ssh/authorized_keys exists
+  # TODO: generate ssh-keys at initialization, one ssh-key per vm, add keys to ssh-config file
   system.activationScripts.vagrantSsh = ''
     mkdir -p /home/vagrant/.ssh
     chmod 700 /home/vagrant/.ssh
@@ -88,6 +90,7 @@
   '';
 
   # Disable firewall for simplicity (can be enabled per-deployment)
+  # TODO: enable firewall
   networking.firewall.enable = false;
 
   # Enable serial console for debugging

@@ -24,7 +24,15 @@ This is a Kubernetes homelab infrastructure-as-code project for provisioning an 
 - **NFS**: Exports configured for Kubernetes RWX volumes and backups
 - **Nginx**: Reverse proxy with TLS termination for all services
 
-**Next Phase**: Configure Kubernetes cluster VMs and RKE2 installation.
+**Phase 2 In Progress**: Kubernetes cluster NixOS configurations created.
+
+- **k8s-master**: RKE2 server configuration with auto-install
+- **k8s-worker-{1,2,3}**: RKE2 agent configurations with auto-join
+- Common modules for RKE2 base setup and Vault CA trust
+- Registry configuration for Harbor mirror
+- Longhorn prerequisites (iSCSI, NFS) on workers
+
+**Next Phase**: Start VMs, apply configurations, and verify cluster formation.
 
 ## Key Commands
 
@@ -62,6 +70,21 @@ make vault-show-token      # Show Vault root token
 
 # MinIO bucket setup (run once after VM is up)
 vagrant ssh support -c 'sudo /etc/nixos/scripts/bootstrap-minio.sh'
+
+# Kubernetes cluster management (from project root)
+make k8s-master-up         # Start k8s-master VM
+make k8s-workers-up        # Start all worker VMs
+make sync-k8s-master       # Sync NixOS config to k8s-master
+make rebuild-k8s-master    # Rebuild k8s-master (test mode)
+make rebuild-k8s-master-switch  # Rebuild and switch permanently
+make sync-k8s-worker-1     # Sync config to k8s-worker-1 (also -2, -3)
+make rebuild-k8s-worker-1  # Rebuild k8s-worker-1 (also -2, -3)
+make k8s-cluster-status    # Check cluster nodes and pods
+make k8s-get-token         # Show RKE2 join token
+make k8s-distribute-token  # Copy join token to workers
+make k8s-kubeconfig        # Fetch kubeconfig to ~/.kube/config-kss
+make vagrant-ssh-k8s-master    # SSH into k8s-master
+make vagrant-ssh-k8s-worker-1  # SSH into k8s-worker-1
 ```
 
 ## Architecture
@@ -117,17 +140,37 @@ iac/                          # Primary infrastructure code
 ├── build-nix-box.sh          # Script to build Vagrant box
 ├── setup-libvirt-network.sh  # VLAN bridge network setup
 ├── provision/nix/            # Per-VM NixOS configurations
-│   └── supporting-systems/   # Support VM configuration
-│       ├── configuration.nix # Main entry point
-│       ├── hardware-configuration.nix
-│       ├── modules/
-│       │   ├── base.nix      # Hostname, mDNS, common packages
-│       │   ├── nginx.nix     # Reverse proxy, TLS termination
-│       │   ├── vault.nix     # HashiCorp Vault with auto-init/unseal
-│       │   ├── minio.nix     # S3-compatible storage
-│       │   ├── nfs.nix       # NFS server for k8s volumes
-│       │   └── harbor.nix    # Container registry (Docker Compose)
-│       └── scripts/          # Bootstrap scripts (some superseded by modules)
+│   ├── supporting-systems/   # Support VM configuration
+│   │   ├── configuration.nix # Main entry point
+│   │   ├── hardware-configuration.nix
+│   │   ├── modules/
+│   │   │   ├── base.nix      # Hostname, mDNS, common packages
+│   │   │   ├── nginx.nix     # Reverse proxy, TLS termination
+│   │   │   ├── vault.nix     # HashiCorp Vault with auto-init/unseal
+│   │   │   ├── minio.nix     # S3-compatible storage
+│   │   │   ├── nfs.nix       # NFS server for k8s volumes
+│   │   │   └── harbor.nix    # Container registry (Docker Compose)
+│   │   └── scripts/          # Bootstrap scripts
+│   ├── k8s-common/           # Shared K8s node configuration
+│   │   ├── rke2-base.nix     # Common RKE2 config, kernel modules, sysctl
+│   │   └── vault-ca.nix      # Vault CA trust setup
+│   ├── k8s-master/           # K8s control plane configuration
+│   │   ├── configuration.nix
+│   │   ├── hardware-configuration.nix
+│   │   └── modules/
+│   │       ├── base.nix      # Hostname, firewall for control plane
+│   │       ├── rke2-server.nix # RKE2 server auto-install
+│   │       └── security.nix  # Vault CA, Harbor registry config
+│   ├── k8s-worker/           # Shared worker node configuration
+│   │   ├── configuration.nix
+│   │   ├── hardware-configuration.nix
+│   │   └── modules/
+│   │       ├── base.nix      # Hostname, firewall for workers
+│   │       ├── rke2-agent.nix # RKE2 agent auto-install
+│   │       ├── security.nix  # Vault CA, Harbor registry config
+│   │       └── storage.nix   # Longhorn prerequisites, NFS mounts
+│   └── k8s-worker-{1,2,3}/   # Per-worker hostname wrappers
+│       └── configuration.nix # Sets hostname, imports k8s-worker
 ├── helmfile/                 # Kubernetes bootstrap
 └── kustomize/                # GitOps manifests
 
@@ -192,7 +235,7 @@ See `iac/docs/TODO.md` for detailed checklist.
 - [x] Phase 0: Pre-infrastructure setup (git, network design)
 - [x] Phase 0.5: VM infrastructure (Vagrant, NixOS box, networking)
 - [x] Phase 1: Supporting infrastructure VM (Vault, Harbor, MinIO, NFS)
-- [ ] Phase 2: Kubernetes cluster VMs and RKE2
+- [~] Phase 2: Kubernetes cluster VMs and RKE2 (NixOS configs created, needs testing)
 - [ ] Phase 3: Cluster bootstrap with Helmfile
 - [ ] Phase 4: Deploy services via ArgoCD
 - [ ] Phase 5-10: Networking, backups, monitoring, security, CI/CD, docs
