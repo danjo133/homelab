@@ -318,7 +318,7 @@ let
       curl -sf -X POST \
         -H "X-Vault-Token: $VAULT_TOKEN" \
         -H "Content-Type: application/json" \
-        -d "$(jq -n --arg secret "$OAUTH2_PROXY_CLIENT_SECRET" '{data: {"client-secret": $secret}}')" \
+        -d "$(jq -n --arg id "oauth2-proxy" --arg secret "$OAUTH2_PROXY_CLIENT_SECRET" '{data: {"client-id": $id, "client-secret": $secret}}')" \
         "$VAULT_ADDR/v1/secret/data/keycloak/oauth2-proxy-client"
       echo "  Stored keycloak/oauth2-proxy-client in Vault"
 

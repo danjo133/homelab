@@ -39,4 +39,6 @@ spec:
     excludedNamespaces:
       - kube-system
       - gatekeeper-system
+      - longhorn-system
+      - monitoring
       - spire-system

@@ -70,7 +70,8 @@ EXISTING=$(curl -sk -o /dev/null -w "%{http_code}" \
 if [ "$EXISTING" = "200" ]; then
     echo "  Already exists, skipping"
 else
-    COOKIE_SECRET=$(openssl rand -base64 32)
+    # Must be exactly 16, 24, or 32 bytes (not base64-encoded)
+    COOKIE_SECRET=$(openssl rand -hex 16)
 
     curl -sk -X POST \
         -H "X-Vault-Token: $VAULT_TOKEN" \

@@ -329,7 +329,7 @@ releases:
       stage: identity
     chart: oauth2-proxy/oauth2-proxy
     version: "7.x"
-    installed: false
+    installed: {{ .Values | getOrNil "useOAuth2Proxy" | default false }}
     values:
       - ./values/oauth2-proxy.yaml
     needs:
@@ -339,6 +339,15 @@ releases:
   # ===========================================================================
   # SPIRE - SPIFFE Workload Identity
   # ===========================================================================
+  - name: spire-crds
+    namespace: spire-system
+    createNamespace: true
+    labels:
+      stage: identity
+    chart: spiffe/spire-crds
+    version: "0.5.x"
+    installed: {{ .Values | getOrNil "useSpire" | default false }}
+
   - name: spire
     namespace: spire-system
     createNamespace: true
@@ -346,11 +355,12 @@ releases:
       stage: identity
     chart: spiffe/spire
     version: "0.23.x"
-    installed: false
+    installed: {{ .Values | getOrNil "useSpire" | default false }}
     values:
       - ./values/spire.yaml
     needs:
       - cert-manager/cert-manager
+      - spire-system/spire-crds
 
   # ===========================================================================
   # OPA Gatekeeper - Policy Enforcement
@@ -362,7 +372,7 @@ releases:
       stage: identity
     chart: gatekeeper/gatekeeper
     version: "3.18.x"
-    installed: false
+    installed: {{ .Values | getOrNil "useGatekeeper" | default false }}
     values:
       - ./values/gatekeeper.yaml
 

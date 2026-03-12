@@ -2,7 +2,8 @@
 # Web SSO via OIDC through broker Keycloak
 
 config:
-  clientID: oauth2-proxy
+  # Credentials from Kubernetes secrets (populated by ExternalSecrets)
+  existingSecret: oauth2-proxy-credentials
   cookieName: "_oauth2_proxy"
 
 extraArgs:
@@ -21,9 +22,6 @@ extraArgs:
   # Allow auth via header for nginx auth_request
   reverse-proxy: "true"
   skip-provider-button: "true"
-
-# Credentials from Kubernetes secrets (populated by ExternalSecrets)
-existingSecret: oauth2-proxy-credentials
 
 ingress:
   enabled: true

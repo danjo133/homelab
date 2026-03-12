@@ -5,5 +5,5 @@ load_cluster_vars
 require_kubeconfig
 
 info "Deploying OAuth2-Proxy..."
-helmfile_cmd -l name=oauth2-proxy --set installed=true apply
+helmfile_cmd -e "${CLUSTER_HELMFILE_ENV}" -l name=oauth2-proxy --state-values-set useOAuth2Proxy=true apply
 success "OAuth2-Proxy deployed"
