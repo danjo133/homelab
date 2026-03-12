@@ -2,7 +2,7 @@
 
 # Controller connection
 ctrl:
-  endpoint: "ziti.support.example.com:1280"
+  endpoint: "z.example.com:2029"
 
 # Enrollment JWT from K8s secret (created by ExternalSecret from Vault)
 enrollmentJwt: ""
@@ -36,5 +36,4 @@ resources:
   limits:
     memory: 256Mi
 
-tolerations:
-  - operator: Exists
+tolerations: []

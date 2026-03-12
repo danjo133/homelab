@@ -29,36 +29,30 @@ module "ziti_config" {
   source           = "../../modules/ziti-config"
   vault_namespaces = var.vault_namespaces
 
-  support_services = {
-    vault = {
-      port              = 8200
-      intercept_address = "vault.ziti"
-      host_address      = "127.0.0.1"
+  overlay_services = {
+    support-web = {
+      intercept_addresses = ["*.support.example.com"]
+      intercept_port      = 443
+      host_address        = "127.0.0.1"
+      bind_roles          = ["support"]
     }
-    minio = {
-      port              = 9000
-      intercept_address = "minio.ziti"
-      host_address      = "127.0.0.1"
+    kss-ingress = {
+      intercept_addresses = ["*.simple-k8s.example.com"]
+      intercept_port      = 443
+      host_address        = "10.69.50.192"
+      bind_roles          = ["kss"]
     }
-    minio-console = {
-      port              = 9001
-      intercept_address = "minio-console.ziti"
-      host_address      = "127.0.0.1"
+    kcs-ingress = {
+      intercept_addresses = ["*.mesh-k8s.example.com"]
+      intercept_port      = 443
+      host_address        = "10.69.50.209"
+      bind_roles          = ["kcs"]
     }
-    harbor = {
-      port              = 8080
-      intercept_address = "harbor.ziti"
-      host_address      = "127.0.0.1"
-    }
-    gitlab = {
-      port              = 8929
-      intercept_address = "gitlab.ziti"
-      host_address      = "127.0.0.1"
-    }
-    keycloak = {
-      port              = 8180
-      intercept_address = "keycloak.ziti"
-      host_address      = "127.0.0.1"
-    }
+  }
+
+  client_devices = {
+    alice-laptop = {}
+    bob-phone  = {}
+    dave-tablet = {}
   }
 }

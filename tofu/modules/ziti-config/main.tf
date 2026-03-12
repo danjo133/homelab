@@ -2,8 +2,9 @@
 #
 # Manages:
 #   - Per-cluster edge routers (K8s workload hosting)
-#   - Support VM service definitions (intercept + host configs)
-#   - Service and router access policies
+#   - Overlay service definitions (intercept + host configs)
+#   - Per-service bind/dial policies
+#   - Client device identities for external access
 #   - Enrollment JWTs stored in Vault per-cluster namespace
 
 # ─── Edge Routers ──────────────────────────────────────────────────────────────
@@ -16,10 +17,11 @@ resource "ziti_edge_router" "cluster" {
   is_tunnelerenabled = true
 }
 
-# ─── Client Identity ──────────────────────────────────────────────────────────
+# ─── Client Identities ──────────────────────────────────────────────────────────
 
-# Admin client identity for accessing services
-resource "ziti_identity" "admin_client" {
-  name            = "admin-client"
-  role_attributes = ["clients"]
+# Per-device identities for external Ziti access
+resource "ziti_identity" "client" {
+  for_each        = var.client_devices
+  name            = each.key
+  role_attributes = each.value.role_attributes
 }

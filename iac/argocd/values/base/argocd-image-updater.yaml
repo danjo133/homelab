@@ -1,0 +1,17 @@
+# ArgoCD Image Updater — watches container registries for new image tags
+
+config:
+  registries:
+    - name: Harbor
+      api_url: https://harbor.support.example.com
+      prefix: harbor.support.example.com
+      credentials: pullsecret:argocd/harbor-image-updater-secret
+      defaultns: library
+      default: true
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 256Mi

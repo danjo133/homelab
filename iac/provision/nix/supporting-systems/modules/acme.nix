@@ -73,6 +73,11 @@ in
       sslCertificate = lib.mkForce null;
       sslCertificateKey = lib.mkForce null;
     };
+    "zac.support.example.com" = {
+      useACMEHost = domain;
+      sslCertificate = lib.mkForce null;
+      sslCertificateKey = lib.mkForce null;
+    };
   };
 
   # Disable self-signed cert generation when using ACME

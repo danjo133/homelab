@@ -1,0 +1,53 @@
+# --- Developer-facing values (set in deploy/values.yaml) ---
+
+# Short name for the service — becomes <name>.<clusterDomain>
+# Example: "sl" → sl.simple-k8s.example.com
+name: ""
+
+# Container port the app listens on
+port: 8080
+
+# Memory limit (request is set to half)
+memory: 256Mi
+
+# Enable OAuth2 Proxy SSO (Keycloak via nginx auth_request)
+sso: false
+
+# Environment variables
+env: []
+envFrom: []
+
+# Health probes (disabled by default)
+probes:
+  liveness:
+    enabled: false
+    path: /healthz
+  readiness:
+    enabled: false
+    path: /readyz
+
+# --- Platform-injected values (set by ApplicationSet) ---
+
+# Cluster domain, injected by ApplicationSet helm parameter
+# e.g., simple-k8s.example.com
+clusterDomain: ""
+
+# Ingress mode: "nginx" (KSS) or "gateway" (KCS)
+ingressMode: nginx
+
+# Gateway API settings (only used when ingressMode=gateway)
+gateway:
+  name: main-gateway
+  namespace: istio-ingress
+  sectionName: https
+
+image:
+  registry: harbor.support.example.com
+  repository: apps/app
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets:
+  - name: harbor-pull-secret
+
+replicaCount: 1

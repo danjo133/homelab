@@ -32,5 +32,5 @@ provider "gitlab" {
 provider "ziti" {
   username = var.ziti_admin_user
   password = var.ziti_admin_password
-  host     = [var.ziti_api_url]
+  host     = var.ziti_api_url
 }

@@ -217,3 +217,51 @@ resource "vault_kv_secret_v2" "minio_loki" {
 
   lifecycle { ignore_changes = [data_json] }
 }
+
+# --- Apps pipeline secrets ---
+
+resource "vault_kv_secret_v2" "harbor_apps_push" {
+  mount = vault_mount.kv.path
+  name  = "harbor/apps-push"
+
+  data_json = jsonencode({
+    username = "placeholder"
+    password = "placeholder"
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+}
+
+resource "vault_kv_secret_v2" "harbor_apps_pull" {
+  mount = vault_mount.kv.path
+  name  = "harbor/apps-pull"
+
+  data_json = jsonencode({
+    username = "placeholder"
+    password = "placeholder"
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+}
+
+resource "vault_kv_secret_v2" "gitlab_ssh_host_keys" {
+  mount = vault_mount.kv.path
+  name  = "gitlab/ssh-host-keys"
+
+  data_json = jsonencode({
+    known_hosts = "placeholder"
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+}
+
+resource "vault_kv_secret_v2" "gitlab_apps_token" {
+  mount = vault_mount.kv.path
+  name  = "gitlab/apps-token"
+
+  data_json = jsonencode({
+    token = "placeholder"
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+}

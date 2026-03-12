@@ -7,12 +7,26 @@ server:
     enabled: true
     ingressClassName: nginx
     tls: true
+    annotations:
+      portal.example.com/name: "ArgoCD"
+      portal.example.com/description: "GitOps continuous deployment"
+      portal.example.com/icon: "\U0001F680"
+      portal.example.com/category: "Platform"
+      portal.example.com/order: "10"
 
 configs:
   params:
     server.insecure: true
   cm:
     kustomize.buildOptions: "--load-restrictor LoadRestrictionsNone"
+  ssh:
+    # Local GitLab SSH host keys — auto-published to Vault by github-mirror
+    # service on the support VM. Refresh with:
+    #   ssh-keyscan -p 2222 gitlab.support.example.com
+    extraHosts: |
+      # Replace with your GitLab SSH host keys: ssh-keyscan -p 2222 gitlab.support.example.com
+      [gitlab.support.example.com]:2222 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBDAdB403DuMtn7w/utmZKILpjWrDBv0+TLuVKs2zMsunYWWFnId41UPRii58x1Izc6MbHQG/kr0p2okUtaE/2NA=
+      # Replace with your GitLab SSH host keys: ssh-keyscan -p 2222 gitlab.support.example.com
   rbac:
     policy.csv: |
       g, oidc:platform-admins, role:admin

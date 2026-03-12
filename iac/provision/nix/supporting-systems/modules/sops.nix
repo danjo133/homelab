@@ -46,6 +46,14 @@ in
         mode = "0400";
         # Will be available at /run/secrets/keycloak_admin_password
       };
+
+      # GitHub PAT for mirroring private repos (read by github-mirror timer)
+      "github_token" = {
+        owner = "root";
+        group = "root";
+        mode = "0400";
+        # Will be available at /run/secrets/github_token
+      };
     };
   };
 

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cluster Portal</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0d1117;color:#c9d1d9;min-height:100vh}
+.container{max-width:1080px;margin:0 auto;padding:32px 20px}
+header{margin-bottom:32px}
+h1{font-size:1.6rem;margin-bottom:6px}
+.subtitle{color:#8b949e;font-size:0.9rem}
+.search-box{margin-bottom:28px}
+.search-box input{width:100%;padding:10px 16px;border-radius:8px;border:1px solid #21262d;background:#161b22;color:#c9d1d9;font-size:0.95rem;outline:none;transition:border-color 0.15s}
+.search-box input:focus{border-color:#58a6ff}
+.search-box input::placeholder{color:#484f58}
+.category{margin-bottom:28px}
+.category-header{font-size:1.05rem;font-weight:600;color:#8b949e;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #21262d;text-transform:uppercase;letter-spacing:0.05em;font-size:0.8rem}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.grid{grid-template-columns:1fr}}
+.card{background:#161b22;border:1px solid #21262d;border-radius:10px;padding:20px;text-decoration:none;color:inherit;display:block;transition:border-color 0.15s,box-shadow 0.15s}
+.card:hover{border-color:#58a6ff;box-shadow:0 0 0 1px #58a6ff20}
+.card-icon{font-size:1.8rem;margin-bottom:10px;line-height:1}
+.card-name{font-weight:600;font-size:1rem;margin-bottom:4px;color:#e6edf3}
+.card-desc{color:#8b949e;font-size:0.85rem;line-height:1.5;margin-bottom:10px}
+.card-url{color:#484f58;font-size:0.75rem;font-family:'SFMono-Regular',Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid #30363d;border-top-color:#58a6ff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading{text-align:center;padding:60px 20px;color:#8b949e;font-size:0.95rem}
+.empty{text-align:center;padding:60px 20px;color:#484f58;font-size:0.95rem}
+.error{text-align:center;padding:40px 20px;color:#da3633;font-size:0.9rem}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.7rem;background:#21262d;color:#8b949e;margin-left:8px;vertical-align:middle;font-weight:400}
+footer{margin-top:40px;padding-top:20px;border-top:1px solid #21262d;text-align:center;color:#484f58;font-size:0.75rem}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1 id="title">Cluster Portal</h1>
+    <p class="subtitle" id="subtitle">Loading...</p>
+  </header>
+
+  <div id="loading" class="loading"><span class="spinner"></span> Discovering services...</div>
+
+  <div id="app" style="display:none">
+    <div class="search-box">
+      <input type="text" id="search" placeholder="Search services..." autocomplete="off">
+    </div>
+    <div id="categories"></div>
+    <div id="empty" class="empty" style="display:none">No services match your search.</div>
+  </div>
+
+  <div id="error-section" style="display:none">
+    <div class="error" id="error-msg"></div>
+  </div>
+
+  <footer>
+    <span id="footer-info"></span>
+  </footer>
+</div>
+
+<script>
+var appData = null;
+
+async function init() {
+  try {
+    var resp = await fetch('/api/apps');
+    if (!resp.ok) {
+      showError('Failed to load services (HTTP ' + resp.status + ')');
+      return;
+    }
+    appData = await resp.json();
+    render();
+  } catch(e) {
+    showError('Failed to connect: ' + e.message);
+  }
+}
+
+function render() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+
+  var cluster = appData.cluster || 'unknown';
+  var domain = appData.domain || '';
+  document.getElementById('title').textContent = cluster.toUpperCase() + ' Cluster Portal';
+  document.getElementById('subtitle').textContent = 'Services running on ' + domain;
+  document.getElementById('footer-info').textContent =
+    appData.total + ' services discovered \u00b7 cached at ' + (appData.cached_at || '');
+
+  renderCategories(appData.categories);
+
+  document.getElementById('search').addEventListener('input', function() {
+    filterCards(this.value.toLowerCase());
+  });
+}
+
+function renderCategories(categories) {
+  var container = document.getElementById('categories');
+  container.innerHTML = '';
+
+  for (var i = 0; i < categories.length; i++) {
+    var cat = categories[i];
+    var section = document.createElement('div');
+    section.className = 'category';
+    section.setAttribute('data-category', cat.name);
+
+    var header = document.createElement('div');
+    header.className = 'category-header';
+    header.textContent = cat.name;
+    var badge = document.createElement('span');
+    badge.className = 'badge';
+    badge.textContent = cat.apps.length;
+    header.appendChild(badge);
+    section.appendChild(header);
+
+    var grid = document.createElement('div');
+    grid.className = 'grid';
+
+    for (var j = 0; j < cat.apps.length; j++) {
+      var app = cat.apps[j];
+      var card = document.createElement('a');
+      card.className = 'card';
+      card.href = app.url;
+      card.target = '_blank';
+      card.rel = 'noopener';
+      card.setAttribute('data-search', (app.name + ' ' + app.description + ' ' + cat.name).toLowerCase());
+
+      var iconDiv = document.createElement('div');
+      iconDiv.className = 'card-icon';
+      iconDiv.textContent = app.icon || '\u{1F310}';
+      card.appendChild(iconDiv);
+
+      var nameDiv = document.createElement('div');
+      nameDiv.className = 'card-name';
+      nameDiv.textContent = app.name;
+      card.appendChild(nameDiv);
+
+      if (app.description) {
+        var descDiv = document.createElement('div');
+        descDiv.className = 'card-desc';
+        descDiv.textContent = app.description;
+        card.appendChild(descDiv);
+      }
+
+      var urlDiv = document.createElement('div');
+      urlDiv.className = 'card-url';
+      urlDiv.textContent = app.url.replace('https://', '');
+      card.appendChild(urlDiv);
+
+      grid.appendChild(card);
+    }
+
+    section.appendChild(grid);
+    container.appendChild(section);
+  }
+}
+
+function filterCards(query) {
+  var categories = document.querySelectorAll('.category');
+  var anyVisible = false;
+
+  for (var i = 0; i < categories.length; i++) {
+    var cards = categories[i].querySelectorAll('.card');
+    var catVisible = false;
+
+    for (var j = 0; j < cards.length; j++) {
+      var match = !query || cards[j].getAttribute('data-search').indexOf(query) !== -1;
+      cards[j].style.display = match ? '' : 'none';
+      if (match) catVisible = true;
+    }
+
+    categories[i].style.display = catVisible ? '' : 'none';
+    if (catVisible) anyVisible = true;
+  }
+
+  document.getElementById('empty').style.display = anyVisible ? 'none' : 'block';
+}
+
+function showError(msg) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('error-section').style.display = 'block';
+  document.getElementById('error-msg').textContent = msg;
+}
+
+init();
+</script>
+</body>
+</html>

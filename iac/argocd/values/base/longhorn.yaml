@@ -6,6 +6,7 @@ defaultSettings:
   storageOverProvisioningPercentage: 200
   storageMinimalAvailablePercentage: 15
   guaranteedInstanceManagerCPU: 5
+  taintToleration: "node-role.kubernetes.io/control-plane=true:NoSchedule"
 
 persistence:
   defaultClass: true
@@ -16,6 +17,11 @@ ingress:
   ingressClassName: nginx
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
+    portal.example.com/name: "Longhorn"
+    portal.example.com/description: "Distributed block storage management"
+    portal.example.com/icon: "\U0001F4BE"
+    portal.example.com/category: "Platform"
+    portal.example.com/order: "30"
 
 longhornManager:
   tolerations:

@@ -1,22 +1,23 @@
 # ─── Service Policies ─────────────────────────────────────────────────────────
 
-# Bind: support router hosts support services
-# The support router is created via CLI in the NixOS setup, reference by name
-resource "ziti_service_policy" "support_bind" {
-  name         = "support-services-bind"
-  type         = "Bind"
-  semantic     = "AnyOf"
-  identityroles = ["@support-router"]
-  serviceroles  = ["#support-services"]
+# Per-service bind policy — which identities can host (bind) each service
+resource "ziti_service_policy" "bind" {
+  for_each      = var.overlay_services
+  name          = "${each.key}-bind"
+  type          = "Bind"
+  semantic      = "AnyOf"
+  identityroles = [for r in each.value.bind_roles : "#${r}"]
+  serviceroles  = ["#${each.key}"]
 }
 
-# Dial: client identities can access support services
-resource "ziti_service_policy" "support_dial" {
-  name         = "support-services-dial"
-  type         = "Dial"
-  semantic     = "AnyOf"
-  identityroles = ["#clients"]
-  serviceroles  = ["#support-services"]
+# Per-service dial policy — which identities can access (dial) each service
+resource "ziti_service_policy" "dial" {
+  for_each      = var.overlay_services
+  name          = "${each.key}-dial"
+  type          = "Dial"
+  semantic      = "AnyOf"
+  identityroles = [for r in each.value.dial_roles : "#${r}"]
+  serviceroles  = ["#${each.key}"]
 }
 
 # ─── Edge Router Policies ────────────────────────────────────────────────────

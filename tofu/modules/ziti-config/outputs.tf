@@ -4,17 +4,17 @@ output "cluster_router_ids" {
 }
 
 output "service_ids" {
-  description = "Service IDs for support services"
-  value       = { for k, v in ziti_service.support : k => v.id }
+  description = "Service IDs for overlay services"
+  value       = { for k, v in ziti_service.overlay : k => v.id }
 }
 
-output "admin_client_id" {
-  description = "Admin client identity ID"
-  value       = ziti_identity.admin_client.id
+output "client_device_ids" {
+  description = "Client device identity IDs"
+  value       = { for k, v in ziti_identity.client : k => v.id }
 }
 
-output "admin_client_enrollment_token" {
-  description = "Admin client enrollment JWT (one-time use)"
-  value       = ziti_identity.admin_client.enrollment_token
+output "client_device_enrollment_tokens" {
+  description = "Client device enrollment JWTs (one-time use)"
+  value       = { for k, v in ziti_identity.client : k => v.enrollment_token }
   sensitive   = true
 }

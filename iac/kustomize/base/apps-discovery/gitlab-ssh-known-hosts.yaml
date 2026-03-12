@@ -1,0 +1,21 @@
+# ExternalSecret — GitLab SSH host keys for ArgoCD known hosts
+# Vault path: secret/gitlab/ssh-host-keys
+# Automatically populated by github-mirror service on support VM
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: gitlab-ssh-known-hosts
+  namespace: argocd
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault
+    kind: ClusterSecretStore
+  target:
+    name: gitlab-ssh-known-hosts
+    creationPolicy: Owner
+  data:
+    - secretKey: ssh_known_hosts
+      remoteRef:
+        key: gitlab/ssh-host-keys
+        property: known_hosts

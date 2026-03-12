@@ -58,6 +58,9 @@ spec:
       namespace: oauth2-proxy
     - server: https://kubernetes.default.svc
       namespace: ziti-system
+    # apps-discovery cross-namespace ExternalSecrets
+    - server: https://kubernetes.default.svc
+      namespace: apps
   clusterResourceWhitelist:
     - group: apiextensions.k8s.io
       kind: CustomResourceDefinition

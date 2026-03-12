@@ -2,6 +2,12 @@
 ingress:
   enabled: true
   ingressClassName: nginx
+  annotations:
+    portal.example.com/name: "Headlamp"
+    portal.example.com/description: "Kubernetes dashboard"
+    portal.example.com/icon: "\U0001F4BB"
+    portal.example.com/category: "Platform"
+    portal.example.com/order: "20"
   hosts:
     - host: k8s.simple-k8s.example.com
       paths:

@@ -1,0 +1,30 @@
+# ExternalSecret — ArgoCD repo-creds template for apps/ group
+# Uses credential template pattern: any repo matching the URL prefix
+# gets these SSH credentials automatically
+# Vault path: secret/gitlab/argocd-ssh
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: repo-creds-apps
+  namespace: argocd
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault
+    kind: ClusterSecretStore
+  target:
+    name: repo-creds-apps
+    creationPolicy: Owner
+    template:
+      metadata:
+        labels:
+          argocd.argoproj.io/secret-type: repo-creds
+      data:
+        type: git
+        url: "ssh://git@gitlab.support.example.com:2222/apps"
+        sshPrivateKey: "{{ .sshPrivateKey }}"
+  data:
+    - secretKey: sshPrivateKey
+      remoteRef:
+        key: gitlab/argocd-ssh
+        property: sshPrivateKey

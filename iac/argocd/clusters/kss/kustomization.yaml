@@ -23,8 +23,13 @@ resources:
   - monitoring-config.yaml
   - jit-elevation.yaml
   - cluster-setup.yaml
+  - portal.yaml
   - headlamp-config.yaml
   - ziti-router-config.yaml
+  # Apps auto-discovery
+  - apps-discovery.yaml
+  - appset-own-chart.yaml
+  - appset-generic-chart.yaml
 
 patches:
   # Replace CLUSTER_NAME in base multi-source Application valueFiles paths

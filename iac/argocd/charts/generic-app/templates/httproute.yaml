@@ -1,0 +1,21 @@
+{{- if and .Values.name .Values.clusterDomain (eq .Values.ingressMode "gateway") }}
+{{- $host := printf "%s.%s" .Values.name .Values.clusterDomain }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.name }}
+      namespace: {{ .Values.gateway.namespace }}
+      sectionName: {{ .Values.gateway.sectionName }}
+  hostnames:
+    - {{ $host }}
+  rules:
+    - backendRefs:
+        - name: {{ .Release.Name }}
+          port: {{ .Values.port }}
+{{- end }}

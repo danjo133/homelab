@@ -169,6 +169,17 @@ in
       locations."/".return = "301 https://teleport.support.example.com:3080$request_uri";
     };
 
+    # Ziti Admin Console (ZAC)
+    virtualHosts."zac.support.example.com" = {
+      forceSSL = true;
+      sslCertificate = lib.mkDefault certFile;
+      sslCertificateKey = lib.mkDefault keyFile;
+      locations."/" = {
+        proxyPass = "http://127.0.0.1:1408";
+        proxyWebsockets = true;
+      };
+    };
+
     # GitLab CE
     virtualHosts."gitlab.support.example.com" = {
       forceSSL = true;

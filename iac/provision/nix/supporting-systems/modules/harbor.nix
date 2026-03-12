@@ -282,6 +282,178 @@ MINIOEOF
     touch "$MARKER"
     echo "==> Harbor proxy caches configured successfully"
   '';
+
+  # Harbor apps project setup — creates apps project, gcr.io proxy cache, and robot accounts
+  harborAppsProjectSetup = pkgs.writeShellScript "harbor-apps-project-setup" ''
+    set -eu
+
+    export PATH="${pkgs.curl}/bin:${pkgs.jq}/bin:${pkgs.coreutils}/bin:$PATH"
+
+    HARBOR_URL="http://127.0.0.1:8080"
+    HARBOR_API="$HARBOR_URL/api/v2.0"
+    HARBOR_ADMIN_PASSWORD=$(cat /etc/harbor/admin_password)
+    AUTH="admin:$HARBOR_ADMIN_PASSWORD"
+    MARKER="${harborDir}/.apps-project-complete"
+    VAULT_ADDR="http://127.0.0.1:8200"
+    KEYS_FILE="/var/lib/openbao/init-keys.json"
+
+    if [ -f "$MARKER" ]; then
+      echo "Harbor apps project already configured"
+      exit 0
+    fi
+
+    # Wait for Harbor API to be ready
+    echo "==> Waiting for Harbor API..."
+    for i in $(seq 1 60); do
+      if curl -sf "$HARBOR_API/systeminfo" -u "$AUTH" >/dev/null 2>&1; then
+        echo "Harbor API is ready"
+        break
+      fi
+      if [ "$i" -eq 60 ]; then
+        echo "ERROR: Harbor API not ready after 120s"
+        exit 1
+      fi
+      sleep 2
+    done
+
+    # --- gcr.io proxy cache ---
+    echo "==> Creating gcr.io registry endpoint..."
+    if curl -sf "$HARBOR_API/registries" -u "$AUTH" | jq -e '.[] | select(.name == "gcr")' >/dev/null 2>&1; then
+      echo "  Registry endpoint 'gcr' already exists"
+    else
+      echo "  Creating registry endpoint 'gcr' -> https://gcr.io"
+      curl -sf -X POST "$HARBOR_API/registries" -u "$AUTH" \
+        -H 'Content-Type: application/json' \
+        -d '{"name": "gcr", "type": "docker-registry", "url": "https://gcr.io", "insecure": false}' \
+        || { echo "ERROR: Failed to create registry 'gcr'"; exit 1; }
+    fi
+
+    echo "==> Creating gcr.io proxy cache project..."
+    if curl -sf "$HARBOR_API/projects" -u "$AUTH" | jq -e '.[] | select(.name == "gcr.io")' >/dev/null 2>&1; then
+      echo "  Project 'gcr.io' already exists"
+    else
+      REG_ID=$(curl -sf "$HARBOR_API/registries" -u "$AUTH" | jq -r '.[] | select(.name == "gcr") | .id')
+      if [ -z "$REG_ID" ] || [ "$REG_ID" = "null" ]; then
+        echo "ERROR: Registry 'gcr' not found"
+        exit 1
+      fi
+      echo "  Creating proxy cache project 'gcr.io' (registry id=$REG_ID)"
+      curl -sf -X POST "$HARBOR_API/projects" -u "$AUTH" \
+        -H 'Content-Type: application/json' \
+        -d "{
+          \"project_name\": \"gcr.io\",
+          \"public\": true,
+          \"registry_id\": $REG_ID,
+          \"metadata\": {\"public\": \"true\"}
+        }" \
+        || { echo "ERROR: Failed to create project 'gcr.io'"; exit 1; }
+    fi
+
+    # --- apps project (regular, not proxy cache) ---
+    echo "==> Creating apps project..."
+    if curl -sf "$HARBOR_API/projects" -u "$AUTH" | jq -e '.[] | select(.name == "apps")' >/dev/null 2>&1; then
+      echo "  Project 'apps' already exists"
+    else
+      curl -sf -X POST "$HARBOR_API/projects" -u "$AUTH" \
+        -H 'Content-Type: application/json' \
+        -d '{"project_name": "apps", "public": false, "metadata": {"public": "false"}}' \
+        || { echo "ERROR: Failed to create project 'apps'"; exit 1; }
+    fi
+
+    # --- Robot accounts ---
+    # Look up apps project ID
+    APPS_PROJECT_ID=$(curl -sf "$HARBOR_API/projects" -u "$AUTH" | jq -r '.[] | select(.name == "apps") | .project_id')
+    if [ -z "$APPS_PROJECT_ID" ] || [ "$APPS_PROJECT_ID" = "null" ]; then
+      echo "ERROR: Could not find apps project ID"
+      exit 1
+    fi
+
+    # Helper: create or recreate robot account
+    # Deletes existing robot first (secrets can't be retrieved after creation)
+    # Outputs only JSON to stdout (for capture), status messages go to stderr
+    create_robot() {
+      local robot_name="$1" robot_desc="$2"
+      shift 2
+      local permissions="$1"
+
+      # Delete existing robot if present (project-level robots endpoint)
+      local existing_id
+      existing_id=$(curl -sf "$HARBOR_API/projects/apps/robots" -u "$AUTH" \
+        | jq -r ".[] | select(.name == \"robot\$apps+$robot_name\") | .id")
+      if [ -n "$existing_id" ] && [ "$existing_id" != "null" ]; then
+        echo "  Deleting existing robot 'robot\$apps+$robot_name' (id=$existing_id) for re-creation..." >&2
+        curl -sf -X DELETE "$HARBOR_API/robots/$existing_id" -u "$AUTH" || true
+      fi
+
+      echo "  Creating robot account 'robot\$apps+$robot_name'..." >&2
+      local RESULT
+      RESULT=$(curl -sf -X POST "$HARBOR_API/robots" -u "$AUTH" \
+        -H 'Content-Type: application/json' \
+        -d "{
+          \"name\": \"$robot_name\",
+          \"description\": \"$robot_desc\",
+          \"duration\": -1,
+          \"level\": \"project\",
+          \"permissions\": [{
+            \"kind\": \"project\",
+            \"namespace\": \"apps\",
+            \"access\": $permissions
+          }]
+        }")
+
+      if ! echo "$RESULT" | jq -r '.name' >/dev/null 2>&1; then
+        echo "ERROR: Failed to create robot '$robot_name': $RESULT" >&2
+        return 1
+      fi
+      echo "$RESULT"
+    }
+
+    echo "==> Creating robot accounts..."
+
+    # Push robot: can push, pull, list repositories and tags
+    PUSH_RESULT=$(create_robot "push" "CI push account for apps images" \
+      '[{"resource":"repository","action":"push"},{"resource":"repository","action":"pull"},{"resource":"repository","action":"list"},{"resource":"tag","action":"create"},{"resource":"tag","action":"list"}]')
+
+    # Pull robot: can only pull and list
+    PULL_RESULT=$(create_robot "pull" "Pull account for apps images" \
+      '[{"resource":"repository","action":"pull"},{"resource":"repository","action":"list"},{"resource":"tag","action":"list"}]')
+
+    # --- Store credentials in Vault ---
+    if [ -f "$KEYS_FILE" ]; then
+      ROOT_TOKEN=$(jq -r '.root_token' "$KEYS_FILE")
+
+      # Extract credentials from robot creation results (only if they contain secret)
+      PUSH_NAME=$(echo "$PUSH_RESULT" | jq -r '.name // empty')
+      PUSH_SECRET=$(echo "$PUSH_RESULT" | jq -r '.secret // empty')
+      PULL_NAME=$(echo "$PULL_RESULT" | jq -r '.name // empty')
+      PULL_SECRET=$(echo "$PULL_RESULT" | jq -r '.secret // empty')
+
+      for VAULT_NS in kss kcs; do
+        if [ -n "$PUSH_NAME" ] && [ -n "$PUSH_SECRET" ]; then
+          curl -sf -X POST \
+            -H "X-Vault-Token: $ROOT_TOKEN" \
+            -H "X-Vault-Namespace: $VAULT_NS" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg user "$PUSH_NAME" --arg pass "$PUSH_SECRET" '{data: {username: $user, password: $pass}}')" \
+            "$VAULT_ADDR/v1/secret/data/harbor/apps-push"
+          echo "  Stored harbor/apps-push in $VAULT_NS"
+        fi
+
+        if [ -n "$PULL_NAME" ] && [ -n "$PULL_SECRET" ]; then
+          curl -sf -X POST \
+            -H "X-Vault-Token: $ROOT_TOKEN" \
+            -H "X-Vault-Namespace: $VAULT_NS" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg user "$PULL_NAME" --arg pass "$PULL_SECRET" '{data: {username: $user, password: $pass}}')" \
+            "$VAULT_ADDR/v1/secret/data/harbor/apps-pull"
+          echo "  Stored harbor/apps-pull in $VAULT_NS"
+        fi
+      done
+    fi
+
+    touch "$MARKER"
+    echo "==> Harbor apps project configured successfully"
+  '';
 in
 {
   # Enable Docker for Harbor
@@ -330,6 +502,25 @@ in
       Type = "oneshot";
       RemainAfterExit = true;
       ExecStart = harborProxyCacheSetup;
+      TimeoutStartSec = "5min";
+    };
+
+    unitConfig = {
+      StartLimitIntervalSec = 0;
+    };
+  };
+
+  # Harbor apps project setup - creates apps project, robot accounts, stores creds in Vault
+  systemd.services.harbor-apps-project = {
+    description = "Harbor Apps Project and Robot Accounts";
+    requires = [ "harbor-proxy-caches.service" ];
+    after = [ "harbor-proxy-caches.service" "openbao-init.service" ];
+    wantedBy = [ "multi-user.target" ];
+
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = harborAppsProjectSetup;
       TimeoutStartSec = "5min";
     };
 

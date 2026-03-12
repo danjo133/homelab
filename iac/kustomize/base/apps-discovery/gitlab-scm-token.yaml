@@ -1,0 +1,20 @@
+# ExternalSecret — GitLab PAT for ArgoCD SCM Provider (ApplicationSet discovery)
+# Vault path: secret/gitlab/apps-token
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: gitlab-scm-token
+  namespace: argocd
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault
+    kind: ClusterSecretStore
+  target:
+    name: gitlab-scm-token
+    creationPolicy: Owner
+  data:
+    - secretKey: token
+      remoteRef:
+        key: gitlab/apps-token
+        property: token

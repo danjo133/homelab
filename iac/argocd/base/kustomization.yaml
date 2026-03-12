@@ -13,6 +13,7 @@ resources:
   - external-dns.yaml
   # Wave 0: Platform operators
   - argocd.yaml
+  - argocd-image-updater.yaml
   - longhorn.yaml
   - gatekeeper.yaml
   - spire.yaml

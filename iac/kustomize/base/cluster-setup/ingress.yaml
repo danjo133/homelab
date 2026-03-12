@@ -8,6 +8,11 @@ metadata:
     nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.oauth2-proxy.svc.cluster.local/oauth2/auth"
     nginx.ingress.kubernetes.io/auth-signin: "https://oauth2-proxy.CLUSTER_DOMAIN/oauth2/start?rd=$scheme://$host$escaped_request_uri"
     nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups,X-Auth-Request-Access-Token"
+    portal.example.com/name: "Cluster Setup"
+    portal.example.com/description: "OIDC token info and kubeconfig download"
+    portal.example.com/icon: "\U0001F511"
+    portal.example.com/category: "Identity"
+    portal.example.com/order: "20"
 spec:
   ingressClassName: nginx
   tls:

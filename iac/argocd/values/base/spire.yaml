@@ -29,9 +29,19 @@ spire-server:
       memory: 256Mi
 
 spire-agent:
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
   resources:
     requests:
       cpu: 50m
       memory: 64Mi
     limits:
       memory: 128Mi
+
+spiffe-csi-driver:
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule

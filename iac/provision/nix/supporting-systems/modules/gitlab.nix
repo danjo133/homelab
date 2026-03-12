@@ -100,7 +100,12 @@ COMPOSEEOF
       echo "Target version: $TARGET_VERSION"
 
       if [ "$DATA_VERSION" = "$TARGET_VERSION" ]; then
-        echo "Already at target version, ensuring running..."
+        # Container already running at correct version — nothing to do
+        if docker inspect gitlab --format='{{.State.Running}}' 2>/dev/null | grep -q true; then
+          echo "Already at target version and running, nothing to do"
+          exit 0
+        fi
+        echo "Already at target version, starting..."
         write_compose "$GITLAB_IMAGE"
         docker-compose up -d
         echo "GitLab started"

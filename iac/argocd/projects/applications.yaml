@@ -7,6 +7,7 @@ spec:
   description: End-user applications (waves 4, 5)
   sourceRepos:
     - https://github.com/example-user/homelab.git
+    - ssh://git@gitlab.support.example.com:2222/apps/*
     - https://kubernetes-sigs.github.io/headlamp/
     - https://kiali.org/helm-charts
   destinations:
@@ -16,6 +17,8 @@ spec:
       namespace: headlamp
     - server: https://kubernetes.default.svc
       namespace: istio-system
+    - server: https://kubernetes.default.svc
+      namespace: apps
   clusterResourceWhitelist:
     - group: ""
       kind: Namespace

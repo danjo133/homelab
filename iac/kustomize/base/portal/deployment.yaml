@@ -1,0 +1,51 @@
+# Cluster Portal
+# Service discovery landing page
+# Image source: iac/apps/portal/
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portal
+  namespace: apps
+  labels:
+    app: portal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: portal
+  template:
+    metadata:
+      labels:
+        app: portal
+    spec:
+      serviceAccountName: portal
+      imagePullSecrets:
+        - name: harbor-pull-secret
+      containers:
+        - name: portal
+          image: harbor.support.example.com/kss/portal:latest
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: portal-config
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10

@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Apps auto-discovery secrets:
+# - GitLab SCM token for ArgoCD ApplicationSet discovery
+# - Harbor pull secret for apps namespace
+# - Harbor credentials for ArgoCD Image Updater
+# - ArgoCD repo-creds for apps/ group SSH access
+
+resources:
+  - namespace.yaml
+  - gitlab-scm-token.yaml
+  - gitlab-ssh-known-hosts.yaml
+  - harbor-pull-secret-apps.yaml
+  - harbor-image-updater-secret.yaml
+  - argocd-repo-creds-apps.yaml

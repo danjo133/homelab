@@ -1,0 +1,5 @@
+apiVersion: v2
+name: generic-app
+description: Generic Helm chart for auto-deployed applications without their own chart
+type: application
+version: 0.1.0

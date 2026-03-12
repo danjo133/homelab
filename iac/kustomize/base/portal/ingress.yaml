@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: portal
+  namespace: apps
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.oauth2-proxy.svc.cluster.local/oauth2/auth"
+    nginx.ingress.kubernetes.io/auth-signin: "https://oauth2-proxy.CLUSTER_DOMAIN/oauth2/start?rd=$scheme://$host$escaped_request_uri"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups,X-Auth-Request-Access-Token"
+    portal.example.com/name: "Cluster Portal"
+    portal.example.com/description: "Service discovery landing page"
+    portal.example.com/icon: "\U0001F9ED"
+    portal.example.com/category: "Platform"
+    portal.example.com/order: "0"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - portal.CLUSTER_DOMAIN
+      secretName: portal-tls
+  rules:
+    - host: portal.CLUSTER_DOMAIN
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: portal
+                port:
+                  number: 80

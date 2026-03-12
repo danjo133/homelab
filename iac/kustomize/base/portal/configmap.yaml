@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: portal-config
+  namespace: apps
+data:
+  CLUSTER_NAME: "CLUSTER_NAME"
+  CLUSTER_DOMAIN: "CLUSTER_DOMAIN"
+  LOG_LEVEL: "info"

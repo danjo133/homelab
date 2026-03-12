@@ -83,7 +83,7 @@ variable "gitlab_argocd_password" {
 variable "ziti_api_url" {
   description = "Ziti controller management API URL"
   type        = string
-  default     = "https://ziti.support.example.com:1280/edge/management/v1"
+  default     = "https://z.example.com:2029/edge/management/v1"
 }
 
 variable "ziti_admin_user" {

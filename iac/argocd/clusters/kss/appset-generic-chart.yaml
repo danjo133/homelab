@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: apps-generic-chart
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - scmProvider:
+        gitlab:
+          group: "apps"
+          api: https://gitlab.support.example.com
+          tokenRef:
+            secretName: gitlab-scm-token
+            key: token
+          insecure: true
+        filters:
+          - pathsExist:
+              - deploy/values.yaml
+            pathsDoNotExist:
+              - chart/Chart.yaml
+        cloneProtocol: ssh
+  template:
+    metadata:
+      name: "{{ .repository | normalize }}"
+      namespace: argocd
+      annotations:
+        argocd-image-updater.argoproj.io/image-list: "app=harbor.support.example.com/apps/{{ .repository | normalize }}"
+        argocd-image-updater.argoproj.io/app.update-strategy: newest-build
+        argocd-image-updater.argoproj.io/write-back-method: argocd
+    spec:
+      project: applications
+      sources:
+        - repoURL: "{{ .url }}"
+          targetRevision: "{{ .branch }}"
+          ref: appvalues
+        - repoURL: https://github.com/example-user/homelab.git
+          targetRevision: main
+          path: iac/argocd/charts/generic-app
+          helm:
+            valueFiles:
+              - $appvalues/deploy/values.yaml
+            parameters:
+              - name: image.repository
+                value: "apps/{{ .repository | normalize }}"
+              - name: clusterDomain
+                value: simple-k8s.example.com
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: apps
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
