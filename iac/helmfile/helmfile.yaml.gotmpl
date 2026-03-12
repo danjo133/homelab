@@ -97,9 +97,16 @@ releases:
     chart: cilium/cilium
     version: "1.18.6"
     installed: {{ .Values | getOrNil "useCilium" | default false }}
+    disableValidationOnInstall: true
+    disableValidation: true
     values:
       - ./values/cilium/common.yaml
       - ./values/cilium/profile-{{ .Values | getOrNil "ciliumProfile" | default "base" }}.yaml
+{{ if .Values | getOrNil "k8sServiceHost" }}
+    set:
+      - name: k8sServiceHost
+        value: "{{ .Values.k8sServiceHost }}"
+{{ end }}
 
   # ===========================================================================
   # Tetragon - Pod Security & Runtime Threat Detection (only with Cilium)
@@ -227,8 +234,10 @@ releases:
     installed: {{ or .Values.useGatewayAPI .Values.useNginx }}
     values:
       - ./values/external-dns.yaml
-{{ if .Values.useGatewayAPI }}
     set:
+      - name: txtOwnerId
+        value: "k8s-cluster-{{ .Values | getOrNil "clusterName" | default "kss" }}"
+{{ if .Values.useGatewayAPI }}
       - name: sources
         values:
           - service

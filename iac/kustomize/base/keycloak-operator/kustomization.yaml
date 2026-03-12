@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Keycloak Operator CRDs 
+# Apply this BEFORE deploying Keycloak operator.
+#
+# See: https://www.keycloak.org/operator/installation
+
+resources:
+  - keycloak_namespace.yaml
+  # CRDs from keycloak-k8s-resources v26.5.2 (latest stable as of 2026-02-10)
+  - https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.5.2/kubernetes/keycloaks.k8s.keycloak.org-v1.yml
+  - https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.5.2/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml
+  # Keycloak operator
+  - https://raw.githubusercontent.com/keycloak/keycloak-k8s-resources/26.5.2/kubernetes/keycloakrealmimports.k8s.keycloak.org-v1.yml

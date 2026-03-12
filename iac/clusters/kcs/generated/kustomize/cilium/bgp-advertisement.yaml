@@ -1,0 +1,19 @@
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: kcs
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  name: kcs-advertise-lb
+  labels:
+    advertise: "bgp"
+spec:
+  advertisements:
+    - advertisementType: Service
+      service:
+        addresses:
+          - LoadBalancerIP
+      selector:
+        matchExpressions:
+          - key: never-used-key
+            operator: NotIn
+            values: ["never-used-value"]

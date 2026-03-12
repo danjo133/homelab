@@ -1,0 +1,8 @@
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: kss
+clusterName: kss
+clusterDomain: simple-k8s.example.com
+k8sServiceHost: kss-master.simple-k8s.example.com
+lbPoolCidr: "10.69.50.192/28"
+vaultAuthMount: kubernetes-kss
+bgpAsn: 64514

@@ -1,16 +1,15 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-# MAC address assignments for VLAN 50 interface
-# Pattern: 52:54:00:69:50:XX (52:54:00 = libvirt prefix, 69:50 = VLAN 50)
-# Configure these as static DHCP leases in Unifi with corresponding hostnames
-MAC_ADDRESSES = {
-  "support"      => "52:54:00:69:50:10",
-  "k8s-master"   => "52:54:00:69:50:20",
-  "k8s-worker-1" => "52:54:00:69:50:31",
-  "k8s-worker-2" => "52:54:00:69:50:32",
-  "k8s-worker-3" => "52:54:00:69:50:33",
-}
+require 'yaml'
+
+# Support VM stays hardcoded (shared infrastructure)
+SUPPORT_MAC = "52:54:00:69:50:10"
+
+# Load all cluster configs from iac/clusters/*/cluster.yaml
+clusters = Dir.glob(File.join(File.dirname(__FILE__), 'clusters', '*', 'cluster.yaml')).map { |f|
+  YAML.load_file(f)
+}.sort_by { |c| c['name'] }
 
 Vagrant.configure("2") do |config|
   # Base configuration for all boxes
@@ -53,7 +52,7 @@ Vagrant.configure("2") do |config|
       dev: "br-k8s",
       mode: "bridge",
       type: "bridge",
-      mac: MAC_ADDRESSES["support"],
+      mac: SUPPORT_MAC,
       auto_config: false
 
     support.vm.provider "libvirt" do |libvirt|
@@ -65,40 +64,45 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  # Kubernetes Master Node
-  config.vm.define "k8s-master" do |master|
-    master.vm.network :public_network,
-      dev: "br-k8s",
-      mode: "bridge",
-      type: "bridge",
-      mac: MAC_ADDRESSES["k8s-master"],
-      auto_config: false
+  # Cluster VMs - generated from cluster.yaml configs
+  clusters.each do |cluster|
+    name = cluster['name']
 
-    master.vm.provider "libvirt" do |libvirt|
-      libvirt.memory = 8192
-      libvirt.cpus = 4
-      libvirt.disk_bus = "virtio"
-      libvirt.disk_driver :cache => "directsync"
-      libvirt.cpu_mode = "host-passthrough"
-    end
-  end
-
-  # Kubernetes Worker Nodes (3x)
-  (1..3).each do |i|
-    config.vm.define "k8s-worker-#{i}" do |worker|
-      worker.vm.network :public_network,
+    # Master node
+    config.vm.define "#{name}-master" do |master|
+      master.vm.network :public_network,
         dev: "br-k8s",
         mode: "bridge",
         type: "bridge",
-        mac: MAC_ADDRESSES["k8s-worker-#{i}"],
+        mac: cluster['master']['mac'],
         auto_config: false
 
-      worker.vm.provider "libvirt" do |libvirt|
-        libvirt.memory = 8192
-        libvirt.cpus = 4
+      master.vm.provider "libvirt" do |libvirt|
+        libvirt.memory = cluster['master']['memory']
+        libvirt.cpus = cluster['master']['cpus']
         libvirt.disk_bus = "virtio"
         libvirt.disk_driver :cache => "directsync"
         libvirt.cpu_mode = "host-passthrough"
+      end
+    end
+
+    # Worker nodes
+    cluster['workers'].each do |worker|
+      config.vm.define "#{name}-#{worker['name']}" do |w|
+        w.vm.network :public_network,
+          dev: "br-k8s",
+          mode: "bridge",
+          type: "bridge",
+          mac: worker['mac'],
+          auto_config: false
+
+        w.vm.provider "libvirt" do |libvirt|
+          libvirt.memory = worker['memory']
+          libvirt.cpus = worker['cpus']
+          libvirt.disk_bus = "virtio"
+          libvirt.disk_driver :cache => "directsync"
+          libvirt.cpu_mode = "host-passthrough"
+        end
       end
     end
   end

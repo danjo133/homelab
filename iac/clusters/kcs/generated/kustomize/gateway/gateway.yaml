@@ -1,0 +1,32 @@
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: kcs — Gateway for *.mesh-k8s.example.com
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: main-gateway
+  namespace: kube-system
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: "*.mesh-k8s.example.com"
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: "*.mesh-k8s.example.com"
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: "*.mesh-k8s.example.com"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: wildcard-mesh-k8s.example.com-tls
+            namespace: cert-manager
+      allowedRoutes:
+        namespaces:
+          from: All

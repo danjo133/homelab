@@ -3,6 +3,9 @@
 
 { config, pkgs, lib, ... }:
 
+let
+  harborAddr = config.kss.cluster.harborAddr;
+in
 {
   # Import Vault CA module
   imports = [
@@ -18,14 +21,14 @@
         # Use Harbor as a pull-through cache for Docker Hub
         docker.io:
           endpoint:
-            - "https://harbor.support.example.com/v2/docker.io"
+            - "https://${harborAddr}/v2/docker.io"
         # Direct Harbor access
-        harbor.support.example.com:
+        ${harborAddr}:
           endpoint:
-            - "https://harbor.support.example.com"
+            - "https://${harborAddr}"
 
       configs:
-        "harbor.support.example.com":
+        "${harborAddr}":
           tls:
             # Skip TLS verification for self-signed cert
             # TODO: Use Vault CA cert instead

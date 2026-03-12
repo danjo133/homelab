@@ -1,5 +1,8 @@
-# Network Configuration - Single Source of Truth
-# Used to generate Cilium CRDs and UniFi FRR config
+# Network Configuration — Router-side settings
+# Used to generate UniFi FRR BGP config
+#
+# BGP peers are derived automatically from iac/clusters/*/cluster.yaml
+# (only clusters with cni: cilium are included)
 #
 # Run: make generate-network-config
 # Or:  ./iac/network/generate.sh
@@ -9,36 +12,9 @@ vlan: 50
 subnet: "10.69.50.0/24"
 gateway: "10.69.50.1"
 
-# IP allocation within subnet:
-# - Static hosts: .1-.99
-# - DHCP pool: .100-.199
-# - LoadBalancer VIPs: .200-.220
-# - Reserved: .221-.254
-
-# BGP Configuration
-# Private ASN range: 64512-65534 (like 10.x.x.x for IPs - free for internal use)
+# BGP Configuration — router side
 bgp:
   router:
     asn: 64512
-    id: "10.69.50.1"  # Usually same as gateway
-  cilium:
-    asn: 64513
-  password: "jklh2356ty8s3lkjzew2wstdlqk3j"  # FRR BGP password
-
-# LoadBalancer IP Pool
-loadbalancer:
-  pool_name: "default-pool"
-  start: "10.69.50.192"
-  stop: "10.69.50.223"
-  range: "10.69.50.192/27"
-
-# Kubernetes nodes (BGP peers)
-nodes:
-  - name: "k8s-master"
-    ip: "10.69.50.20"
-  - name: "k8s-worker-1"
-    ip: "10.69.50.31"
-  - name: "k8s-worker-2"
-    ip: "10.69.50.32"
-  - name: "k8s-worker-3"
-    ip: "10.69.50.33"
+    id: "10.69.50.1"
+  password: "jklh2356ty8s3lkjzew2wstdlqk3j"

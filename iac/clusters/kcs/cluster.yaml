@@ -1,0 +1,40 @@
+name: kcs
+domain: mesh-k8s.example.com
+
+master:
+  ip: "10.69.50.50"
+  mac: "52:54:00:69:50:50"
+  memory: 8192
+  cpus: 4
+
+workers:
+  - name: worker-1
+    ip: "10.69.50.61"
+    mac: "52:54:00:69:50:61"
+    memory: 8192
+    cpus: 4
+  - name: worker-2
+    ip: "10.69.50.62"
+    mac: "52:54:00:69:50:62"
+    memory: 8192
+    cpus: 4
+  - name: worker-3
+    ip: "10.69.50.63"
+    mac: "52:54:00:69:50:63"
+    memory: 8192
+    cpus: 4
+
+# CNI: "default" (Canal + kube-proxy) or "cilium"
+cni: cilium
+
+# Helmfile environment: default, bgp-simple, gateway-bgp, base
+helmfile_env: gateway-bgp
+
+loadbalancer:
+  cidr: "10.69.50.208/28"
+
+vault:
+  auth_mount: kubernetes-kcs
+
+bgp:
+  asn: 64513

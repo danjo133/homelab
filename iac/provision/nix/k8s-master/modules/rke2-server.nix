@@ -100,6 +100,12 @@ let
     echo "RKE2 binary at: $INSTALL_DIR/bin/rke2"
   '';
 
+  # Cluster config
+  clusterName = config.kss.cluster.name;
+  masterHostname = config.kss.cluster.masterHostname;
+  clusterDomain = config.kss.cluster.domain;
+  vaultAddr = config.kss.cluster.vaultAddr;
+
   # Script to store token in Vault (for workers to retrieve)
   storeTokenInVault = pkgs.writeShellScript "store-rke2-token" ''
     set -eu
@@ -107,7 +113,6 @@ let
     export PATH="${lib.makeBinPath [ pkgs.curl pkgs.jq pkgs.coreutils]}"
 
     TOKEN_FILE="/var/lib/rancher/rke2/server/node-token"
-    VAULT_ADDR="https://vault.support.example.com"
 
     # Wait for token file
     for i in $(seq 1 60); do
@@ -127,11 +132,7 @@ let
     TOKEN=$(cat "$TOKEN_FILE")
 
     echo "RKE2 node token available at $TOKEN_FILE"
-    echo "Workers can join using: server: https://k8s-master:9345"
-
-    # Note: To store in Vault, you would need to authenticate first
-    # For now, workers will fetch the token via SSH or shared file
-    # TODO: Implement Vault KV storage when auth is configured
+    echo "Workers can join using: server: https://${masterHostname}:9345"
   '';
 in
 {
@@ -149,7 +150,13 @@ in
     '' + ''
 
       # Node name - use hostname instead of OS transient hostname
-      node-name: k8s-master
+      node-name: ${masterHostname}
+    '' + lib.optionalString isCilium ''
+
+      # Label for Cilium BGP node selector
+      node-label:
+        - bgp_enabled=true
+    '' + ''
 
       # Disable default components we'll replace
       disable:
@@ -160,9 +167,9 @@ in
 
       # TLS SANs for API server certificate
       tls-san:
-        - k8s-master
-        - k8s-master.local
-        - k8s-master.support.example.com
+        - ${masterHostname}
+        - ${masterHostname}.local
+        - ${masterHostname}.${clusterDomain}
         - localhost
         - 127.0.0.1
 

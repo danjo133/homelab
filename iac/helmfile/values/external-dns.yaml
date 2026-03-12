@@ -20,7 +20,8 @@ domainFilters:
   - example.com
 
 # TXT record ownership configuration
-txtOwnerId: "k8s-cluster-kss"
+# txtOwnerId is set per-cluster via helmfile state values
+# txtOwnerId: "k8s-cluster-kss"  (overridden in helmfile.yaml.gotmpl)
 txtPrefix: "externaldns-"
 
 # Policy: sync will create and delete records, upsert-only won't delete

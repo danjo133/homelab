@@ -4,8 +4,8 @@
 { config, pkgs, lib, ... }:
 
 {
-  # Hostname - sent via DHCP to Unifi for DNS registration
-  networking.hostName = "k8s-master";
+  # Hostname - from cluster config, sent via DHCP to Unifi for DNS registration
+  networking.hostName = config.kss.cluster.masterHostname;
 
   # Firewall configuration for Kubernetes control plane
   networking.firewall = {

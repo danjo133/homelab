@@ -54,6 +54,11 @@ gatewayAPI:
   enabled: true
   gatewayClass:
     create: "true"
+  # Run gateway envoy on host network directly, bypassing BPF L7 redirect.
+  # Workaround for Cilium 1.18.x bug where BPF-redirected envoy can't
+  # reach backend pods (upstream connect timeout).
+  hostNetwork:
+    enabled: true
 
 # Envoy required for Gateway API
 envoy:
@@ -86,8 +91,11 @@ endpointRoutes:
 # Note: This also fixes host-to-pod cross-node traffic issues (GitHub #32592)
 
 encryption:
-  enabled: true
-  type: wireguard
+  enabled: false
+  # type: wireguard
+  # NOTE: WireGuard encryption breaks Gateway API envoy→backend connectivity.
+  # The envoy's outbound connections to pod IPs fail through the WireGuard tunnel.
+  # Re-enable once Cilium fixes this interaction.
 
 # =============================================================================
 # LoadBalancer
@@ -114,9 +122,11 @@ enableIPv4Masquerade: true
 # Use eBPF-based masquerade (more efficient with kube-proxy replacement)
 bpf:
   masquerade: true
-  # Disable legacy routing - let BPF handle host-to-pod traffic
-  # Testing with firewalls disabled to see if pure BPF path works
-  hostLegacyRouting: false
+  # Enable legacy routing - required for Gateway API ingress traffic
+  # to reach pods on other nodes via VXLAN tunnel. Without this,
+  # the reserved:ingress endpoint's SYN packets get forwarded to the
+  # overlay but the return path is broken.
+  hostLegacyRouting: true
 
 # =============================================================================
 # Hubble Metrics Enhancement

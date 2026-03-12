@@ -24,68 +24,64 @@ This is a Kubernetes homelab infrastructure-as-code project for provisioning an 
 - **NFS**: Exports configured for Kubernetes RWX volumes and backups
 - **Nginx**: Reverse proxy with TLS termination for all services
 
-**Phase 2 In Progress**: Kubernetes cluster NixOS configurations created.
+**Phase 2 Complete**: Kubernetes cluster working with multi-cluster support.
 
-- **k8s-master**: RKE2 server configuration with auto-install
-- **k8s-worker-{1,2,3}**: RKE2 agent configurations with auto-join
-- Common modules for RKE2 base setup and Vault CA trust
-- Registry configuration for Harbor mirror
-- Longhorn prerequisites (iSCSI, NFS) on workers
-
-**Next Phase**: Start VMs, apply configurations, and verify cluster formation.
+- **Multi-cluster architecture**: Clusters defined in `iac/clusters/<name>/cluster.yaml`
+- **Generation script**: `scripts/generate-cluster.sh` produces NixOS wrappers, Makefile vars, helmfile values, kustomize overlays
+- **Parameterized NixOS**: All k8s modules use `config.kss.cluster.*` options instead of hardcoded values
+- **Dynamic Vagrantfile**: Reads cluster definitions from cluster.yaml files
+- **Per-cluster Vault auth**: Each cluster gets its own `kubernetes-<name>` auth mount
+- **Current cluster**: `kss` (1 master + 3 workers, all Ready)
 
 ## Key Commands
 
 ```bash
-# VM management (from iac/ directory)
-cd iac
-vagrant up support         # Start support VM
-vagrant up                 # Start all VMs
-vagrant ssh support        # SSH into VM
-vagrant halt               # Stop VMs
-vagrant destroy            # Remove VMs
+# Multi-cluster: all k8s targets accept CLUSTER=<name> (default: kss)
+# Example: make CLUSTER=kss2 cluster-status
 
-# Build/rebuild NixOS box
-nix shell nixpkgs#nixos-generators
-./build-nix-box.sh
-vagrant box add --name local/nixos-25.11-vagrant --provider libvirt nixos-25.11-vagrant.box
+# Cluster config generation
+make generate-cluster              # Generate configs from cluster.yaml
+make CLUSTER=kss2 generate-cluster # Generate for a different cluster
 
-# Network setup (run once, or after reboot)
-./setup-libvirt-network.sh
+# Cluster lifecycle
+make cluster-up                # Start all cluster VMs
+make cluster-down              # Stop all cluster VMs
+make cluster-destroy           # Destroy all cluster VMs
+make cluster-recreate          # Destroy and recreate
+make cluster-rebuild-all       # Sync and rebuild all nodes
+make cluster-status            # Check nodes and pods
+make cluster-kubeconfig        # Fetch kubeconfig to ~/.kube/config-<cluster>
 
-# Check VM status
-vagrant status
-sudo virsh list --all
+# Node management
+make master-up                 # Start master VM
+make workers-up                # Start all worker VMs
+make sync-master               # Sync NixOS config to master
+make rebuild-master-switch     # Rebuild master permanently
+make sync-worker-1             # Sync config to worker-1 (also -2, -3)
+make rebuild-worker-1-switch   # Rebuild worker-1 permanently (also -2, -3)
+make distribute-token          # Copy join token to workers
+make ssh-master                # SSH into master
+make ssh-worker-1              # SSH into worker-1
 
-# Support VM configuration management (from project root)
-make sync-support          # Sync NixOS config to VM
-make rebuild-support       # Rebuild with 'test' (temporary)
-make rebuild-support-switch # Rebuild with 'switch' (permanent)
-make support-status        # Check all service status
+# Deployment
+make deploy-default            # MetalLB L2 + nginx-ingress + secrets
+make deploy-bgp-simple         # Cilium BGP + nginx-ingress + secrets
+make deploy-vault-auth         # Per-cluster Vault auth mount setup
+make deploy-secrets            # Per-cluster ClusterSecretStore + ExternalSecrets
+
+# Support VM (shared, not cluster-specific)
+make sync-support              # Sync NixOS config to VM
+make rebuild-support-switch    # Rebuild with 'switch' (permanent)
+make support-status            # Check all service status
 
 # Vault key management
-make vault-backup-keys     # Backup Vault keys to local file
-make vault-restore-keys    # Restore Vault keys to VM
-make vault-show-token      # Show Vault root token
+make vault-backup-keys         # Backup Vault keys to local file
+make vault-show-token          # Show Vault root token
 
-# MinIO bucket setup (run once after VM is up)
-# First sync config, then run the bootstrap script
-make sync-support && vagrant ssh support -c 'sudo /tmp/nix-config/scripts/bootstrap-minio.sh'
-
-# Kubernetes cluster management (from project root)
-make k8s-master-up         # Start k8s-master VM
-make k8s-workers-up        # Start all worker VMs
-make sync-k8s-master       # Sync NixOS config to k8s-master
-make rebuild-k8s-master    # Rebuild k8s-master (test mode)
-make rebuild-k8s-master-switch  # Rebuild and switch permanently
-make sync-k8s-worker-1     # Sync config to k8s-worker-1 (also -2, -3)
-make rebuild-k8s-worker-1  # Rebuild k8s-worker-1 (also -2, -3)
-make k8s-cluster-status    # Check cluster nodes and pods
-make k8s-get-token         # Show RKE2 join token
-make k8s-distribute-token  # Copy join token to workers
-make k8s-kubeconfig        # Fetch kubeconfig to ~/.kube/config-kss
-make vagrant-ssh-k8s-master    # SSH into k8s-master
-make vagrant-ssh-k8s-worker-1  # SSH into k8s-worker-1
+# VM management (global)
+make up                        # Start all Vagrant VMs
+make down                      # Stop all Vagrant VMs
+make status                    # Show Vagrant VM status
 ```
 
 ## Architecture
@@ -117,10 +113,12 @@ VMs use fixed MAC addresses for their VLAN 50 interface. Configure static DHCP l
 | VM | MAC Address | Hostname | Suggested IP |
 |----|-------------|----------|--------------|
 | support | `52:54:00:69:50:10` | support | 10.69.50.10 |
-| k8s-master | `52:54:00:69:50:20` | k8s-master | 10.69.50.20 |
-| k8s-worker-1 | `52:54:00:69:50:31` | k8s-worker-1 | 10.69.50.31 |
-| k8s-worker-2 | `52:54:00:69:50:32` | k8s-worker-2 | 10.69.50.32 |
-| k8s-worker-3 | `52:54:00:69:50:33` | k8s-worker-3 | 10.69.50.33 |
+| kss-master | `52:54:00:69:50:20` | kss-master | 10.69.50.20 |
+| kss-worker-1 | `52:54:00:69:50:31` | kss-worker-1 | 10.69.50.31 |
+| kss-worker-2 | `52:54:00:69:50:32` | kss-worker-2 | 10.69.50.32 |
+| kss-worker-3 | `52:54:00:69:50:33` | kss-worker-3 | 10.69.50.33 |
+
+**Multi-cluster**: Additional clusters use different IPs/MACs defined in their `cluster.yaml`.
 
 **Unifi Setup Steps:**
 1. Go to Settings → Networks → VLAN 50
@@ -156,44 +154,36 @@ VMs send their hostname via DHCP Option 12, so Unifi should display correct name
 
 ```
 iac/                          # Primary infrastructure code
-├── Vagrantfile               # VM definitions (libvirt provider)
-├── nix-box-config.nix        # NixOS base box configuration
-├── build-nix-box.sh          # Script to build Vagrant box
-├── setup-libvirt-network.sh  # VLAN bridge network setup
-├── provision/nix/            # Per-VM NixOS configurations
+├── Vagrantfile               # VM definitions (reads from clusters/*/cluster.yaml)
+├── clusters/                 # Per-cluster configuration
+│   └── kss/                  # First cluster
+│       ├── cluster.yaml      # Single source of truth for cluster params
+│       └── generated/        # Output of generate-cluster.sh
+│           ├── vars.mk       # Make variables
+│           ├── nix/           # NixOS wrappers (master.nix, worker-N.nix, cluster.nix)
+│           ├── helmfile-values.yaml
+│           └── kustomize/     # Per-cluster MetalLB pool, ClusterSecretStore
+├── provision/nix/            # Shared NixOS configurations
 │   ├── supporting-systems/   # Support VM configuration
-│   │   ├── configuration.nix # Main entry point
-│   │   ├── hardware-configuration.nix
-│   │   ├── modules/
-│   │   │   ├── base.nix      # Hostname, common packages, firewall
-│   │   │   ├── nginx.nix     # Reverse proxy, TLS termination
-│   │   │   ├── vault.nix     # HashiCorp Vault with auto-init/unseal
-│   │   │   ├── minio.nix     # S3-compatible storage
-│   │   │   ├── nfs.nix       # NFS server for k8s volumes
-│   │   │   └── harbor.nix    # Container registry (Docker Compose)
-│   │   └── scripts/          # Bootstrap scripts
+│   │   ├── configuration.nix
+│   │   └── modules/          # vault.nix, harbor.nix, minio.nix, etc.
 │   ├── k8s-common/           # Shared K8s node configuration
+│   │   ├── cluster-options.nix # kss.cluster option declarations
 │   │   ├── rke2-base.nix     # Common RKE2 config, kernel modules, sysctl
+│   │   ├── cni.nix           # CNI selection (default/cilium)
 │   │   └── vault-ca.nix      # Vault CA trust setup
-│   ├── k8s-master/           # K8s control plane configuration
+│   ├── k8s-master/           # K8s control plane (parameterized via kss.cluster.*)
 │   │   ├── configuration.nix
-│   │   ├── hardware-configuration.nix
-│   │   └── modules/
-│   │       ├── base.nix      # Hostname, firewall for control plane
-│   │       ├── rke2-server.nix # RKE2 server auto-install
-│   │       └── security.nix  # Vault CA, Harbor registry config
-│   ├── k8s-worker/           # Shared worker node configuration
+│   │   └── modules/          # base.nix, rke2-server.nix, security.nix
+│   ├── k8s-worker/           # Shared worker node config (parameterized)
 │   │   ├── configuration.nix
-│   │   ├── hardware-configuration.nix
-│   │   └── modules/
-│   │       ├── base.nix      # Hostname, firewall for workers
-│   │       ├── rke2-agent.nix # RKE2 agent auto-install
-│   │       ├── security.nix  # Vault CA, Harbor registry config
-│   │       └── storage.nix   # Longhorn prerequisites, NFS mounts
-│   └── k8s-worker-{1,2,3}/   # Per-worker hostname wrappers
-│       └── configuration.nix # Sets hostname, imports k8s-worker
-├── helmfile/                 # Kubernetes bootstrap
-└── kustomize/                # GitOps manifests
+│   │   └── modules/          # base.nix, rke2-agent.nix, security.nix, storage.nix
+│   └── k8s-worker-{1,2,3}/   # Legacy per-worker wrappers (replaced by generated/)
+├── helmfile/                 # Kubernetes bootstrap (accepts per-cluster values)
+└── kustomize/                # Base GitOps manifests
+
+scripts/
+└── generate-cluster.sh       # Generates per-cluster configs from cluster.yaml
 
 iac_ansible/                  # Legacy (Ansible approach, not used)
 ```
@@ -202,12 +192,15 @@ iac_ansible/                  # Legacy (Ansible approach, not used)
 
 | File | Purpose |
 |------|---------|
-| `iac/Vagrantfile` | VM definitions, networking, provider config |
+| `iac/clusters/<name>/cluster.yaml` | Single source of truth for cluster params |
+| `scripts/generate-cluster.sh` | Generates per-cluster configs from cluster.yaml |
+| `iac/Vagrantfile` | VM definitions (dynamic from cluster.yaml files) |
+| `iac/provision/nix/k8s-common/cluster-options.nix` | NixOS option declarations for cluster params |
 | `iac/nix-box-config.nix` | Base NixOS image (SSH, users, DHCP routing) |
 | `iac/setup-libvirt-network.sh` | Creates VLAN interface, bridge, iptables rules |
 | `iac/build-nix-box.sh` | Builds NixOS qcow2 and packages as Vagrant box |
 | `iac/provision/nix/supporting-systems/` | Support VM NixOS configuration |
-| `Makefile` | Build targets including support VM management |
+| `Makefile` | Build targets with `CLUSTER` variable (default: kss) |
 | `ARCH-LINUX-SETUP.md` | Complete host setup guide |
 
 ## Support VM Services

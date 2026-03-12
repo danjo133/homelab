@@ -5,8 +5,8 @@
 { config, pkgs, lib, ... }:
 
 let
-  # Vault URL for fetching CA
-  vaultAddr = "https://vault.support.example.com";
+  # Vault URL for fetching CA - from cluster options
+  vaultAddr = config.kss.cluster.vaultAddr;
 
   # Script to fetch and install Vault CA
   fetchVaultCA = pkgs.writeShellScript "fetch-vault-ca" ''

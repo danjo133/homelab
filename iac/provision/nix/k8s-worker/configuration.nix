@@ -18,8 +18,7 @@
     ./modules/storage.nix
   ];
 
-  # CNI selection: "default" (Canal) or "cilium"
-  kss.cni = "default";
+  # CNI selection set per-cluster in generated/nix/cluster.nix
 
   # Boot configuration
   boot.loader.grub.enable = true;

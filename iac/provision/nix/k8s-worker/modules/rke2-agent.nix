@@ -4,6 +4,9 @@
 { config, pkgs, lib, ... }:
 
 let
+  # CNI selection
+  isCilium = config.kss.cni == "cilium";
+
   # RKE2 version - must match master
   rke2Version = "v1.31.4+rke2r1";
 
@@ -93,6 +96,11 @@ let
     echo "RKE2 binary at: $INSTALL_DIR/bin/rke2"
   '';
 
+  # Cluster config
+  masterHostname = config.kss.cluster.masterHostname;
+  clusterDomain = config.kss.cluster.domain;
+  masterFqdn = "${masterHostname}.${clusterDomain}";
+
   # Script to configure agent with token from shared file
   configureAgent = pkgs.writeShellScript "rke2-agent-configure" ''
     set -eu
@@ -153,21 +161,21 @@ let
 
     echo "Token found, writing config..."
 
-    # Resolve k8s-master IP via dig (avoids getent/glibc issues on NixOS)
-    MASTER_IP=$(dig +short k8s-master.support.example.com 2>/dev/null | head -1)
+    # Resolve master IP via dig (avoids getent/glibc issues on NixOS)
+    MASTER_IP=$(dig +short ${masterFqdn} 2>/dev/null | head -1)
     if [ -z "$MASTER_IP" ]; then
-      MASTER_IP=$(dig +short k8s-master 2>/dev/null | head -1)
+      MASTER_IP=$(dig +short ${masterHostname} 2>/dev/null | head -1)
     fi
     if [ -z "$MASTER_IP" ]; then
       # Fallback: try /etc/hosts directly
-      MASTER_IP=$(awk '/k8s-master/ {print $1; exit}' /etc/hosts 2>/dev/null)
+      MASTER_IP=$(awk '/${masterHostname}/ {print $1; exit}' /etc/hosts 2>/dev/null)
     fi
     if [ -z "$MASTER_IP" ]; then
-      echo "ERROR: Could not resolve k8s-master IP address"
-      echo "Add k8s-master to /etc/hosts or configure DNS"
+      echo "ERROR: Could not resolve ${masterHostname} IP address"
+      echo "Add ${masterHostname} to /etc/hosts or configure DNS"
       exit 1
     fi
-    echo "Resolved k8s-master to $MASTER_IP"
+    echo "Resolved ${masterHostname} to $MASTER_IP"
 
     # Get the static hostname for node-name
     NODE_NAME=$(cat /etc/hostname 2>/dev/null || hostname)
@@ -179,6 +187,13 @@ server: https://$MASTER_IP:9345
 token: $TOKEN
 node-name: $NODE_NAME
 EOF
+  '' + lib.optionalString isCilium ''
+    # Add BGP label for Cilium BGP node selector
+    cat >> "$CONFIG_FILE" << EOF
+node-label:
+  - bgp_enabled=true
+EOF
+  '' + ''
 
     touch "$TOKEN_MARKER"
     echo "Agent configuration complete"
