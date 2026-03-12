@@ -9,5 +9,5 @@ roleRef:
   name: cluster-admin
 subjects:
   - kind: Group
-    name: platform-admins
+    name: "oidc:platform-admins"
     apiGroup: rbac.authorization.k8s.io

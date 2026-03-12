@@ -10,6 +10,33 @@ port: 8080
 # Memory limit (request is set to half)
 memory: 256Mi
 
+# CPU resources
+cpu:
+  request: 10m
+  limit: 100m
+
+# Portal metadata — rendered as portal.example.com/* annotations on Ingress/HTTPRoute
+portal:
+  enabled: false
+  name: ""            # defaults to .Release.Name
+  description: ""
+  icon: ""
+  category: "Apps"
+  order: 100
+
+# PostgreSQL via CloudNativePG
+postgres:
+  enabled: false
+  database: ""        # defaults to .Release.Name
+  size: 1Gi
+  version: "17"
+
+# Persistent storage
+storage:
+  enabled: false
+  size: 1Gi
+  mountPath: /data
+
 # Enable OAuth2 Proxy SSO (Keycloak via nginx auth_request)
 sso: false
 

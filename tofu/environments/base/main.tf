@@ -1,13 +1,18 @@
 # Base environment — root-level resources across all services
 #
 # Manages:
-#   - Vault root PKI + namespaces
+#   - Vault root PKI + namespaces (kss, kcs, convenience)
 #   - Upstream Keycloak realm, users, clients
 #   - MinIO buckets
+#   - Harbor apps project + robot credentials
+#   - All cluster-scoped Vault secrets (consumed by ExternalSecrets)
+#   - Convenience namespace secrets (admin/operational reference)
 
 module "vault_base" {
-  source     = "../../modules/vault-base"
-  namespaces = var.vault_namespaces
+  source               = "../../modules/vault-base"
+  namespaces           = var.vault_namespaces
+  broker_client_secret = module.keycloak_upstream.broker_client_secret
+  seed_broker_client   = true
 }
 
 module "keycloak_upstream" {
@@ -19,15 +24,81 @@ module "minio_config" {
   buckets = var.minio_buckets
 }
 
+module "harbor_apps" {
+  source = "../../modules/harbor-apps"
+}
+
+# Write Harbor apps robot credentials to each cluster namespace.
+# Robot secrets are only available at creation time; ignore_changes prevents
+# subsequent applies from overwriting with empty values after import.
+resource "vault_kv_secret_v2" "harbor_apps_push" {
+  for_each  = toset(var.vault_namespaces)
+  namespace = each.value
+  mount     = module.vault_base.cluster_kv_mount_paths[each.value]
+  name      = "harbor/apps-push"
+
+  data_json = jsonencode({
+    username = module.harbor_apps.push_robot_name
+    password = module.harbor_apps.push_robot_secret
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
+resource "vault_kv_secret_v2" "harbor_apps_pull" {
+  for_each  = toset(var.vault_namespaces)
+  namespace = each.value
+  mount     = module.vault_base.cluster_kv_mount_paths[each.value]
+  name      = "harbor/apps-pull"
+
+  data_json = jsonencode({
+    username = module.harbor_apps.pull_robot_name
+    password = module.harbor_apps.pull_robot_secret
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
+# Seed Harbor admin credentials into each cluster namespace so that
+# ExternalSecrets can create imagePullSecrets for cluster workloads.
+# ignore_changes prevents tofu from overwriting manual password rotations.
+resource "vault_kv_secret_v2" "harbor_admin" {
+  for_each  = toset(var.vault_namespaces)
+  namespace = each.value
+  mount     = module.vault_base.cluster_kv_mount_paths[each.value]
+  name      = "harbor/admin"
+
+  data_json = jsonencode({
+    username = var.harbor_admin_user
+    password = var.harbor_admin_password
+    url      = var.harbor_url
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
 module "gitlab_config" {
-  source           = "../../modules/gitlab-config"
-  argocd_password  = var.gitlab_argocd_password
-  vault_namespaces = var.vault_namespaces
+  source               = "../../modules/gitlab-config"
+  argocd_password      = var.gitlab_argocd_password
+  vault_namespaces     = var.vault_namespaces
+  harbor_push_user     = module.harbor_apps.push_robot_name
+  harbor_push_password = module.harbor_apps.push_robot_secret
+  admin_ssh_public_key = file(pathexpand(var.admin_ssh_public_key_file))
+
+  depends_on = [module.vault_base]
 }
 
 module "teleport_config" {
   source           = "../../modules/teleport-config"
   vault_namespaces = var.vault_namespaces
+
+  depends_on = [module.vault_base]
 }
 
 module "ziti_config" {
@@ -80,6 +151,7 @@ module "ziti_config" {
         "jit.simple-k8s.example.com",
         "setup.simple-k8s.example.com",
         "architecture.simple-k8s.example.com",
+        "chat.simple-k8s.example.com",
       ]
       intercept_port = 443
       host_address   = "10.69.50.192"
@@ -119,6 +191,7 @@ module "ziti_config" {
         "jit.mesh-k8s.example.com",
         "setup.mesh-k8s.example.com",
         "architecture.mesh-k8s.example.com",
+        "chat.mesh-k8s.example.com",
       ]
       intercept_port = 443
       host_address   = "10.69.50.209"
@@ -144,4 +217,279 @@ module "ziti_config" {
     bob-phone  = { role_attributes = ["demo"] }
     dave-tablet = { role_attributes = ["user"] }
   }
+
+  depends_on = [module.vault_base]
+}
+
+# ============================================================================
+# Cluster-scoped Vault secrets (kss/kcs → ExternalSecrets → K8s)
+# ============================================================================
+
+# Cloudflare API token — from SOPS → generate-env → TF_VAR
+resource "vault_kv_secret_v2" "cloudflare" {
+  for_each  = toset(var.vault_namespaces)
+  namespace = each.value
+  mount     = module.vault_base.cluster_kv_mount_paths[each.value]
+  name      = "cloudflare"
+
+  data_json = jsonencode({
+    "api-token" = var.cloudflare_api_token
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
+# Grafana admin — generated password, same across clusters
+resource "random_password" "grafana_admin" {
+  length  = 24
+  special = false
+}
+
+resource "vault_kv_secret_v2" "grafana_admin" {
+  for_each  = toset(var.vault_namespaces)
+  namespace = each.value
+  mount     = module.vault_base.cluster_kv_mount_paths[each.value]
+  name      = "grafana/admin"
+
+  data_json = jsonencode({
+    username = "admin"
+    password = random_password.grafana_admin.result
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
+# Keycloak broker DB credentials — generated passwords for CloudNativePG
+resource "random_password" "keycloak_db" {
+  length  = 24
+  special = false
+}
+
+resource "random_password" "keycloak_db_admin" {
+  length  = 24
+  special = false
+}
+
+resource "vault_kv_secret_v2" "keycloak_db_credentials" {
+  for_each  = toset(var.vault_namespaces)
+  namespace = each.value
+  mount     = module.vault_base.cluster_kv_mount_paths[each.value]
+  name      = "keycloak/db-credentials"
+
+  data_json = jsonencode({
+    username         = "keycloak"
+    password         = random_password.keycloak_db.result
+    "admin-password" = random_password.keycloak_db_admin.result
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
+# Open WebUI DB credentials — generated passwords for CloudNativePG
+resource "random_password" "open_webui_db" {
+  length  = 24
+  special = false
+}
+
+resource "random_password" "open_webui_db_admin" {
+  length  = 24
+  special = false
+}
+
+resource "vault_kv_secret_v2" "open_webui_db_credentials" {
+  for_each  = toset(var.vault_namespaces)
+  namespace = each.value
+  mount     = module.vault_base.cluster_kv_mount_paths[each.value]
+  name      = "open-webui/db-credentials"
+
+  data_json = jsonencode({
+    username            = "open-webui"
+    password            = random_password.open_webui_db.result
+    "postgres-password" = random_password.open_webui_db_admin.result
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
+# OAuth2-Proxy cookie secret — 32-byte random for session encryption
+resource "random_password" "oauth2_proxy_cookie" {
+  length  = 32
+  special = false
+}
+
+resource "vault_kv_secret_v2" "oauth2_proxy" {
+  for_each  = toset(var.vault_namespaces)
+  namespace = each.value
+  mount     = module.vault_base.cluster_kv_mount_paths[each.value]
+  name      = "oauth2-proxy"
+
+  data_json = jsonencode({
+    "cookie-secret" = random_password.oauth2_proxy_cookie.result
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
+# MinIO Loki S3 credentials — uses MinIO root creds (provider has no IAM users)
+resource "vault_kv_secret_v2" "minio_loki" {
+  for_each  = toset(var.vault_namespaces)
+  namespace = each.value
+  mount     = module.vault_base.cluster_kv_mount_paths[each.value]
+  name      = "minio/loki-${each.value}"
+
+  data_json = jsonencode({
+    "access-key" = var.minio_access_key
+    "secret-key" = var.minio_secret_key
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
+# ============================================================================
+# Convenience namespace — admin/operational reference secrets
+# ============================================================================
+
+resource "vault_kv_secret_v2" "convenience_keycloak_admin" {
+  namespace = "convenience"
+  mount     = module.vault_base.convenience_kv_mount_path
+  name      = "keycloak/admin"
+
+  data_json = jsonencode({
+    username = var.keycloak_admin_user
+    password = var.keycloak_admin_password
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
+resource "vault_kv_secret_v2" "convenience_keycloak_test_users" {
+  namespace = "convenience"
+  mount     = module.vault_base.convenience_kv_mount_path
+  name      = "keycloak/test-users"
+
+  data_json = jsonencode(module.keycloak_upstream.user_passwords)
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
+resource "vault_kv_secret_v2" "convenience_keycloak_teleport_client" {
+  namespace = "convenience"
+  mount     = module.vault_base.convenience_kv_mount_path
+  name      = "keycloak/teleport-client"
+
+  data_json = jsonencode({
+    "client-id"     = "teleport"
+    "client-secret" = module.keycloak_upstream.teleport_client_secret
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
+resource "vault_kv_secret_v2" "convenience_keycloak_gitlab_client" {
+  namespace = "convenience"
+  mount     = module.vault_base.convenience_kv_mount_path
+  name      = "keycloak/gitlab-client"
+
+  data_json = jsonencode({
+    "client-id"     = "gitlab"
+    "client-secret" = module.keycloak_upstream.gitlab_client_secret
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
+resource "vault_kv_secret_v2" "convenience_gitlab_admin" {
+  namespace = "convenience"
+  mount     = module.vault_base.convenience_kv_mount_path
+  name      = "gitlab/admin"
+
+  data_json = jsonencode({
+    username = "root"
+    password = var.gitlab_admin_password
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
+resource "vault_kv_secret_v2" "convenience_ziti_admin" {
+  namespace = "convenience"
+  mount     = module.vault_base.convenience_kv_mount_path
+  name      = "ziti/admin"
+
+  data_json = jsonencode({
+    username = "admin"
+    password = var.ziti_admin_password
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
+resource "vault_kv_secret_v2" "convenience_teleport_admin" {
+  namespace = "convenience"
+  mount     = module.vault_base.convenience_kv_mount_path
+  name      = "teleport/admin"
+
+  data_json = jsonencode({
+    username = "admin"
+    password = var.teleport_admin_password
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
+resource "vault_kv_secret_v2" "convenience_minio_admin" {
+  namespace = "convenience"
+  mount     = module.vault_base.convenience_kv_mount_path
+  name      = "minio/admin"
+
+  data_json = jsonencode({
+    "access-key" = var.minio_access_key
+    "secret-key" = var.minio_secret_key
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
+}
+
+resource "vault_kv_secret_v2" "convenience_harbor_admin" {
+  namespace = "convenience"
+  mount     = module.vault_base.convenience_kv_mount_path
+  name      = "harbor/admin"
+
+  data_json = jsonencode({
+    username = var.harbor_admin_user
+    password = var.harbor_admin_password
+    url      = var.harbor_url
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+
+  depends_on = [module.vault_base]
 }

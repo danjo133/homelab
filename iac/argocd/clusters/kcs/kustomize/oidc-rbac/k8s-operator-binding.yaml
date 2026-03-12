@@ -9,5 +9,5 @@ roleRef:
   name: k8s-operator
 subjects:
   - kind: Group
-    name: k8s-operators
+    name: "oidc:k8s-operators"
     apiGroup: rbac.authorization.k8s.io

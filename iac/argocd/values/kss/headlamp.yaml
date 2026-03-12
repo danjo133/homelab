@@ -9,11 +9,11 @@ ingress:
     portal.example.com/category: "Platform"
     portal.example.com/order: "20"
   hosts:
-    - host: k8s.simple-k8s.example.com
+    - host: headlamp.simple-k8s.example.com
       paths:
         - path: /
           type: ImplementationSpecific
   tls:
     - secretName: wildcard-simple-k8s.example.com-tls
       hosts:
-        - k8s.simple-k8s.example.com
+        - headlamp.simple-k8s.example.com

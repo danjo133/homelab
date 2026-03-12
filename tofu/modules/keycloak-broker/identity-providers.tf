@@ -26,7 +26,7 @@ resource "keycloak_oidc_identity_provider" "upstream" {
   client_id     = var.upstream_client_id
   client_secret = var.upstream_client_secret
 
-  sync_mode          = "IMPORT"
+  sync_mode          = "FORCE"
   default_scopes     = "openid profile email roles"
   validate_signature = true
 
@@ -80,7 +80,8 @@ resource "keycloak_oidc_identity_provider" "github" {
   client_id     = var.github_client_id
   client_secret = var.github_client_secret
 
-  sync_mode = "IMPORT"
+  sync_mode      = "IMPORT"
+  default_scopes = "user:email"
 }
 
 # ============================================================================

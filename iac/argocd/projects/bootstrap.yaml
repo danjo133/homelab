@@ -53,6 +53,8 @@ spec:
       namespace: cilium-secrets
     # gateway-config routes to services in these namespaces
     - server: https://kubernetes.default.svc
+      namespace: open-webui
+    - server: https://kubernetes.default.svc
       namespace: headlamp
     - server: https://kubernetes.default.svc
       namespace: oauth2-proxy

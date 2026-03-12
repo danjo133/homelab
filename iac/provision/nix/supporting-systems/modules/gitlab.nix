@@ -29,7 +29,7 @@ let
 
     export PATH="${lib.makeBinPath [
       pkgs.docker-compose pkgs.docker pkgs.openssl pkgs.jq pkgs.curl
-      pkgs.coreutils pkgs.minio-client pkgs.gnugrep pkgs.gnused
+      pkgs.coreutils pkgs.minio-client pkgs.gnugrep pkgs.gnused pkgs.gawk
     ]}"
     export HOME=/tmp
 
@@ -82,9 +82,133 @@ COMPOSEEOF
       return 1
     }
 
-    # If already set up, handle upgrades via sequential stops
+    # Helper: generate gitlab.rb configuration
+    generate_gitlab_rb() {
+      local CONFIG_FILE="$GITLAB_DIR/config/gitlab.rb"
+
+      cat > "$CONFIG_FILE" << 'GITLABEOF'
+# GitLab Omnibus Configuration — Auto-generated
+
+external_url 'https://gitlab.support.example.com'
+
+# Nginx: listen on HTTP only, external nginx handles TLS
+nginx['listen_port'] = 8929
+nginx['listen_https'] = false
+nginx['proxy_set_headers'] = {
+  "X-Forwarded-Proto" => "https",
+  "X-Forwarded-Ssl" => "on"
+}
+
+# Git SSH on non-standard port
+gitlab_rails['gitlab_shell_ssh_port'] = 2222
+
+# Disable container registry (Harbor is the registry)
+registry['enable'] = false
+gitlab_rails['registry_enabled'] = false
+
+# Disable Let's Encrypt (external nginx)
+letsencrypt['enable'] = false
+
+# Resource tuning for VM
+puma['worker_processes'] = 2
+sidekiq['concurrency'] = 10
+
+# Disable unnecessary features
+gitlab_pages['enable'] = false
+prometheus['enable'] = false
+alertmanager['enable'] = false
+node_exporter['enable'] = false
+redis_exporter['enable'] = false
+postgres_exporter['enable'] = false
+gitlab_exporter['enable'] = false
+GITLABEOF
+
+      # Inject secrets (these contain shell variables, so use non-quoted heredoc)
+      cat >> "$CONFIG_FILE" << SECRETSEOF
+
+# Secret keys
+gitlab_rails['initial_root_password'] = '$ADMIN_PASSWORD'
+gitlab_rails['secret_key_base'] = '$SECRET_KEY_BASE'
+gitlab_rails['otp_key_base'] = '$OTP_KEY_BASE'
+gitlab_rails['db_key_base'] = '$DB_KEY_BASE'
+SECRETSEOF
+
+      # Inject OIDC config if secret exists
+      if [ -f "$OIDC_SECRET_FILE" ]; then
+        OIDC_SECRET=$(cat "$OIDC_SECRET_FILE")
+        cat >> "$CONFIG_FILE" << OIDCEOF
+
+# Keycloak OIDC SSO
+gitlab_rails['omniauth_enabled'] = true
+gitlab_rails['omniauth_allow_single_sign_on'] = ['openid_connect']
+gitlab_rails['omniauth_block_auto_created_users'] = false
+gitlab_rails['omniauth_providers'] = [
+  {
+    name: 'openid_connect',
+    label: 'Keycloak',
+    args: {
+      name: 'openid_connect',
+      scope: ['openid', 'profile', 'email'],
+      response_type: 'code',
+      issuer: 'https://idp.support.example.com/realms/upstream',
+      client_auth_method: 'query',
+      discovery: true,
+      uid_field: 'preferred_username',
+      pkce: true,
+      client_options: {
+        identifier: 'gitlab',
+        secret: '$OIDC_SECRET',
+        redirect_uri: 'https://gitlab.support.example.com/users/auth/openid_connect/callback'
+      }
+    }
+  }
+]
+OIDCEOF
+      fi
+
+      # Inject MinIO object storage config
+      if [ -f "$MINIO_CREDS" ]; then
+        source "$MINIO_CREDS"
+        cat >> "$CONFIG_FILE" << MINIOEOF
+
+# MinIO object storage (consolidated form)
+gitlab_rails['object_store']['enabled'] = true
+gitlab_rails['object_store']['connection'] = {
+  'provider' => 'AWS',
+  'aws_access_key_id' => '$MINIO_ROOT_USER',
+  'aws_secret_access_key' => '$MINIO_ROOT_PASSWORD',
+  'region' => 'us-east-1',
+  'endpoint' => 'http://10.69.50.10:9000',
+  'path_style' => true
+}
+gitlab_rails['object_store']['objects']['artifacts'] = { 'bucket' => 'gitlab-artifacts' }
+gitlab_rails['object_store']['objects']['lfs'] = { 'bucket' => 'gitlab-lfs' }
+gitlab_rails['object_store']['objects']['uploads'] = { 'bucket' => 'gitlab-uploads' }
+gitlab_rails['object_store']['objects']['packages'] = { 'bucket' => 'gitlab-packages' }
+gitlab_rails['object_store']['objects']['terraform_state'] = { 'bucket' => 'gitlab-terraform' }
+gitlab_rails['object_store']['objects']['ci_secure_files'] = { 'bucket' => 'gitlab-ci-secure-files' }
+gitlab_rails['object_store']['objects']['dependency_proxy'] = { 'bucket' => 'gitlab-dependency-proxy' }
+gitlab_rails['object_store']['objects']['pages'] = { 'bucket' => 'gitlab-pages' }
+MINIOEOF
+      fi
+
+      chmod 600 "$CONFIG_FILE"
+    }
+
+    # If already set up, handle config updates and upgrades
     if [ -f "$SETUP_MARKER" ]; then
       cd "$GITLAB_DIR"
+
+      # Read secrets for gitlab.rb generation
+      ADMIN_PASSWORD=$(cat "$ADMIN_PASSWORD_FILE")
+      SECRET_KEY_BASE=$(cat /etc/gitlab/secret_key_base)
+      OTP_KEY_BASE=$(cat /etc/gitlab/otp_key_base)
+      DB_KEY_BASE=$(cat /etc/gitlab/db_key_base)
+
+      # Regenerate gitlab.rb and reconfigure if changed
+      OLD_HASH=$(sha256sum "$GITLAB_DIR/config/gitlab.rb" 2>/dev/null | awk '{print $1}')
+      generate_gitlab_rb
+      NEW_HASH=$(sha256sum "$GITLAB_DIR/config/gitlab.rb" | awk '{print $1}')
 
       # Detect current data version from the GitLab data directory
       VERSION_FILE="$GITLAB_DIR/data/gitlab-rails/VERSION"
@@ -100,7 +224,20 @@ COMPOSEEOF
       echo "Target version: $TARGET_VERSION"
 
       if [ "$DATA_VERSION" = "$TARGET_VERSION" ]; then
-        # Container already running at correct version — nothing to do
+        if [ "$OLD_HASH" != "$NEW_HASH" ]; then
+          echo "Config changed, reconfiguring..."
+          # Ensure container is running
+          if ! docker inspect gitlab --format='{{.State.Running}}' 2>/dev/null | grep -q true; then
+            write_compose "$GITLAB_IMAGE"
+            docker-compose up -d
+            wait_healthy
+          fi
+          docker exec gitlab gitlab-ctl reconfigure
+          echo "GitLab reconfigured"
+          exit 0
+        fi
+
+        # Container already running at correct version, config unchanged
         if docker inspect gitlab --format='{{.State.Running}}' 2>/dev/null | grep -q true; then
           echo "Already at target version and running, nothing to do"
           exit 0
@@ -208,114 +345,7 @@ COMPOSEEOF
     # Generate gitlab.rb configuration
     # ========================================================================
     echo "==> Generating gitlab.rb..."
-
-    cat > "$GITLAB_DIR/config/gitlab.rb" << 'GITLABEOF'
-# GitLab Omnibus Configuration — Auto-generated
-
-external_url 'https://gitlab.support.example.com'
-
-# Nginx: listen on HTTP only, external nginx handles TLS
-nginx['listen_port'] = 8929
-nginx['listen_https'] = false
-nginx['proxy_set_headers'] = {
-  "X-Forwarded-Proto" => "https",
-  "X-Forwarded-Ssl" => "on"
-}
-
-# Git SSH on non-standard port
-gitlab_rails['gitlab_shell_ssh_port'] = 2222
-
-# Disable container registry (Harbor is the registry)
-registry['enable'] = false
-gitlab_rails['registry_enabled'] = false
-
-# Disable Let's Encrypt (external nginx)
-letsencrypt['enable'] = false
-
-# Resource tuning for VM
-puma['worker_processes'] = 2
-sidekiq['concurrency'] = 10
-
-# Disable unnecessary features
-gitlab_pages['enable'] = false
-prometheus['enable'] = false
-alertmanager['enable'] = false
-node_exporter['enable'] = false
-redis_exporter['enable'] = false
-postgres_exporter['enable'] = false
-gitlab_exporter['enable'] = false
-GITLABEOF
-
-    # Inject secrets (these contain shell variables, so use non-quoted heredoc)
-    cat >> "$GITLAB_DIR/config/gitlab.rb" << SECRETSEOF
-
-# Secret keys
-gitlab_rails['initial_root_password'] = '$ADMIN_PASSWORD'
-gitlab_rails['secret_key_base'] = '$SECRET_KEY_BASE'
-gitlab_rails['otp_key_base'] = '$OTP_KEY_BASE'
-gitlab_rails['db_key_base'] = '$DB_KEY_BASE'
-SECRETSEOF
-
-    # Inject OIDC config if secret exists
-    if [ -f "$OIDC_SECRET_FILE" ]; then
-      OIDC_SECRET=$(cat "$OIDC_SECRET_FILE")
-      cat >> "$GITLAB_DIR/config/gitlab.rb" << OIDCEOF
-
-# Keycloak OIDC SSO
-gitlab_rails['omniauth_enabled'] = true
-gitlab_rails['omniauth_allow_single_sign_on'] = ['openid_connect']
-gitlab_rails['omniauth_block_auto_created_users'] = false
-gitlab_rails['omniauth_providers'] = [
-  {
-    name: 'openid_connect',
-    label: 'Keycloak',
-    args: {
-      name: 'openid_connect',
-      scope: ['openid', 'profile', 'email'],
-      response_type: 'code',
-      issuer: 'https://idp.support.example.com/realms/upstream',
-      client_auth_method: 'query',
-      discovery: true,
-      uid_field: 'preferred_username',
-      pkce: true,
-      client_options: {
-        identifier: 'gitlab',
-        secret: '$OIDC_SECRET',
-        redirect_uri: 'https://gitlab.support.example.com/users/auth/openid_connect/callback'
-      }
-    }
-  }
-]
-OIDCEOF
-    fi
-
-    # Inject MinIO object storage config
-    if [ -f "$MINIO_CREDS" ]; then
-      source "$MINIO_CREDS"
-      cat >> "$GITLAB_DIR/config/gitlab.rb" << MINIOEOF
-
-# MinIO object storage (consolidated form)
-gitlab_rails['object_store']['enabled'] = true
-gitlab_rails['object_store']['connection'] = {
-  'provider' => 'AWS',
-  'aws_access_key_id' => '$MINIO_ROOT_USER',
-  'aws_secret_access_key' => '$MINIO_ROOT_PASSWORD',
-  'region' => 'us-east-1',
-  'endpoint' => 'http://10.69.50.10:9000',
-  'path_style' => true
-}
-gitlab_rails['object_store']['objects']['artifacts'] = { 'bucket' => 'gitlab-artifacts' }
-gitlab_rails['object_store']['objects']['lfs'] = { 'bucket' => 'gitlab-lfs' }
-gitlab_rails['object_store']['objects']['uploads'] = { 'bucket' => 'gitlab-uploads' }
-gitlab_rails['object_store']['objects']['packages'] = { 'bucket' => 'gitlab-packages' }
-gitlab_rails['object_store']['objects']['terraform_state'] = { 'bucket' => 'gitlab-terraform' }
-gitlab_rails['object_store']['objects']['ci_secure_files'] = { 'bucket' => 'gitlab-ci-secure-files' }
-gitlab_rails['object_store']['objects']['dependency_proxy'] = { 'bucket' => 'gitlab-dependency-proxy' }
-gitlab_rails['object_store']['objects']['pages'] = { 'bucket' => 'gitlab-pages' }
-MINIOEOF
-    fi
-
-    chmod 600 "$GITLAB_DIR/config/gitlab.rb"
+    generate_gitlab_rb
 
     # ========================================================================
     # Generate docker-compose.yml
@@ -330,19 +360,8 @@ MINIOEOF
     echo "==> Starting GitLab..."
     docker-compose up -d
 
-    # Store admin password in Vault
-    if [ -f "$KEYS_FILE" ]; then
-      ROOT_TOKEN=$(jq -r '.root_token' "$KEYS_FILE")
-      for VAULT_NS in kss kcs; do
-        curl -sf -X POST \
-          -H "X-Vault-Token: $ROOT_TOKEN" \
-          -H "X-Vault-Namespace: $VAULT_NS" \
-          -H "Content-Type: application/json" \
-          -d "$(jq -n --arg pass "$ADMIN_PASSWORD" '{data: {password: $pass, username: "root"}}')" \
-          "$VAULT_ADDR/v1/secret/data/gitlab/admin"
-        echo "  Stored gitlab/admin in $VAULT_NS"
-      done
-    fi
+    # NOTE: gitlab/admin credentials are now managed by OpenTofu (convenience namespace).
+    # See tofu/environments/base/main.tf — vault_kv_secret_v2.convenience_gitlab_admin
 
     # Mark setup complete
     touch "$SETUP_MARKER"

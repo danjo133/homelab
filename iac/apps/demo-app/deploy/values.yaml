@@ -1,0 +1,37 @@
+# Demo App — exercises all generic-app chart features
+name: demo
+
+port: 8080
+memory: 256Mi
+sso: true
+
+cpu:
+  request: 10m
+  limit: 100m
+
+portal:
+  enabled: true
+  name: Demo App
+  description: Example app with PostgreSQL, storage, and SSO
+  icon: "🧪"
+  category: Apps
+  order: 200
+
+postgres:
+  enabled: true
+  database: demo
+  size: 1Gi
+  version: "17"
+
+storage:
+  enabled: true
+  size: 1Gi
+  mountPath: /data
+
+probes:
+  liveness:
+    enabled: true
+    path: /health
+  readiness:
+    enabled: true
+    path: /ready

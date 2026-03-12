@@ -68,6 +68,7 @@ journal.log
 tmp/
 temp/
 *.tmp
+.tmp-*
 .claude/.fuse_hidden*
 
 # Git hooks

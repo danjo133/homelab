@@ -1,16 +1,26 @@
 ollama:
   enabled: false
 
-ollamaUrls: []
+pipelines:
+  enabled: false
+
+tika:
+  enabled: false
+
+redis:
+  enabled: false
+
+ollamaUrls:
+  - "http://10.69.10.10:11434"
 
 replicaCount: 1
 
 resources:
   requests:
     cpu: 100m
-    memory: 256Mi
+    memory: 1500Mi
   limits:
-    memory: 1Gi
+    memory: 2Gi
 
 persistence:
   enabled: true
@@ -21,6 +31,7 @@ sso:
   enableSignup: true
   mergeAccountsByEmail: true
   oidc:
+    enabled: true
     clientId: "open-webui"
     clientExistingSecret: "open-webui-oidc"
     clientExistingSecretKey: "client-secret"

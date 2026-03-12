@@ -7,16 +7,8 @@
 #   - KV secrets (with ignore_changes on data)
 #   - Kubernetes auth backend + role
 
-# KV v2 secrets engine at secret/
-# Live mount uses type="kv" with options.version="2" (not "kv-v2")
-resource "vault_mount" "kv" {
-  path = "secret"
-  type = "kv"
-
-  options = {
-    version = "2"
-  }
-}
+# NOTE: KV v2 engine at secret/ is created by vault-base module (in the base
+# environment) so it exists before gitlab_config/ziti_config write to it.
 
 # Intermediate PKI mount — the intermediate CA cert is one-shot (not managed).
 resource "vault_mount" "pki_int" {

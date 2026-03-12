@@ -176,6 +176,56 @@ require_vault_keys_backup() {
   fi
 }
 
+# ─── Confirmation Helpers ────────────────────────────────────────────────────
+
+# Parse --yes / -y flag from script arguments.
+# Call early: parse_yes_flag "$@"
+# Sets SKIP_CONFIRM=true if found. Remaining args in REMAINING_ARGS array.
+parse_yes_flag() {
+  SKIP_CONFIRM=false
+  REMAINING_ARGS=()
+  for arg in "$@"; do
+    case "$arg" in
+      --yes|-y) SKIP_CONFIRM=true ;;
+      *) REMAINING_ARGS+=("$arg") ;;
+    esac
+  done
+}
+
+# Prompt the user for confirmation before a dangerous action.
+# Usage: confirm_action "message" ["danger"]
+#   - "danger" level requires typing "yes"; default uses y/N prompt
+# Respects SKIP_CONFIRM=true to skip the prompt.
+# Exits with code 1 if the user declines.
+confirm_action() {
+  local message="$1"
+  local level="${2:-warn}"
+
+  if [[ "${SKIP_CONFIRM:-false}" == "true" ]]; then
+    return 0
+  fi
+
+  echo ""
+  if [[ "$level" == "danger" ]]; then
+    error ">>> ${message}"
+    echo ""
+    read -rp "Type 'yes' to confirm: " REPLY
+    echo ""
+    if [[ "$REPLY" != "yes" ]]; then
+      info "Cancelled."
+      exit 1
+    fi
+  else
+    warn ">>> ${message}"
+    read -rp "Continue? [y/N] " -n 1 REPLY
+    echo ""
+    if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
+      info "Cancelled."
+      exit 1
+    fi
+  fi
+}
+
 # ─── Kubectl / Helmfile Wrappers ──────────────────────────────────────────────
 
 kube_cmd() {

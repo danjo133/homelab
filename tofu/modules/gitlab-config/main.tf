@@ -68,7 +68,51 @@ resource "gitlab_project_membership" "argocd" {
   access_level = "reporter"
 }
 
-# ─── Vault Storage ───────────────────────────────────────────────────────────
+# ─── Admin Push Access ─────────────────────────────────────────────────────
+
+resource "gitlab_user_sshkey" "admin" {
+  count   = var.admin_ssh_public_key != "" ? 1 : 0
+  user_id = 1 # root user
+  title   = "admin-push"
+  key     = var.admin_ssh_public_key
+}
+
+# ─── CI/CD Variables ───────────────────────────────────────────────────────
+
+resource "gitlab_project_variable" "harbor_push_user" {
+  project   = gitlab_project.kss.id
+  key       = "HARBOR_PUSH_USER"
+  value     = var.harbor_push_user
+  protected = false
+  masked    = false
+}
+
+resource "gitlab_project_variable" "harbor_push_password" {
+  project   = gitlab_project.kss.id
+  key       = "HARBOR_PUSH_PASSWORD"
+  value     = var.harbor_push_password
+  protected = false
+  masked    = true
+}
+
+# ─── SSH Known Hosts ─────────────────────────────────────────────────────────
+
+# Fetch current GitLab SSH host keys via ssh-keyscan
+data "external" "gitlab_ssh_host_keys" {
+  program = ["bash", "-c", "ssh-keyscan -p 2222 gitlab.support.example.com 2>/dev/null | grep -v '^#' | jq -Rs '{known_hosts: .}'"]
+}
+
+# Store SSH host keys in Vault for ExternalSecrets → ArgoCD known hosts
+resource "vault_kv_secret_v2" "gitlab_ssh_known_hosts" {
+  for_each  = toset(var.vault_namespaces)
+  namespace = each.value
+  mount     = "secret"
+  name      = "gitlab/ssh-host-keys"
+
+  data_json = jsonencode({
+    known_hosts = data.external.gitlab_ssh_host_keys.result.known_hosts
+  })
+}
 
 # Store SSH private key in Vault for each cluster namespace
 resource "vault_kv_secret_v2" "argocd_ssh_key" {

@@ -23,7 +23,7 @@ spec:
         - name: harbor-pull-secret
       containers:
         - name: cluster-setup
-          image: harbor.support.example.com/kss/cluster-setup:latest
+          image: harbor.support.example.com/apps/cluster-setup:latest
           ports:
             - containerPort: 8080
               protocol: TCP

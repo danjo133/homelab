@@ -22,7 +22,7 @@ spec:
               - auth.mesh-k8s.example.com         # Keycloak — is the IdP
               - grafana.mesh-k8s.example.com      # Own OAuth login
               - oauth2-proxy.mesh-k8s.example.com # Auth proxy itself
-              - k8s.mesh-k8s.example.com          # Headlamp — own OIDC login
+              - headlamp.mesh-k8s.example.com     # Headlamp — own OIDC login
               - jit.mesh-k8s.example.com          # Token exchange API
               - chat.mesh-k8s.example.com         # Open WebUI — own OIDC login
             notPaths:

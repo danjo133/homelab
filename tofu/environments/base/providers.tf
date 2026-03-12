@@ -40,3 +40,10 @@ provider "teleport" {
   addr               = var.teleport_addr
   identity_file_path = var.teleport_identity_file_path
 }
+
+# Harbor on support VM
+provider "harbor" {
+  url      = var.harbor_url
+  username = var.harbor_admin_user
+  password = var.harbor_admin_password
+}

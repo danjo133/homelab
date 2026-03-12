@@ -140,7 +140,7 @@ let
       PUSH_CREDS=$(curl -sf \
         -H "X-Vault-Token: $ROOT_TOKEN" \
         -H "X-Vault-Namespace: kss" \
-        "$VAULT_ADDR/v1/secret/data/harbor/apps-push" | jq -r '.data.data')
+        "$VAULT_ADDR/v1/secret/data/harbor/apps-push" 2>/dev/null | jq -r '.data.data // empty')
 
       if [ -n "$PUSH_CREDS" ] && [ "$PUSH_CREDS" != "null" ]; then
         PUSH_USER=$(echo "$PUSH_CREDS" | jq -r '.username')
@@ -175,13 +175,16 @@ let
     if [ -f "$KEYS_FILE" ]; then
       ROOT_TOKEN=$(jq -r '.root_token' "$KEYS_FILE")
       for VAULT_NS in kss kcs; do
-        curl -sf -X POST \
+        if curl -sf -X POST \
           -H "X-Vault-Token: $ROOT_TOKEN" \
           -H "X-Vault-Namespace: $VAULT_NS" \
           -H "Content-Type: application/json" \
           -d "$(jq -n --arg token "$GITLAB_TOKEN" '{data: {token: $token}}')" \
-          "$VAULT_ADDR/v1/secret/data/gitlab/apps-token" >/dev/null
-        echo "  Stored gitlab/apps-token in $VAULT_NS"
+          "$VAULT_ADDR/v1/secret/data/gitlab/apps-token" >/dev/null; then
+          echo "  Stored gitlab/apps-token in $VAULT_NS"
+        else
+          echo "  WARNING: Could not store gitlab/apps-token in $VAULT_NS (namespace may not exist yet)"
+        fi
       done
     fi
 
@@ -193,13 +196,16 @@ let
     if [ -n "$SSH_HOST_KEYS" ] && [ -f "$KEYS_FILE" ]; then
       ROOT_TOKEN=$(jq -r '.root_token' "$KEYS_FILE")
       for VAULT_NS in kss kcs; do
-        curl -sf -X POST \
+        if curl -sf -X POST \
           -H "X-Vault-Token: $ROOT_TOKEN" \
           -H "X-Vault-Namespace: $VAULT_NS" \
           -H "Content-Type: application/json" \
           -d "$(jq -n --arg keys "$SSH_HOST_KEYS" '{data: {known_hosts: $keys}}')" \
-          "$VAULT_ADDR/v1/secret/data/gitlab/ssh-host-keys" >/dev/null
-        echo "  Stored gitlab/ssh-host-keys in $VAULT_NS"
+          "$VAULT_ADDR/v1/secret/data/gitlab/ssh-host-keys" >/dev/null; then
+          echo "  Stored gitlab/ssh-host-keys in $VAULT_NS"
+        else
+          echo "  WARNING: Could not store gitlab/ssh-host-keys in $VAULT_NS (namespace may not exist yet)"
+        fi
       done
     fi
 

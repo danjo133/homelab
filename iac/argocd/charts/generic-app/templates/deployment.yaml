@@ -39,9 +39,43 @@ spec:
               path: {{ .Values.probes.readiness.path }}
               port: http
           {{- end }}
-          {{- with .Values.env }}
+          {{- if or .Values.postgres.enabled .Values.env }}
           env:
+          {{- if .Values.postgres.enabled }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-app
+                  key: uri
+            - name: PGHOST
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-app
+                  key: host
+            - name: PGPORT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-app
+                  key: port
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-app
+                  key: dbname
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-app
+                  key: user
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-db-app
+                  key: password
+          {{- end }}
+          {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- end }}
           {{- with .Values.envFrom }}
           envFrom:
@@ -49,6 +83,19 @@ spec:
           {{- end }}
           resources:
             limits:
+              cpu: {{ .Values.cpu.limit }}
               memory: {{ .Values.memory }}
             requests:
+              cpu: {{ .Values.cpu.request }}
               memory: {{ include "generic-app.halfMemory" . }}
+          {{- if .Values.storage.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.storage.mountPath }}
+          {{- end }}
+      {{- if .Values.storage.enabled }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-data
+      {{- end }}

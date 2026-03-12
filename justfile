@@ -31,17 +31,17 @@ validate:
 vm-build-box:
     ./stages/1_vms/build-box.sh
 
-# Start VMs (target: all, support, cluster, master, workers)
-vm-up target="all":
-    ./stages/1_vms/up.sh "{{target}}"
+# Start VMs (target: all, support, cluster, master, workers) [--yes to skip confirm]
+vm-up *args:
+    ./stages/1_vms/up.sh {{args}}
 
-# Stop VMs (target: all, support, cluster)
-vm-down target="all":
-    ./stages/1_vms/down.sh "{{target}}"
+# Stop VMs (target: all, support, cluster, master, workers) [--yes to skip confirm]
+vm-down *args:
+    ./stages/1_vms/down.sh {{args}}
 
-# Destroy cluster VMs
-vm-destroy:
-    ./stages/1_vms/destroy.sh
+# Destroy cluster VMs [--yes to skip confirm]
+vm-destroy *args:
+    ./stages/1_vms/destroy.sh {{args}}
 
 # Show Vagrant VM status
 vm-status:
@@ -64,6 +64,10 @@ support-rebuild:
 # Show support service status
 support-status:
     ./stages/2_support/status.sh
+
+# Generate .env.kss and .env.kcs from support VM credentials
+support-generate-env:
+    ./stages/2_support/generate-env.sh
 
 # Backup Vault keys
 vault-backup:
@@ -230,9 +234,9 @@ tofu-setup-bucket:
 tofu-import-base:
     ./tofu/scripts/import-base.sh
 
-# Import existing cluster resources into OpenTofu state (requires KSS_CLUSTER)
-tofu-import-cluster:
-    ./tofu/scripts/import-cluster.sh
+# Import existing cluster resources into OpenTofu state (requires KSS_CLUSTER) [--keycloak-only]
+tofu-import-cluster *args:
+    ./tofu/scripts/import-cluster.sh {{args}}
 
 # Seed broker IdP secrets into Vault (social IdP creds, upstream secret)
 tofu-seed-broker:
@@ -241,6 +245,27 @@ tofu-seed-broker:
 # Migrate broker realm from KeycloakRealmImport to OpenTofu (requires KSS_CLUSTER)
 tofu-migrate-broker:
     ./tofu/scripts/migrate-broker-realm.sh
+
+# Remove placeholder secrets from cluster tofu state (one-time migration, requires KSS_CLUSTER)
+tofu-migrate-secrets:
+    ./tofu/scripts/migrate-remove-placeholder-secrets.sh
+
+# Bootstrap cluster tofu: seed IdP secrets → init → import → apply (requires KSS_CLUSTER)
+tofu-bootstrap-cluster:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source stages/lib/common.sh
+    require_cluster
+    header "Bootstrapping OpenTofu for ${KSS_CLUSTER}"
+    info "Step 1/4: Seeding broker IdP secrets..."
+    ./tofu/scripts/seed-broker-secrets.sh
+    info "Step 2/4: Initializing environment..."
+    tofu -chdir="tofu/environments/${KSS_CLUSTER}" init
+    info "Step 3/4: Importing existing resources..."
+    ./tofu/scripts/import-cluster.sh
+    info "Step 4/4: Applying configuration..."
+    tofu -chdir="tofu/environments/${KSS_CLUSTER}" apply
+    success "Bootstrap complete for ${KSS_CLUSTER}"
 
 # ─── Debug ────────────────────────────────────
 

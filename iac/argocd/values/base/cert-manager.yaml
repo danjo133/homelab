@@ -9,6 +9,16 @@ webhook:
 
 cainjector:
   replicaCount: 1
+  extraArgs:
+    - --leader-election-lease-duration=60s
+    - --leader-election-renew-deadline=40s
+    - --leader-election-retry-period=8s
+
+# Relaxed leader election — tolerate API server slowness on overcommitted hosts
+extraArgs:
+  - --leader-election-lease-duration=60s
+  - --leader-election-renew-deadline=40s
+  - --leader-election-retry-period=8s
 
 resources:
   requests:

@@ -14,6 +14,9 @@ metadata:
     nginx.ingress.kubernetes.io/auth-signin: "https://oauth2-proxy.{{ .Values.clusterDomain }}/oauth2/start?rd=$scheme://$host$escaped_request_uri"
     nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups,X-Auth-Request-Access-Token"
     {{- end }}
+    {{- if .Values.portal.enabled }}
+    {{- include "generic-app.portalAnnotations" . | nindent 4 }}
+    {{- end }}
     {{- with .Values.ingressAnnotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}

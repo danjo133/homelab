@@ -1,6 +1,6 @@
 output "kv_mount_path" {
-  description = "Path of the KV v2 mount"
-  value       = vault_mount.kv.path
+  description = "Path of the KV v2 mount (created by vault-base module)"
+  value       = "secret"
 }
 
 output "pki_int_mount_path" {

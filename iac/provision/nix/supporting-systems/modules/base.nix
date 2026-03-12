@@ -56,4 +56,16 @@
 
   # Ensure time sync is enabled
   services.timesyncd.enable = true;
+
+  # Fix transient hostname — NixOS sets static hostname via networking.hostName
+  # but the transient hostname stays "nixos" until reboot. hostnamectl is blocked
+  # on NixOS, so use hostname(1) directly.
+  systemd.services.fix-transient-hostname = {
+    description = "Sync transient hostname with static hostname";
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.inetutils}/bin/hostname ${config.networking.hostName}";
+    };
+  };
 }

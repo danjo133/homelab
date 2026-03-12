@@ -7,13 +7,6 @@ resources:
 
 patches:
   - target:
-      kind: Deployment
-      name: portal
-    patch: |
-      - op: replace
-        path: /spec/template/spec/containers/0/image
-        value: harbor.support.example.com/kcs/portal:latest
-  - target:
       kind: ConfigMap
       name: portal-config
     patch: |

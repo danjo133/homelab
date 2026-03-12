@@ -8,6 +8,10 @@ image:
 # Operator
 operator:
   replicas: 1
+  extraArgs:
+    - --leader-election-lease-duration=60s
+    - --leader-election-renew-deadline=40s
+    - --leader-election-retry-period=8s
 
 # IPAM
 ipam:

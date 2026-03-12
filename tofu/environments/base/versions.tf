@@ -34,5 +34,9 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3.6"
     }
+    harbor = {
+      source  = "goharbor/harbor"
+      version = "~> 3.10"
+    }
   }
 }

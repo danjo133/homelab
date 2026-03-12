@@ -112,6 +112,58 @@ variable "teleport_identity_file_path" {
   sensitive   = true
 }
 
+# --- Harbor ---
+
+variable "harbor_url" {
+  description = "Harbor server URL"
+  type        = string
+  default     = "https://harbor.support.example.com"
+}
+
+variable "harbor_admin_user" {
+  description = "Harbor admin username"
+  type        = string
+  default     = "admin"
+}
+
+variable "harbor_admin_password" {
+  description = "Harbor admin password"
+  type        = string
+  sensitive   = true
+}
+
+# --- Cloudflare ---
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token for DNS management (from SOPS)"
+  type        = string
+  sensitive   = true
+}
+
+# --- GitLab ---
+
+variable "gitlab_admin_password" {
+  description = "GitLab root admin password (from support VM)"
+  type        = string
+  sensitive   = true
+}
+
+# --- Teleport ---
+
+variable "teleport_admin_password" {
+  description = "Teleport admin password (from support VM)"
+  type        = string
+  sensitive   = true
+}
+
+# --- SSH ---
+
+variable "admin_ssh_public_key_file" {
+  description = "Path to SSH public key for GitLab push access"
+  type        = string
+  default     = "~/.ssh/kss.pub"
+}
+
 # --- Module configuration ---
 
 variable "vault_namespaces" {

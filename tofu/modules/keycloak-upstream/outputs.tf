@@ -25,3 +25,9 @@ output "gitlab_client_secret" {
   value       = keycloak_openid_client.gitlab.client_secret
   sensitive   = true
 }
+
+output "user_passwords" {
+  description = "Generated initial passwords for upstream realm users"
+  value       = { for u in local.users : u => random_password.user[u].result }
+  sensitive   = true
+}

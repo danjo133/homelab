@@ -26,7 +26,7 @@ BASE_DIR="$PROJECT_ROOT/tofu/environments/base"
 source "$PROJECT_ROOT/stages/lib/common.sh"
 
 # Verify required env vars
-for var in TF_VAR_vault_token TF_VAR_keycloak_admin_password TF_VAR_minio_access_key TF_VAR_minio_secret_key; do
+for var in TF_VAR_vault_token TF_VAR_keycloak_admin_password TF_VAR_minio_access_key TF_VAR_minio_secret_key TF_VAR_harbor_admin_password; do
   if [[ -z "${!var:-}" ]]; then
     error "Required env var $var is not set"
     exit 1
@@ -68,6 +68,14 @@ import_resource "module.vault_base.vault_mount.pki" "pki"
 import_resource "module.vault_base.vault_pki_secret_backend_config_urls.root" "pki"
 import_resource 'module.vault_base.vault_namespace.cluster["kss"]' "kss"
 import_resource 'module.vault_base.vault_namespace.cluster["kcs"]' "kcs"
+
+# KV v2 mounts in each namespace
+import_resource 'module.vault_base.vault_mount.cluster_kv["kss"]' "kss/secret"
+import_resource 'module.vault_base.vault_mount.cluster_kv["kcs"]' "kcs/secret"
+
+# Broker-client secret seeded into each namespace (may not exist yet on first run)
+import_resource 'module.vault_base.vault_kv_secret_v2.broker_client["kss"]' "kss/secret/data/keycloak/broker-client"
+import_resource 'module.vault_base.vault_kv_secret_v2.broker_client["kcs"]' "kcs/secret/data/keycloak/broker-client"
 
 # ============================================================================
 # 2. Keycloak upstream realm + resources
@@ -175,6 +183,16 @@ else
   warn "TF_VAR_gitlab_token not set — skipping GitLab imports"
 fi
 
+# GitLab CI/CD variables (import if project exists in state)
+if tofu -chdir="$BASE_DIR" state show "module.gitlab_config.gitlab_project.kss" >/dev/null 2>&1; then
+  KSS_PROJECT_ID=$(tofu -chdir="$BASE_DIR" state show "module.gitlab_config.gitlab_project.kss" 2>/dev/null \
+    | grep '^ *id ' | awk '{print $NF}' | tr -d '"')
+  if [[ -n "$KSS_PROJECT_ID" ]]; then
+    import_resource "module.gitlab_config.gitlab_project_variable.harbor_push_user" "${KSS_PROJECT_ID}:HARBOR_PUSH_USER:*:*"
+    import_resource "module.gitlab_config.gitlab_project_variable.harbor_push_password" "${KSS_PROJECT_ID}:HARBOR_PUSH_PASSWORD:*:*"
+  fi
+fi
+
 # ============================================================================
 # 4. MinIO buckets
 # ============================================================================
@@ -183,6 +201,77 @@ header "MinIO: importing buckets"
 for bucket in harbor loki-kss loki-kcs tofu-state; do
   import_resource "module.minio_config.minio_s3_bucket.buckets[\"$bucket\"]" "$bucket"
 done
+
+# ============================================================================
+# 5. Harbor apps project + robot accounts
+# ============================================================================
+header "Harbor: importing apps project and robots"
+
+HARBOR_URL="${TF_VAR_harbor_url:-https://harbor.support.example.com}"
+HARBOR_USER="${TF_VAR_harbor_admin_user:-admin}"
+HARBOR_PASS="$TF_VAR_harbor_admin_password"
+HARBOR_AUTH=$(echo -n "$HARBOR_USER:$HARBOR_PASS" | base64)
+
+import_resource "module.harbor_apps.harbor_project.apps" "apps"
+
+# Look up robot IDs from Harbor API (using explicit Authorization header for Harbor v2.14+)
+PUSH_ROBOT_ID=$(curl -sf -H "Authorization: Basic $HARBOR_AUTH" \
+  "$HARBOR_URL/api/v2.0/robots" | jq -r '[.[] | select(.name | endswith("+push"))][0].id // empty')
+PULL_ROBOT_ID=$(curl -sf -H "Authorization: Basic $HARBOR_AUTH" \
+  "$HARBOR_URL/api/v2.0/robots" | jq -r '[.[] | select(.name | endswith("+pull")) | select(.name | contains("apps"))][0].id // empty')
+
+if [[ -n "$PUSH_ROBOT_ID" ]]; then
+  import_resource "module.harbor_apps.harbor_robot_account.push" "$PUSH_ROBOT_ID"
+else
+  info "Push robot not found — will be created by tofu apply"
+fi
+
+if [[ -n "$PULL_ROBOT_ID" ]]; then
+  import_resource "module.harbor_apps.harbor_robot_account.pull" "$PULL_ROBOT_ID"
+else
+  info "Pull robot not found — will be created by tofu apply"
+fi
+
+# Harbor Vault secrets (may not exist on first run)
+for ns in kss kcs; do
+  import_resource "vault_kv_secret_v2.harbor_admin[\"$ns\"]" "$ns/secret/data/harbor/admin"
+  import_resource "vault_kv_secret_v2.harbor_apps_push[\"$ns\"]" "$ns/secret/data/harbor/apps-push"
+  import_resource "vault_kv_secret_v2.harbor_apps_pull[\"$ns\"]" "$ns/secret/data/harbor/apps-pull"
+done
+
+# ============================================================================
+# 6. Cluster-scoped generated secrets
+# ============================================================================
+header "Vault: importing cluster-scoped generated secrets"
+
+for ns in kss kcs; do
+  import_resource "vault_kv_secret_v2.cloudflare[\"$ns\"]" "$ns/secret/data/cloudflare"
+  import_resource "vault_kv_secret_v2.grafana_admin[\"$ns\"]" "$ns/secret/data/grafana/admin"
+  import_resource "vault_kv_secret_v2.keycloak_db_credentials[\"$ns\"]" "$ns/secret/data/keycloak/db-credentials"
+  import_resource "vault_kv_secret_v2.open_webui_db_credentials[\"$ns\"]" "$ns/secret/data/open-webui/db-credentials"
+  import_resource "vault_kv_secret_v2.oauth2_proxy[\"$ns\"]" "$ns/secret/data/oauth2-proxy"
+  import_resource "vault_kv_secret_v2.minio_loki[\"$ns\"]" "$ns/secret/data/minio/loki-${ns}"
+done
+
+# ============================================================================
+# 7. Convenience namespace + secrets
+# ============================================================================
+header "Vault: importing convenience namespace"
+
+import_resource "module.vault_base.vault_namespace.convenience" "convenience"
+import_resource "module.vault_base.vault_mount.convenience_kv" "convenience/secret"
+
+header "Vault: importing convenience secrets"
+
+import_resource "vault_kv_secret_v2.convenience_keycloak_admin" "convenience/secret/data/keycloak/admin"
+import_resource "vault_kv_secret_v2.convenience_keycloak_test_users" "convenience/secret/data/keycloak/test-users"
+import_resource "vault_kv_secret_v2.convenience_keycloak_teleport_client" "convenience/secret/data/keycloak/teleport-client"
+import_resource "vault_kv_secret_v2.convenience_keycloak_gitlab_client" "convenience/secret/data/keycloak/gitlab-client"
+import_resource "vault_kv_secret_v2.convenience_gitlab_admin" "convenience/secret/data/gitlab/admin"
+import_resource "vault_kv_secret_v2.convenience_ziti_admin" "convenience/secret/data/ziti/admin"
+import_resource "vault_kv_secret_v2.convenience_teleport_admin" "convenience/secret/data/teleport/admin"
+import_resource "vault_kv_secret_v2.convenience_minio_admin" "convenience/secret/data/minio/admin"
+import_resource "vault_kv_secret_v2.convenience_harbor_admin" "convenience/secret/data/harbor/admin"
 
 # ============================================================================
 # Summary

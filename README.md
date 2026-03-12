@@ -105,8 +105,9 @@ Code is edited on `workstation` (local workstation) via sshfs mount at `~/mnt/ho
 | Registry | Harbor (with proxy caches) |
 | Storage | Longhorn (block), MinIO (S3), NFS (RWX) |
 | Database | CloudNativePG (PostgreSQL operator) |
-| Monitoring | Prometheus, Grafana, Loki, Alloy, Alertmanager |
+| Monitoring | Prometheus, Grafana, Loki, Alloy, Alertmanager, Beyla (eBPF) |
 | Security Scanning | Trivy Operator, Tetragon (kcs) |
+| LLM | Open WebUI (Keycloak OIDC, CNPG PostgreSQL) |
 | Identity | Keycloak (broker + upstream IdP federation) |
 | Auth Proxy | OAuth2-Proxy (nginx auth_request SSO) |
 | Policy | OPA Gatekeeper (admission control) |
@@ -540,7 +541,7 @@ ArgoCD syncs from GitLab: `https://github.com/example-user/homelab.git` (main br
 | **bootstrap** | -5 to -1 | CRDs, cert-manager, external-secrets, DNS, networking |
 | **platform** | 0, 2, 3 | ArgoCD, Longhorn, Gatekeeper, SPIRE, monitoring, Trivy, Ziti |
 | **identity** | 1 | Keycloak operator, OAuth2-Proxy |
-| **applications** | 4, 5 | Headlamp, Portal, Kiali, ApplicationSets |
+| **applications** | 4, 5 | Headlamp, Portal, Architecture, Open WebUI, Kiali, ApplicationSets |
 
 ### Sync Wave Order
 
@@ -551,11 +552,11 @@ ArgoCD syncs from GitLab: `https://github.com/example-user/homelab.git` (main br
 | -3 | Core operators | cert-manager, external-secrets |
 | -2 | Cluster config | cluster-secrets, vault-auth, harbor-pull-secrets, MetalLB/Cilium config |
 | -1 | DNS/Ingress | external-dns, nginx-ingress (kss), Istio stack (kcs) |
-| 0 | Platform operators | ArgoCD (self-managed), Longhorn, Gatekeeper, SPIRE, CNPG, Ziti router |
+| 0 | Platform operators | ArgoCD (self-managed), Longhorn, Gatekeeper, SPIRE, CNPG, Ziti router, Teleport K8s agent |
 | 1 | Identity | Keycloak operator + instance, OAuth2-Proxy, OIDC RBAC |
-| 2 | Monitoring | kube-prometheus-stack, Loki, Alloy |
+| 2 | Monitoring | kube-prometheus-stack, Loki, Alloy, Beyla |
 | 3 | Security | Gatekeeper policies, Trivy |
-| 4 | Applications | Headlamp, Portal, cluster-setup, JIT elevation, Kiali (kcs) |
+| 4 | Applications | Headlamp, Portal, cluster-setup, JIT elevation, Architecture, Open WebUI, Kiali (kcs) |
 | 5 | Dynamic apps | ApplicationSets (auto-discovered from GitLab) |
 
 ### Multi-Source Applications
@@ -616,24 +617,24 @@ The support VM (`10.69.50.10`) runs shared infrastructure services as NixOS modu
 | GitLab CE | `https://gitlab.support.example.com` | Git hosting, SSH on port 2222 |
 | Keycloak | `https://keycloak.support.example.com` | Upstream IdP (users, roles, OIDC clients) |
 | OpenZiti Controller | `https://support:2034` | Zero-trust overlay control plane |
-| OpenZiti ZAC | `https://ziti.support.example.com` | Ziti Admin Console |
+| OpenZiti ZAC | `https://zac.support.example.com` | Ziti Admin Console |
 
 **Credentials** (on support VM):
-- Vault: `/var/lib/vault/init-keys.json`
+- Vault: `/var/lib/private/openbao/init-keys.json`
 - MinIO: `/etc/minio/credentials`
 - Harbor: `/etc/harbor/admin_password`
 - GitLab: `/etc/gitlab/admin_password`
 
 ### Vault
 
-HashiCorp Vault provides centralized secrets management. It auto-initializes on first boot with a single unseal key, storing keys at `/var/lib/vault/init-keys.json`. OpenTofu configures root PKI, per-cluster namespaces, KV stores, policies, and Kubernetes auth mounts.
+HashiCorp Vault (via OpenBao fork) provides centralized secrets management. It auto-initializes on first boot with a single unseal key, storing keys at `/var/lib/private/openbao/init-keys.json`. OpenTofu configures root PKI, per-cluster namespaces, KV stores, policies, and Kubernetes auth mounts.
 
 Kubernetes clusters use the external-secrets operator to sync secrets from Vault into K8s Secrets via a `ClusterSecretStore`.
 
 ### Harbor
 
 Container registry running as Docker Compose. Provides:
-- Private registry for custom images (portal, jit-elevation, cluster-setup)
+- Private registry for custom images (portal, jit-elevation, cluster-setup, architecture, demo-app)
 - Proxy caches for Docker Hub, Quay, GCR, GHCR (reducing pull rate limits)
 - Trivy vulnerability scanning on push
 - Per-cluster projects managed by OpenTofu with robot accounts
@@ -802,9 +803,18 @@ Teleport provides a unified access plane for SSH, Kubernetes API, and web applic
 | Reverse Tunnel | `teleport.support.example.com:3024` | Agent connections |
 | K8s Proxy | `teleport.support.example.com:3026` | Kubernetes API proxy |
 
+### Kubernetes Agent
+
+Each cluster runs a Teleport Kubernetes agent deployed via ArgoCD (sync wave 0). The agent registers with the Teleport proxy and enables Kubernetes API access through Teleport's unified access plane.
+
+- **ArgoCD Application:** `iac/argocd/base/teleport-kube-agent.yaml`
+- **Helm values:** `iac/argocd/values/{base,kss,kcs}/teleport-kube-agent.yaml`
+- **Kustomize config:** `iac/kustomize/base/teleport-kube-agent/` (ExternalSecret for join token)
+- **OpenTofu module:** `tofu/modules/teleport-config/` (join token generation, Vault storage)
+
 ### Integration
 
-Join tokens for cluster nodes and Kubernetes agents are auto-generated and stored in Vault at `secret/teleport/agent`. This allows cluster nodes to register with Teleport for centralized SSH and K8s access.
+Join tokens for cluster nodes and Kubernetes agents are auto-generated by OpenTofu and stored in Vault at `secret/teleport/agent`. This allows cluster nodes and K8s agents to register with Teleport for centralized SSH and K8s access.
 
 ---
 
@@ -841,6 +851,17 @@ Log aggregation:
 - **Alloy:** DaemonSet log collector on all nodes, ships to Loki
 - **Access:** Grafana Explore view or LogQL queries
 
+### Beyla (eBPF Auto-Instrumentation)
+
+Grafana Beyla provides zero-code eBPF auto-instrumentation for HTTP/gRPC RED metrics (Rate, Errors, Duration).
+
+- **Namespace:** `beyla-system`
+- **Deployment:** DaemonSet with `hostPID: true`, `hostNetwork: true`, `privileged: true`
+- **Metrics:** `http_server_*` and `http_client_*` with full Kubernetes labels
+- **Dashboard:** Custom Grafana dashboard at `iac/kustomize/base/monitoring/grafana-dashboard-beyla.yaml`
+- **Helm values:** `iac/argocd/values/base/beyla.yaml`
+- **Memory:** 1Gi limit (instrumenting 40+ processes per worker node)
+
 ### Trivy Operator
 
 Continuous vulnerability scanning:
@@ -863,11 +884,22 @@ Istio service mesh observability UI:
 - **URL:** `https://kiali.mesh-k8s.example.com`
 - **Features:** Service graph, traffic visualization, Istio config validation
 
+### Open WebUI
+
+LLM chat interface with OIDC authentication and PostgreSQL storage.
+
+- **URL:** `https://open-webui.<cluster>.example.com`
+- **Namespace:** `open-webui`
+- **Auth:** Keycloak OIDC (via broker realm)
+- **Database:** CNPG PostgreSQL cluster
+- **Helm values:** `iac/argocd/values/{base,kss,kcs}/open-webui.yaml`
+- **Kustomize config:** `iac/kustomize/base/open-webui/` (DB cluster, OIDC + DB external secrets)
+
 ---
 
 ## Custom Applications
 
-Three Python web applications built as container images and stored in Harbor.
+Custom applications built as container images via GitLab CI (`.gitlab-ci.yml`), stored in Harbor, and auto-deployed via ArgoCD Image Updater.
 
 ### Portal — Cluster Landing Page
 
@@ -922,6 +954,34 @@ Features:
 - Generates downloadable OIDC-configured kubeconfig using `kubelogin` exec plugin
 - Provides copy-paste instructions for `kubectl` setup
 
+### Architecture — Infrastructure Visualization
+
+Interactive C4 model visualization of the entire homelab infrastructure using LikeC4 DSL.
+
+- **URL:** `https://architecture.<cluster>.example.com`
+- **Source:** `iac/apps/architecture/`
+- **Namespace:** `apps`
+
+Models cover: landscape overview, kss/kcs cluster details, identity flow, GitOps pipeline, secrets management, zero-trust overlay network, storage architecture, and ArgoCD sync wave ordering.
+
+### Demo App — Reference Template
+
+A reference application demonstrating the generic-app Helm chart features (PostgreSQL CRUD, persistent storage, health probes, SSO via OAuth2-Proxy).
+
+- **Source:** `iac/apps/demo-app/`
+- **Chart:** Uses `iac/argocd/charts/generic-app/` via ApplicationSet auto-discovery
+
+Serves as a template for creating new applications that deploy via the ApplicationSet pipeline.
+
+### Generic-App Helm Chart
+
+Shared Helm chart at `iac/argocd/charts/generic-app/` used by the `apps-generic-chart` ApplicationSet. Supports:
+- Deployment with configurable replicas, resources, env vars
+- Ingress (kss/nginx) and HTTPRoute (kcs/Gateway API)
+- CNPG PostgreSQL database clusters
+- Persistent volume claims
+- Portal annotations for service discovery
+
 ---
 
 ## OpenTofu IaC
@@ -932,21 +992,24 @@ OpenTofu manages base infrastructure that exists outside Kubernetes. State is st
 
 | Environment | Purpose |
 |-------------|---------|
-| **base** | Root Vault PKI, upstream Keycloak realm, GitLab config, MinIO buckets, OpenZiti base |
-| **kss** | KSS cluster: Vault namespace + KV + PKI intermediate, Harbor project, Ziti router |
+| **base** | Root Vault PKI, upstream Keycloak realm, GitLab config, Harbor app projects, MinIO buckets, OpenZiti base, Teleport config |
+| **kss** | KSS cluster: Vault namespace + KV + PKI + secrets, Harbor project, Keycloak broker, Ziti router |
 | **kcs** | KCS cluster: Same as kss but for kcs |
 
 ### Modules
 
 | Module | Purpose |
 |--------|---------|
-| `vault-base` | Root PKI mount, issuing/CRL URLs, per-cluster namespaces |
-| `vault-cluster` | Per-cluster: KV secrets engine, PKI intermediate CA, K8s auth mount, policies |
-| `keycloak-upstream` | Upstream realm: users, roles, OIDC clients for each cluster |
-| `gitlab-config` | ArgoCD service user, repository configuration |
+| `vault-base` | Root PKI mount, issuing/CRL URLs, per-cluster namespaces, broker client secret |
+| `vault-cluster` | Per-cluster: KV secrets engine, PKI intermediate CA, K8s auth mount, policies, all secrets |
+| `keycloak-upstream` | Upstream realm: users (auto-generated passwords), roles, OIDC clients |
+| `keycloak-broker` | Broker realm: OIDC clients, social identity providers (GitHub, Google, Microsoft), scopes |
+| `gitlab-config` | ArgoCD service user, repository configuration, admin SSH keys |
 | `harbor-cluster` | Per-cluster Harbor project + robot account for image pull |
+| `harbor-apps` | App image projects + robot accounts for GitLab CI builds |
 | `minio-config` | Buckets: harbor, loki-kss, loki-kcs, tofu-state |
-| `ziti-config` | Edge routers, overlay services, service policies, client identities |
+| `teleport-config` | Join token generation, K8s agent config, Vault secret storage |
+| `ziti-config` | Edge routers, overlay services, tiered access policies, client identities |
 
 ### Workflow
 
@@ -1092,7 +1155,7 @@ just vm-build-box
 
 **nixos-rebuild and service restart:** When `nixos-rebuild switch` detects service changes, it issues `systemctl restart`. If RKE2 exits non-zero on SIGTERM, the service enters `failed` state. The rebuild scripts handle this by explicitly starting the service after rebuild.
 
-**Hostname vs node-name:** NixOS base box has hostname `nixos`; the transient hostname stays `nixos` until reboot. RKE2 config explicitly sets `node-name` to avoid registration with the wrong hostname.
+**Hostname vs node-name:** NixOS base box has hostname `nixos`; the transient hostname stays `nixos` until reboot even after `nixos-rebuild switch`. The `fix-transient-hostname` systemd service in `rke2-base.nix` (and `base.nix` for the support VM) uses `inetutils hostname` to fix this at boot. RKE2 config also explicitly sets `node-name` to avoid registration with the wrong hostname. This affects any tool using `os.Hostname()` (e.g. Beyla node discovery).
 
 **RKE2 paths on NixOS:** RKE2 installs to `/opt/rke2/bin/` (not `/usr/local/bin/`). The install script needs explicit PATH with coreutils, sed, awk, grep.
 
@@ -1101,6 +1164,8 @@ just vm-build-box
 After fresh deploy or realm reimport, run `just identity-fix-scopes` — the Keycloak Operator doesn't properly link `defaultClientScopes` when scopes and clients are defined in the same import.
 
 ArgoCD requires `app.kubernetes.io/part-of: argocd` label on its OIDC secret — handled by the ExternalSecret template.
+
+**Social IdP mapper type:** Social identity provider mappers (Google, GitHub, Microsoft) must use `oidc-hardcoded-group-idp-mapper`, NOT `hardcoded-group-idp-mapper`. The unprefixed type is not registered in Keycloak 26.x — the API accepts it on write but causes a `NullPointerException` at runtime during the identity provider callback.
 
 ### mDNS
 
@@ -1134,6 +1199,7 @@ iptables -I FORWARD -o br-k8s -j ACCEPT
 justfile                          # Task runner command interface
 CLAUDE.md                         # AI context (Claude Code instructions)
 README.md                         # This file
+.gitlab-ci.yml                    # GitLab CI pipeline (custom app image builds)
 .sops.yaml                        # SOPS encryption config
 flake.nix                         # Nix dev shell (provides all CLI tools)
 
@@ -1141,7 +1207,7 @@ stages/                           # Operational scripts
   lib/common.sh                   # Shared functions (paths, SSH, colors, cluster config)
   0_global/                       # status, generate, clean, validate
   1_vms/                          # up, down, destroy, status, ssh, build-box
-  2_support/                      # sync, rebuild, status, vault-*, ziti-status
+  2_support/                      # sync, rebuild, status, vault-*, ziti-status, generate-env
   3_cluster/                      # sync, rebuild, token, kubeconfig, status
   4_bootstrap/                    # ArgoCD bootstrap, vault-auth, secrets, status
   5_identity/                     # keycloak, oidc, spire, gatekeeper, oauth2-proxy, jit, setup
@@ -1217,13 +1283,17 @@ iac/                              # Infrastructure definitions
       cluster-setup/              # Self-service kubeconfig service
       jit-elevation/              # JIT role elevation service
       portal/                     # Service discovery landing page
+      architecture/               # LikeC4 C4 model visualization
       apps-discovery/             # GitLab SSH, image updater, apps namespace
+      open-webui/                 # LLM chat interface (DB, OIDC secrets)
+      teleport-kube-agent/        # Teleport K8s agent (ExternalSecret)
       ziti-router/                # Per-cluster OpenZiti router
       kiali/                      # Istio mesh UI (kcs)
 
   argocd/                         # ArgoCD App-of-Apps
     projects/                     # AppProject definitions (bootstrap, platform, identity, apps)
     base/                         # Shared Application YAMLs + kustomization.yaml
+    charts/generic-app/           # Shared Helm chart for ApplicationSet-deployed apps
     clusters/
       kss/                        # KSS: kustomization + root-app + kustomize overlays
       kcs/                        # KCS: kustomization + root-app + kustomize overlays
@@ -1236,6 +1306,8 @@ iac/                              # Infrastructure definitions
     portal/                       # Cluster landing page (Python)
     jit-elevation/                # JIT role elevation (Python)
     cluster-setup/                # Self-service kubeconfig (Python)
+    architecture/                 # LikeC4 C4 model visualizer (static site)
+    demo-app/                     # Reference template for generic-app chart (Python)
 
   scripts/                        # Bootstrap scripts (called by stages)
   network/                        # Network config generation
@@ -1247,19 +1319,25 @@ scripts/                          # Utility scripts
 
 tofu/                             # OpenTofu IaC
   modules/
-    vault-base/                   # Root PKI, config URLs, namespaces
-    vault-cluster/                # Per-cluster: KV, PKI int, policies, K8s auth
+    vault-base/                   # Root PKI, config URLs, namespaces, broker secret
+    vault-cluster/                # Per-cluster: KV, PKI int, policies, K8s auth, secrets
     keycloak-upstream/            # Upstream realm, users, roles, OIDC clients
-    gitlab-config/                # ArgoCD service user, repos
+    keycloak-broker/              # Broker realm, clients, identity providers, scopes
+    gitlab-config/                # ArgoCD service user, repos, SSH keys
     harbor-cluster/               # Per-cluster project + robot account
+    harbor-apps/                  # App image projects + robot accounts for CI
     minio-config/                 # Bucket management
+    teleport-config/              # Join tokens, K8s agent config (Vault storage)
     ziti-config/                  # Edge routers, services, policies, client identities
   environments/
-    base/                         # Root: Vault + Keycloak + GitLab + MinIO + Ziti
-    kss/                          # KSS: Vault namespace + Harbor + Ziti router
-    kcs/                          # KCS: Vault namespace + Harbor + Ziti router
+    base/                         # Root: Vault + Keycloak + GitLab + Harbor apps + MinIO + Ziti + Teleport
+    kss/                          # KSS: Vault namespace + Harbor + Keycloak broker + Ziti router
+    kcs/                          # KCS: Vault namespace + Harbor + Keycloak broker + Ziti router
   scripts/
     setup-state-bucket.sh         # Bootstrap MinIO tofu-state bucket
     import-base.sh                # Import base resources into state
     import-cluster.sh             # Import per-cluster resources
+    seed-broker-secrets.sh        # Seed broker IdP secrets into Vault
+    migrate-broker-realm.sh       # Migrate broker realm to OpenTofu
+    migrate-remove-placeholder-secrets.sh  # One-time: remove placeholders
 ```

@@ -3,5 +3,8 @@ terraform {
     keycloak = {
       source = "keycloak/keycloak"
     }
+    random = {
+      source = "hashicorp/random"
+    }
   }
 }

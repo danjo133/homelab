@@ -276,7 +276,7 @@ MINIOEOF
     echo "==> Creating registry endpoints..."
     create_registry "docker-hub"  "docker-hub"    "https://hub.docker.com"
     create_registry "ghcr"        "github-ghcr"   "https://ghcr.io"
-    create_registry "quay"        "quay"          "https://quay.io"
+    create_registry "quay"        "docker-registry" "https://quay.io"
 
     echo "==> Creating proxy cache projects..."
     create_proxy_project "docker.io"       "docker-hub"
@@ -287,7 +287,8 @@ MINIOEOF
     echo "==> Harbor proxy caches configured successfully"
   '';
 
-  # Harbor apps project setup — creates apps project, gcr.io proxy cache, and robot accounts
+  # Harbor gcr.io proxy cache + robot prefix setup
+  # Note: apps project and robot accounts are managed by OpenTofu (tofu/modules/harbor-apps)
   harborAppsProjectSetup = pkgs.writeShellScript "harbor-apps-project-setup" ''
     set -eu
 
@@ -297,12 +298,10 @@ MINIOEOF
     HARBOR_API="$HARBOR_URL/api/v2.0"
     HARBOR_ADMIN_PASSWORD=$(cat /etc/harbor/admin_password)
     AUTH="admin:$HARBOR_ADMIN_PASSWORD"
-    MARKER="${harborDir}/.apps-project-v2"
-    VAULT_ADDR="http://127.0.0.1:8200"
-    KEYS_FILE="/var/lib/openbao/init-keys.json"
+    MARKER="${harborDir}/.apps-gcr-cache"
 
     if [ -f "$MARKER" ]; then
-      echo "Harbor apps project already configured"
+      echo "Harbor gcr.io proxy cache already configured"
       exit 0
     fi
 
@@ -326,17 +325,6 @@ MINIOEOF
       -H 'Content-Type: application/json' \
       -d '{"robot_name_prefix": "robot_"}' \
       || echo "  WARNING: Could not set robot_name_prefix (may already be set)"
-
-    # --- Clean up old robot$ prefix accounts if they exist ---
-    echo "==> Cleaning up old robot accounts with \$ prefix..."
-    for old_suffix in push pull; do
-      old_id=$(curl -sf "$HARBOR_API/projects/apps/robots" -u "$AUTH" \
-        | jq -r ".[] | select(.name == \"robot\$apps+$old_suffix\") | .id // empty")
-      if [ -n "$old_id" ]; then
-        echo "  Deleting old robot\$apps+$old_suffix (id=$old_id)"
-        curl -sf -X DELETE "$HARBOR_API/robots/$old_id" -u "$AUTH" || true
-      fi
-    done
 
     # --- gcr.io proxy cache ---
     echo "==> Creating gcr.io registry endpoint..."
@@ -371,110 +359,8 @@ MINIOEOF
         || { echo "ERROR: Failed to create project 'gcr.io'"; exit 1; }
     fi
 
-    # --- apps project (regular, not proxy cache) ---
-    echo "==> Creating apps project..."
-    if curl -sf "$HARBOR_API/projects" -u "$AUTH" | jq -e '.[] | select(.name == "apps")' >/dev/null 2>&1; then
-      echo "  Project 'apps' already exists"
-    else
-      curl -sf -X POST "$HARBOR_API/projects" -u "$AUTH" \
-        -H 'Content-Type: application/json' \
-        -d '{"project_name": "apps", "public": false, "metadata": {"public": "false"}}' \
-        || { echo "ERROR: Failed to create project 'apps'"; exit 1; }
-    fi
-
-    # --- Robot accounts ---
-    # Look up apps project ID
-    APPS_PROJECT_ID=$(curl -sf "$HARBOR_API/projects" -u "$AUTH" | jq -r '.[] | select(.name == "apps") | .project_id')
-    if [ -z "$APPS_PROJECT_ID" ] || [ "$APPS_PROJECT_ID" = "null" ]; then
-      echo "ERROR: Could not find apps project ID"
-      exit 1
-    fi
-
-    # Helper: create or recreate robot account
-    # Deletes existing robot first (secrets can't be retrieved after creation)
-    # Outputs only JSON to stdout (for capture), status messages go to stderr
-    create_robot() {
-      local robot_name="$1" robot_desc="$2"
-      shift 2
-      local permissions="$1"
-
-      # Delete existing robot if present (project-level robots endpoint)
-      local existing_id
-      existing_id=$(curl -sf "$HARBOR_API/projects/apps/robots" -u "$AUTH" \
-        | jq -r ".[] | select(.name == \"robot_apps+$robot_name\") | .id")
-      if [ -n "$existing_id" ] && [ "$existing_id" != "null" ]; then
-        echo "  Deleting existing robot 'robot_apps+$robot_name' (id=$existing_id) for re-creation..." >&2
-        curl -sf -X DELETE "$HARBOR_API/robots/$existing_id" -u "$AUTH" || true
-      fi
-
-      echo "  Creating robot account 'robot_apps+$robot_name'..." >&2
-      local RESULT
-      RESULT=$(curl -sf -X POST "$HARBOR_API/robots" -u "$AUTH" \
-        -H 'Content-Type: application/json' \
-        -d "{
-          \"name\": \"$robot_name\",
-          \"description\": \"$robot_desc\",
-          \"duration\": -1,
-          \"level\": \"project\",
-          \"permissions\": [{
-            \"kind\": \"project\",
-            \"namespace\": \"apps\",
-            \"access\": $permissions
-          }]
-        }")
-
-      if ! echo "$RESULT" | jq -r '.name' >/dev/null 2>&1; then
-        echo "ERROR: Failed to create robot '$robot_name': $RESULT" >&2
-        return 1
-      fi
-      echo "$RESULT"
-    }
-
-    echo "==> Creating robot accounts..."
-
-    # Push robot: can push, pull, list repositories and tags
-    PUSH_RESULT=$(create_robot "push" "CI push account for apps images" \
-      '[{"resource":"repository","action":"push"},{"resource":"repository","action":"pull"},{"resource":"repository","action":"list"},{"resource":"tag","action":"create"},{"resource":"tag","action":"list"}]')
-
-    # Pull robot: can only pull and list
-    PULL_RESULT=$(create_robot "pull" "Pull account for apps images" \
-      '[{"resource":"repository","action":"pull"},{"resource":"repository","action":"list"},{"resource":"tag","action":"list"}]')
-
-    # --- Store credentials in Vault ---
-    if [ -f "$KEYS_FILE" ]; then
-      ROOT_TOKEN=$(jq -r '.root_token' "$KEYS_FILE")
-
-      # Extract credentials from robot creation results (only if they contain secret)
-      PUSH_NAME=$(echo "$PUSH_RESULT" | jq -r '.name // empty')
-      PUSH_SECRET=$(echo "$PUSH_RESULT" | jq -r '.secret // empty')
-      PULL_NAME=$(echo "$PULL_RESULT" | jq -r '.name // empty')
-      PULL_SECRET=$(echo "$PULL_RESULT" | jq -r '.secret // empty')
-
-      for VAULT_NS in kss kcs; do
-        if [ -n "$PUSH_NAME" ] && [ -n "$PUSH_SECRET" ]; then
-          curl -sf -X POST \
-            -H "X-Vault-Token: $ROOT_TOKEN" \
-            -H "X-Vault-Namespace: $VAULT_NS" \
-            -H "Content-Type: application/json" \
-            -d "$(jq -n --arg user "$PUSH_NAME" --arg pass "$PUSH_SECRET" '{data: {username: $user, password: $pass}}')" \
-            "$VAULT_ADDR/v1/secret/data/harbor/apps-push"
-          echo "  Stored harbor/apps-push in $VAULT_NS"
-        fi
-
-        if [ -n "$PULL_NAME" ] && [ -n "$PULL_SECRET" ]; then
-          curl -sf -X POST \
-            -H "X-Vault-Token: $ROOT_TOKEN" \
-            -H "X-Vault-Namespace: $VAULT_NS" \
-            -H "Content-Type: application/json" \
-            -d "$(jq -n --arg user "$PULL_NAME" --arg pass "$PULL_SECRET" '{data: {username: $user, password: $pass}}')" \
-            "$VAULT_ADDR/v1/secret/data/harbor/apps-pull"
-          echo "  Stored harbor/apps-pull in $VAULT_NS"
-        fi
-      done
-    fi
-
     touch "$MARKER"
-    echo "==> Harbor apps project configured successfully"
+    echo "==> Harbor gcr.io proxy cache configured successfully"
   '';
 in
 {
@@ -504,7 +390,7 @@ in
       Type = "oneshot";
       RemainAfterExit = true;
       ExecStart = harborAutoSetup;
-      TimeoutStartSec = "10min";  # Harbor download and install can take a while
+      TimeoutStartSec = "20min";  # Harbor download + docker load can be slow on first boot
     };
 
     # Don't fail the boot if Harbor setup fails

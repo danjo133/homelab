@@ -1,0 +1,58 @@
+# CI pipeline for custom apps in iac/apps/
+# Builds container images with Kaniko and pushes to Harbor apps/ project.
+# ArgoCD Image Updater detects new SHA tags and auto-deploys.
+
+stages:
+  - build
+
+.kaniko-build:
+  stage: build
+  image:
+    name: harbor.support.example.com/gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    - mkdir -p /kaniko/.docker
+    - >-
+      AUTH=$(printf '%s:%s' "${HARBOR_PUSH_USER}" "${HARBOR_PUSH_PASSWORD}" | base64 | tr -d '\n')
+      && printf '{"auths":{"harbor.support.example.com":{"auth":"%s"}}}' "$AUTH"
+      > /kaniko/.docker/config.json
+    - >-
+      /kaniko/executor
+      --context "${CI_PROJECT_DIR}/${APP_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/${APP_DIR}/Dockerfile"
+      --destination "harbor.support.example.com/apps/${APP_NAME}:${CI_COMMIT_SHA}"
+      --destination "harbor.support.example.com/apps/${APP_NAME}:latest"
+      --cache=true
+      --cache-repo "harbor.support.example.com/apps/${APP_NAME}/cache"
+      --snapshot-mode=redo
+  tags:
+    - docker
+    - kaniko
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - ${APP_DIR}/**/*
+
+build-portal:
+  extends: .kaniko-build
+  variables:
+    APP_NAME: portal
+    APP_DIR: iac/apps/portal
+
+build-jit-elevation:
+  extends: .kaniko-build
+  variables:
+    APP_NAME: jit-elevation
+    APP_DIR: iac/apps/jit-elevation
+
+build-cluster-setup:
+  extends: .kaniko-build
+  variables:
+    APP_NAME: cluster-setup
+    APP_DIR: iac/apps/cluster-setup
+
+build-architecture:
+  extends: .kaniko-build
+  variables:
+    APP_NAME: architecture
+    APP_DIR: iac/apps/architecture

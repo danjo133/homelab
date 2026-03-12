@@ -5,3 +5,8 @@ resources:
     memory: 128Mi
   limits:
     memory: 256Mi
+
+# Relaxed leader election — tolerate API server slowness on overcommitted hosts
+additionalArgs:
+  - --leader-lease-duration=60
+  - --leader-renew-deadline=40

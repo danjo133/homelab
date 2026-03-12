@@ -7,9 +7,14 @@ metadata:
   labels:
     app.kubernetes.io/name: {{ .Release.Name }}
     app.kubernetes.io/managed-by: {{ .Release.Service }}
-  {{- with .Values.ingressAnnotations }}
+  {{- if or .Values.portal.enabled .Values.ingressAnnotations }}
   annotations:
+    {{- if .Values.portal.enabled }}
+    {{- include "generic-app.portalAnnotations" . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.ingressAnnotations }}
     {{- toYaml . | nindent 4 }}
+    {{- end }}
   {{- end }}
 spec:
   parentRefs:

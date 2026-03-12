@@ -22,6 +22,20 @@ module "harbor_cluster" {
   cluster_name = "kss"
 }
 
+# Write per-cluster Harbor pull robot credentials to Vault
+resource "vault_kv_secret_v2" "harbor_cluster_pull" {
+  mount = module.vault_cluster.kv_mount_path
+  name  = "harbor/kss-pull"
+
+  data_json = jsonencode({
+    username = module.harbor_cluster.robot_name
+    password = module.harbor_cluster.robot_secret
+    url      = var.harbor_url
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+}
+
 # ============================================================================
 # Broker Keycloak realm
 # ============================================================================

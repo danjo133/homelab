@@ -3,14 +3,16 @@
 #
 # This script:
 # 1. Enables KV v2 secrets engine
-# 2. Enables Kubernetes authentication
-# 3. Creates policies for external-secrets
-# 4. Loads secrets from sops-encrypted file
+# 2. Creates policies for external-secrets
+# 3. Enables Kubernetes authentication + vault-auth service account
+# 4. Creates role for external-secrets
+#
+# NOTE: Secrets (cloudflare, grafana, etc.) are now managed by OpenTofu.
+# Run `tofu apply base` after this script to seed all KV secrets.
 #
 # Prerequisites:
 # - Vault is running and unsealed
 # - VAULT_ADDR and VAULT_TOKEN are set
-# - sops CLI is installed
 # - kubectl has access to the k8s cluster
 #
 # Usage:
@@ -19,10 +21,6 @@
 #   ./bootstrap-vault-k8s.sh
 
 set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-SECRETS_FILE="${PROJECT_ROOT}/iac/provision/nix/supporting-systems/secrets/secrets.yaml"
 
 # Colors
 RED='\033[0;31m'
@@ -36,13 +34,11 @@ error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
 # Check prerequisites
 command -v bao >/dev/null 2>&1 || error "bao CLI not found (install openbao)"
-command -v sops >/dev/null 2>&1 || error "sops CLI not found"
 command -v kubectl >/dev/null 2>&1 || error "kubectl not found"
 command -v jq >/dev/null 2>&1 || error "jq not found"
 
 [ -n "${VAULT_ADDR:-}" ] || error "VAULT_ADDR not set"
 [ -n "${VAULT_TOKEN:-}" ] || error "VAULT_TOKEN not set"
-[ -f "$SECRETS_FILE" ] || error "Secrets file not found: $SECRETS_FILE"
 
 # Export for bao CLI (bao uses BAO_ADDR/BAO_TOKEN but also reads VAULT_ADDR/VAULT_TOKEN)
 export BAO_ADDR="${VAULT_ADDR}"
@@ -73,20 +69,7 @@ else
 fi
 
 # =============================================================================
-# 2. Load secrets from sops
-# =============================================================================
-log "Loading secrets from sops-encrypted file..."
-
-# Decrypt and extract Cloudflare API token
-CLOUDFLARE_TOKEN=$(sops -d "$SECRETS_FILE" | yq -r '.cloudflare_api_token')
-[ -n "$CLOUDFLARE_TOKEN" ] && [ "$CLOUDFLARE_TOKEN" != "null" ] || error "Failed to extract cloudflare_api_token"
-
-# Store in Vault
-bao kv put secret/cloudflare api-token="$CLOUDFLARE_TOKEN"
-success "Cloudflare API token stored at secret/cloudflare"
-
-# =============================================================================
-# 3. Create policy for external-secrets
+# 2. Create policy for external-secrets
 # =============================================================================
 log "Creating external-secrets policy..."
 
@@ -105,7 +88,7 @@ EOF
 success "Policy 'external-secrets' created"
 
 # =============================================================================
-# 4. Enable Kubernetes authentication
+# 3. Enable Kubernetes authentication
 # =============================================================================
 log "Configuring Kubernetes authentication..."
 
@@ -129,7 +112,7 @@ log "Kubernetes API: $K8S_HOST"
 K8S_CA_CERT=$(kubectl config view --raw --minify -o jsonpath='{.clusters[0].cluster.certificate-authority-data}' | base64 -d)
 
 # =============================================================================
-# 4a. Create service account for Vault token review
+# 3a. Create service account for Vault token review
 # =============================================================================
 log "Creating vault-auth service account for token review..."
 
@@ -191,7 +174,7 @@ bao write auth/kubernetes/config \
 success "Kubernetes auth configured with token reviewer"
 
 # =============================================================================
-# 5. Create role for external-secrets
+# 4. Create role for external-secrets
 # =============================================================================
 log "Creating Kubernetes auth role for external-secrets..."
 
@@ -209,15 +192,11 @@ success "Role 'external-secrets' created"
 echo ""
 log "Bootstrap complete!"
 echo ""
-echo "Secrets stored in Vault:"
-echo "  - secret/cloudflare (api-token)"
-echo ""
 echo "Next steps:"
-echo "  1. Deploy external-secrets operator: helmfile -e gateway-bgp apply"
-echo "  2. Apply ClusterSecretStore: kubectl apply -f iac/kustomize/base/external-secrets/"
-echo "  3. Apply ExternalSecrets: kubectl apply -f iac/kustomize/base/external-secrets/"
+echo "  1. Run 'just tofu-apply base' to seed all KV secrets (cloudflare, grafana, etc.)"
+echo "  2. Deploy external-secrets operator via ArgoCD bootstrap"
+echo "  3. Run 'just tofu-apply kss' / 'just tofu-apply kcs' for per-cluster secrets"
 echo ""
 echo "To verify:"
-echo "  bao kv get secret/cloudflare"
 echo "  kubectl get clustersecretstores"
 echo "  kubectl get externalsecrets -A"

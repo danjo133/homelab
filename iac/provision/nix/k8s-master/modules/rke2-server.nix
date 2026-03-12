@@ -209,6 +209,21 @@ in
         - "audit-log-maxbackup=10"
         - "audit-log-maxsize=100"${oidcApiServerArgs}
 
+      # Relaxed leader election — tolerate API server slowness on overcommitted hosts
+      # Defaults: lease=15s, renew=10s, retry=2s
+      kube-controller-manager-arg:
+        - "leader-elect-lease-duration=60s"
+        - "leader-elect-renew-deadline=40s"
+        - "leader-elect-retry-period=8s"
+
+      kube-scheduler-arg:
+        - "leader-elect-lease-duration=60s"
+        - "leader-elect-renew-deadline=40s"
+        - "leader-elect-retry-period=8s"
+
+      # Note: cloud-controller-manager-arg is not supported by RKE2
+      # (it uses an embedded k3s cloud controller that ignores extra args)
+
       # Taint control-plane node to keep workloads on workers
       node-taint:
         - "node-role.kubernetes.io/control-plane=true:NoSchedule"

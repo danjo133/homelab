@@ -53,6 +53,16 @@ resource "keycloak_role" "user" {
 # Users
 # ============================================================================
 
+locals {
+  users = ["alice", "bob", "carol", "admin"]
+}
+
+resource "random_password" "user" {
+  for_each = toset(local.users)
+  length   = 20
+  special  = false
+}
+
 resource "keycloak_user" "alice" {
   realm_id       = keycloak_realm.upstream.id
   username       = "alice"
@@ -63,7 +73,7 @@ resource "keycloak_user" "alice" {
   email_verified = true
 
   initial_password {
-    value     = "placeholder"
+    value     = random_password.user["alice"].result
     temporary = false
   }
 
@@ -87,7 +97,7 @@ resource "keycloak_user" "bob" {
   email_verified = true
 
   initial_password {
-    value     = "placeholder"
+    value     = random_password.user["bob"].result
     temporary = false
   }
 
@@ -111,7 +121,7 @@ resource "keycloak_user" "carol" {
   email_verified = true
 
   initial_password {
-    value     = "placeholder"
+    value     = random_password.user["carol"].result
     temporary = false
   }
 
@@ -135,7 +145,7 @@ resource "keycloak_user" "admin" {
   email_verified = true
 
   initial_password {
-    value     = "placeholder"
+    value     = random_password.user["admin"].result
     temporary = false
   }
 
@@ -194,6 +204,20 @@ resource "keycloak_openid_client" "teleport" {
   web_origins = ["+"]
 
   lifecycle { ignore_changes = [client_secret] }
+}
+
+# realm-roles protocol mapper on broker-client — ensures realm_access.roles
+# is in the ID token so broker IdP mappers can assign groups based on roles
+resource "keycloak_openid_user_realm_role_protocol_mapper" "broker_realm_roles" {
+  realm_id  = keycloak_realm.upstream.id
+  client_id = keycloak_openid_client.broker_client.id
+  name      = "realm-roles"
+
+  claim_name          = "realm_access.roles"
+  multivalued         = true
+  add_to_id_token     = true
+  add_to_access_token = true
+  add_to_userinfo     = true
 }
 
 # realm-roles protocol mapper on teleport client

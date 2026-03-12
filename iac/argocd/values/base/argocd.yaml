@@ -25,7 +25,7 @@ configs:
     #   ssh-keyscan -p 2222 gitlab.support.example.com
     extraHosts: |
       # Replace with your GitLab SSH host keys: ssh-keyscan -p 2222 gitlab.support.example.com
-      [gitlab.support.example.com]:2222 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBDAdB403DuMtn7w/utmZKILpjWrDBv0+TLuVKs2zMsunYWWFnId41UPRii58x1Izc6MbHQG/kr0p2okUtaE/2NA=
+      [gitlab.support.example.com]:2222 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBFe6+BeEFXTl/ZMO8Jh68WfzfSt3gHwJzoOe3cWyWPMYH4ltEg6KWmQgrp4yzeNfKtFdm8D0UIJGGqNFmiT53i0=
       # Replace with your GitLab SSH host keys: ssh-keyscan -p 2222 gitlab.support.example.com
   rbac:
     policy.csv: |

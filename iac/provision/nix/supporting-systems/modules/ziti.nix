@@ -15,8 +15,8 @@ let
   zitiDir = "/var/lib/ziti";
   controllerDir = "${zitiDir}/controller";
   routerDir = "${zitiDir}/router";
-  controllerImage = "openziti/ziti-controller:1.5.11";
-  routerImage = "openziti/ziti-router:1.5.11";
+  controllerImage = "openziti/ziti-controller:1.5.12";
+  routerImage = "openziti/ziti-router:1.5.12";
   zacImage = "openziti/zac:4.0.3";
   vaultAddr = "http://127.0.0.1:8200";
   keysFile = "/var/lib/openbao/init-keys.json";
@@ -385,21 +385,8 @@ ROUTEREOF
       sleep 3
     done
 
-    # ========================================================================
-    # 4. Store admin password in Vault
-    # ========================================================================
-    if [ -f "$KEYS_FILE" ]; then
-      ROOT_TOKEN=$(jq -r '.root_token' "$KEYS_FILE")
-      for VAULT_NS in kss kcs; do
-        curl -sf -X POST \
-          -H "X-Vault-Token: $ROOT_TOKEN" \
-          -H "X-Vault-Namespace: $VAULT_NS" \
-          -H "Content-Type: application/json" \
-          -d "$(jq -n --arg pass "$ADMIN_PASSWORD" '{data: {password: $pass, username: "admin"}}')" \
-          "$VAULT_ADDR/v1/secret/data/ziti/admin"
-        echo "  Stored ziti/admin in $VAULT_NS"
-      done
-    fi
+    # NOTE: ziti/admin credentials are now managed by OpenTofu (convenience namespace).
+    # See tofu/environments/base/main.tf — vault_kv_secret_v2.convenience_ziti_admin
 
     # Mark setup complete
     touch "$SETUP_MARKER"

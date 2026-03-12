@@ -19,7 +19,7 @@ spec:
         - name: harbor-pull-secret
       containers:
         - name: architecture
-          image: harbor.support.example.com/kss/architecture:latest
+          image: harbor.support.example.com/apps/architecture:latest
           ports:
             - containerPort: 8080
               protocol: TCP

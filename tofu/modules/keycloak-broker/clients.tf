@@ -270,13 +270,26 @@ resource "keycloak_openid_client" "headlamp" {
   service_accounts_enabled     = false
 
   valid_redirect_uris = [
-    "https://k8s.${var.domain}/*",
+    "https://headlamp.${var.domain}/*",
   ]
   web_origins = [
-    "https://k8s.${var.domain}",
+    "https://headlamp.${var.domain}",
   ]
 
   lifecycle { ignore_changes = [client_secret] }
+}
+
+# Audience mapper — include kubernetes in headlamp id_token so K8s API
+# server accepts it (oidc-client-id=kubernetes on API server)
+resource "keycloak_openid_audience_protocol_mapper" "headlamp_kubernetes_audience" {
+  realm_id  = keycloak_realm.broker.id
+  client_id = keycloak_openid_client.headlamp.id
+  name      = "kubernetes-audience"
+
+  included_client_audience = keycloak_openid_client.kubernetes.client_id
+
+  add_to_id_token     = true
+  add_to_access_token = true
 }
 
 resource "keycloak_openid_client_default_scopes" "headlamp" {

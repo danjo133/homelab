@@ -1,5 +1,9 @@
 # ziti-router — OpenZiti edge router for K8s workloads
 
+# Pin image to match controller + support-router version
+image:
+  tag: "1.5.12"
+
 # Controller connection
 ctrl:
   endpoint: "z.example.com:2029"

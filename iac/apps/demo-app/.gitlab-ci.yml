@@ -1,0 +1,30 @@
+stages:
+  - build
+
+build:
+  stage: build
+  image:
+    name: harbor.support.example.com/gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  rules:
+    - exists:
+        - Dockerfile
+  script:
+    - IMAGE_NAME=$(echo "$CI_PROJECT_NAME" | tr 'A-Z' 'a-z')
+    - mkdir -p /kaniko/.docker
+    - >-
+      AUTH=$(printf '%s:%s' "${HARBOR_PUSH_USER}" "${HARBOR_PUSH_PASSWORD}" | base64 | tr -d '\n')
+      && printf '{"auths":{"harbor.support.example.com":{"auth":"%s"}}}' "$AUTH"
+      > /kaniko/.docker/config.json
+    - >-
+      /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      --destination "harbor.support.example.com/apps/${IMAGE_NAME}:${CI_COMMIT_SHA}"
+      --destination "harbor.support.example.com/apps/${IMAGE_NAME}:latest"
+      --cache=true
+      --cache-repo "harbor.support.example.com/apps/${IMAGE_NAME}/cache"
+      --snapshot-mode=redo
+  tags:
+    - docker
+    - kaniko

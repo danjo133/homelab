@@ -17,6 +17,17 @@ spec:
       secret:
         name: keycloak-db-credentials
 
+  # Continuously reconcile role password from K8s secret.
+  # Without this, CNPG only reads the password at bootstrap (initdb) and
+  # never updates it — causing auth failures if Vault/ExternalSecret changes.
+  managed:
+    roles:
+      - name: keycloak
+        ensure: present
+        login: true
+        passwordSecret:
+          name: keycloak-db-credentials
+
   storage:
     size: 2Gi
 

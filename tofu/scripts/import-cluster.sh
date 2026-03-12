@@ -16,7 +16,7 @@
 #   export KUBECONFIG=~/.kube/config-kss
 #   export TF_VAR_vault_token="..."
 #   export TF_VAR_harbor_admin_password="..."
-#   ./tofu/scripts/import-cluster.sh
+#   ./tofu/scripts/import-cluster.sh [--keycloak-only]
 
 set -euo pipefail
 
@@ -30,8 +30,22 @@ load_cluster_vars
 ENV_DIR="$PROJECT_ROOT/tofu/environments/${KSS_CLUSTER}"
 NS="${CLUSTER_VAULT_NAMESPACE}"
 
-# Verify required env vars
-for var in TF_VAR_vault_token TF_VAR_harbor_admin_password TF_VAR_broker_admin_password; do
+# Parse flags
+KEYCLOAK_ONLY=false
+for arg in "$@"; do
+  case "$arg" in
+    --keycloak-only) KEYCLOAK_ONLY=true ;;
+    *) error "Unknown flag: $arg"; exit 1 ;;
+  esac
+done
+
+# Verify required env vars (broker password always needed for Keycloak)
+REQUIRED_VARS=(TF_VAR_broker_admin_password)
+if [[ "$KEYCLOAK_ONLY" != "true" ]]; then
+  REQUIRED_VARS+=(TF_VAR_vault_token TF_VAR_harbor_admin_password)
+fi
+
+for var in "${REQUIRED_VARS[@]}"; do
   if [[ -z "${!var:-}" ]]; then
     error "Required env var $var is not set"
     exit 1
@@ -39,12 +53,12 @@ for var in TF_VAR_vault_token TF_VAR_harbor_admin_password TF_VAR_broker_admin_p
 done
 
 VAULT_ADDR="${TF_VAR_vault_addr:-https://vault.support.example.com}"
-VAULT_TOKEN="$TF_VAR_vault_token"
+VAULT_TOKEN="${TF_VAR_vault_token:-}"
 HARBOR_URL="${TF_VAR_harbor_url:-https://harbor.support.example.com}"
 HARBOR_USER="${TF_VAR_harbor_admin_user:-admin}"
-HARBOR_PASS="$TF_VAR_harbor_admin_password"
+HARBOR_PASS="${TF_VAR_harbor_admin_password:-}"
 
-header "Importing ${KSS_CLUSTER} cluster environment"
+header "Importing ${KSS_CLUSTER} cluster environment${KEYCLOAK_ONLY:+ (Keycloak only)}"
 
 IMPORT_FAILURES=()
 
@@ -64,12 +78,14 @@ import_resource() {
   fi
 }
 
+if [[ "$KEYCLOAK_ONLY" != "true" ]]; then
+
 # ============================================================================
 # 1. Vault mounts (within namespace)
 # ============================================================================
 header "Vault: mounts and PKI role"
 
-import_resource "module.vault_cluster.vault_mount.kv" "secret"
+# NOTE: vault_mount.kv (secret/) is now managed by vault-base in the base environment
 import_resource "module.vault_cluster.vault_mount.pki_int" "pki_int"
 import_resource "module.vault_cluster.vault_pki_secret_backend_role.overkill" "pki_int/roles/overkill"
 
@@ -83,15 +99,9 @@ import_resource "module.vault_cluster.vault_policy.spiffe_workload" "spiffe-work
 import_resource "module.vault_cluster.vault_policy.keycloak_operator" "keycloak-operator"
 
 # ============================================================================
-# 3. Vault KV secrets
+# 3. Vault KV secrets (env-level broker client secrets only)
 # ============================================================================
-header "Vault: KV secrets"
-
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_admin" "secret/data/keycloak/admin"
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_test_users" "secret/data/keycloak/test-users"
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_teleport_client" "secret/data/keycloak/teleport-client"
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_gitlab_client" "secret/data/keycloak/gitlab-client"
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_db_credentials" "secret/data/keycloak/db-credentials"
+header "Vault: KV secrets (broker client secrets)"
 
 # Keycloak client secrets managed at environment level (written by keycloak-broker module)
 import_resource "vault_kv_secret_v2.keycloak_oauth2_proxy_client" "secret/data/keycloak/oauth2-proxy-client"
@@ -100,18 +110,7 @@ import_resource "vault_kv_secret_v2.keycloak_grafana_client" "secret/data/keyclo
 import_resource "vault_kv_secret_v2.keycloak_jit_service" "secret/data/keycloak/jit-service"
 import_resource "vault_kv_secret_v2.keycloak_kiali_client" "secret/data/keycloak/kiali-client"
 import_resource "vault_kv_secret_v2.keycloak_headlamp_client" "secret/data/keycloak/headlamp-client"
-import_resource "module.vault_cluster.vault_kv_secret_v2.cloudflare" "secret/data/cloudflare"
-import_resource "module.vault_cluster.vault_kv_secret_v2.oauth2_proxy" "secret/data/oauth2-proxy"
-import_resource "module.vault_cluster.vault_kv_secret_v2.harbor_admin" "secret/data/harbor/admin"
-import_resource "module.vault_cluster.vault_kv_secret_v2.harbor_cluster_pull" "secret/data/harbor/${KSS_CLUSTER}-pull"
-import_resource "module.vault_cluster.vault_kv_secret_v2.grafana_admin" "secret/data/grafana/admin"
-import_resource "module.vault_cluster.vault_kv_secret_v2.minio_loki" "secret/data/minio/loki-${KSS_CLUSTER}"
-
-# Apps pipeline secrets (written by harbor-apps-project and github-mirror services on support VM)
-import_resource "module.vault_cluster.vault_kv_secret_v2.harbor_apps_push" "secret/data/harbor/apps-push"
-import_resource "module.vault_cluster.vault_kv_secret_v2.harbor_apps_pull" "secret/data/harbor/apps-pull"
-import_resource "module.vault_cluster.vault_kv_secret_v2.gitlab_ssh_host_keys" "secret/data/gitlab/ssh-host-keys"
-import_resource "module.vault_cluster.vault_kv_secret_v2.gitlab_apps_token" "secret/data/gitlab/apps-token"
+import_resource "vault_kv_secret_v2.keycloak_open_webui_client" "secret/data/keycloak/open-webui-client"
 
 # ============================================================================
 # 4. Vault Kubernetes auth
@@ -150,7 +149,7 @@ header "Harbor: project + robot account"
 
 # Get project ID
 PROJECT_ID=$(curl -sf "${HARBOR_URL}/api/v2.0/projects" -u "${HARBOR_USER}:${HARBOR_PASS}" \
-  | jq -r ".[] | select(.name == \"${KSS_CLUSTER}\") | .project_id")
+  | jq -r ".[] | select(.name == \"${KSS_CLUSTER}\") | .project_id") || true
 
 if [[ -z "$PROJECT_ID" || "$PROJECT_ID" == "null" ]]; then
   warn "Harbor project '${KSS_CLUSTER}' not found — skipping Harbor imports"
@@ -160,7 +159,7 @@ else
   # Get robot account ID
   ROBOT_FULL_NAME="robot_${KSS_CLUSTER}+pull"
   ROBOT_ID=$(curl -sf "${HARBOR_URL}/api/v2.0/projects/${KSS_CLUSTER}/robots" -u "${HARBOR_USER}:${HARBOR_PASS}" \
-    | jq -r ".[] | select(.name == \"${ROBOT_FULL_NAME}\") | .id")
+    | jq -r ".[] | select(.name == \"${ROBOT_FULL_NAME}\") | .id") || true
 
   if [[ -z "$ROBOT_ID" || "$ROBOT_ID" == "null" ]]; then
     warn "Robot account '${ROBOT_FULL_NAME}' not found — skipping"
@@ -168,6 +167,15 @@ else
     import_resource "module.harbor_cluster.harbor_robot_account.pull" "/robots/${ROBOT_ID}"
   fi
 fi
+
+# ============================================================================
+# 6. Harbor cluster-pull Vault secret
+# ============================================================================
+header "Vault: harbor cluster-pull secret"
+
+import_resource "vault_kv_secret_v2.harbor_cluster_pull" "secret/data/harbor/${KSS_CLUSTER}-pull"
+
+fi  # end KEYCLOAK_ONLY guard
 
 # ============================================================================
 # 6. Keycloak broker realm (if reachable)
@@ -228,14 +236,13 @@ else
       fi
     done
 
-    # Clients
-    for client_id in kubernetes oauth2-proxy argocd grafana jit-service kiali headlamp; do
+    # Clients (no default_scopes — provider doesn't support importing them)
+    for client_id in kubernetes oauth2-proxy argocd grafana jit-service kiali headlamp open-webui; do
       tf_name=$(echo "$client_id" | tr '-' '_')
       CLIENT_UUID=$(kc_get "${KEYCLOAK_URL}/admin/realms/broker/clients?clientId=${client_id}" \
         '.[0].id // empty') || true
       if [[ -n "$CLIENT_UUID" ]]; then
         import_resource "module.keycloak_broker.keycloak_openid_client.${tf_name}" "broker/${CLIENT_UUID}"
-        import_resource "module.keycloak_broker.keycloak_openid_client_default_scopes.${tf_name}" "broker/${CLIENT_UUID}"
       else
         warn "  Client ${client_id} not found"
       fi
@@ -257,7 +264,96 @@ else
       import_resource "module.keycloak_broker.keycloak_oidc_identity_provider.${alias}" "broker/${alias}"
     done
 
-    info "Keycloak import complete — some protocol mappers and IdP mappers may need manual import or will be recreated"
+    # Protocol mappers on clients
+    # The kubernetes client has a jit-service-audience mapper
+    KUBERNETES_UUID=$(kc_get "${KEYCLOAK_URL}/admin/realms/broker/clients?clientId=kubernetes" \
+      '.[0].id // empty') || true
+    if [[ -n "$KUBERNETES_UUID" ]]; then
+      MAPPER_ID=$(kc_get "${KEYCLOAK_URL}/admin/realms/broker/clients/${KUBERNETES_UUID}/protocol-mappers/models" \
+        '.[] | select(.name == "jit-service-audience") | .id // empty') || true
+      if [[ -n "$MAPPER_ID" ]]; then
+        import_resource "module.keycloak_broker.keycloak_openid_audience_protocol_mapper.kubernetes_jit_audience" \
+          "broker/client/${KUBERNETES_UUID}/${MAPPER_ID}"
+      else
+        warn "  Protocol mapper jit-service-audience not found on kubernetes client"
+      fi
+    fi
+
+    # Protocol mappers on client scopes
+    # openid scope has a "sub" mapper
+    OPENID_SCOPE_ID=$(echo "$SCOPES_JSON" | jq -r '.[] | select(.name == "openid") | .id // empty')
+    if [[ -n "$OPENID_SCOPE_ID" ]]; then
+      MAPPER_ID=$(kc_get "${KEYCLOAK_URL}/admin/realms/broker/client-scopes/${OPENID_SCOPE_ID}/protocol-mappers/models" \
+        '.[] | select(.name == "sub") | .id // empty') || true
+      if [[ -n "$MAPPER_ID" ]]; then
+        import_resource "module.keycloak_broker.keycloak_generic_protocol_mapper.openid_sub" \
+          "broker/client-scope/${OPENID_SCOPE_ID}/${MAPPER_ID}"
+      else
+        warn "  Protocol mapper sub not found on openid scope"
+      fi
+    fi
+
+    # groups scope has a "group-membership" mapper
+    GROUPS_SCOPE_ID=$(echo "$SCOPES_JSON" | jq -r '.[] | select(.name == "groups") | .id // empty')
+    if [[ -n "$GROUPS_SCOPE_ID" ]]; then
+      MAPPER_ID=$(kc_get "${KEYCLOAK_URL}/admin/realms/broker/client-scopes/${GROUPS_SCOPE_ID}/protocol-mappers/models" \
+        '.[] | select(.name == "group-membership") | .id // empty') || true
+      if [[ -n "$MAPPER_ID" ]]; then
+        import_resource "module.keycloak_broker.keycloak_openid_group_membership_protocol_mapper.group_membership" \
+          "broker/client-scope/${GROUPS_SCOPE_ID}/${MAPPER_ID}"
+      else
+        warn "  Protocol mapper group-membership not found on groups scope"
+      fi
+    fi
+
+    # Identity provider mappers — use partial-export to get UUIDs
+    # The regular /identity-providers/{alias}/mappers endpoint returns empty
+    # on Keycloak 26.x. The partial-export endpoint works reliably.
+    info "Fetching IdP mapper UUIDs via partial-export..."
+    PARTIAL_EXPORT=$(curl -sf -X POST \
+      "${KEYCLOAK_URL}/admin/realms/broker/partial-export?exportClients=true&exportGroupsAndRoles=true" \
+      -H "Authorization: Bearer ${KC_TOKEN}" \
+      -H "Content-Type: application/json" 2>/dev/null) || true
+
+    if [[ -z "$PARTIAL_EXPORT" || "$PARTIAL_EXPORT" == "null" ]]; then
+      warn "partial-export failed — skipping IdP mapper imports"
+    else
+      IDP_MAPPERS=$(echo "$PARTIAL_EXPORT" | jq -r '.identityProviderMappers // []')
+
+      for alias in upstream google github microsoft; do
+        # Build expected mapper names per alias
+        if [[ "$alias" == "upstream" ]]; then
+          MAPPER_ENTRIES=(
+            "upstream-admin-to-platform-admins:upstream_admin_to_platform_admins"
+            "upstream-admin-to-k8s-admins:upstream_admin_to_k8s_admins"
+            "upstream-admin-to-k8s-operators:upstream_admin_to_k8s_operators"
+            "upstream-admin-to-web-admins:upstream_admin_to_web_admins"
+            "upstream-admin-to-web-operators:upstream_admin_to_web_operators"
+            "upstream-admin-to-app-users:upstream_admin_to_app_users"
+            "upstream-user-to-app-users:upstream_user_to_app_users"
+          )
+        else
+          MAPPER_ENTRIES=(
+            "${alias}-to-app-users:${alias}_to_app_users"
+          )
+        fi
+
+        for entry in "${MAPPER_ENTRIES[@]}"; do
+          mapper_name="${entry%%:*}"
+          tf_name="${entry##*:}"
+          MAPPER_ID=$(echo "$IDP_MAPPERS" | jq -r \
+            ".[] | select(.name == \"${mapper_name}\" and .identityProviderAlias == \"${alias}\") | .id // empty")
+          if [[ -n "$MAPPER_ID" ]]; then
+            import_resource "module.keycloak_broker.keycloak_custom_identity_provider_mapper.${tf_name}" \
+              "broker/${alias}/${MAPPER_ID}"
+          else
+            warn "  IdP mapper ${mapper_name} not found on ${alias}"
+          fi
+        done
+      done
+    fi
+
+    info "Keycloak broker import complete"
   fi
 fi
 

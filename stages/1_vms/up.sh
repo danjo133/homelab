@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 
-TARGET="${1:-all}"
+parse_yes_flag "$@"
+TARGET="${REMAINING_ARGS[0]:-all}"
 
 case "$TARGET" in
   all)
+    confirm_action "This will start ALL VMs (support + all cluster VMs)"
     info "Starting all Vagrant VMs..."
     vagrant_cmd "up"
     ;;
