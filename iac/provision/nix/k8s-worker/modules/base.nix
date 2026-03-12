@@ -15,18 +15,14 @@
 
     allowedTCPPorts = [
       22          # SSH
+      80          # HTTP
+      443         # HTTPS
       10250       # kubelet API
     ];
 
     # NodePort range
     allowedTCPPortRanges = [
       { from = 30000; to = 32767; }
-    ];
-
-    allowedUDPPorts = [
-      8472      # VXLAN (Cilium)
-      51820     # WireGuard (Cilium encryption)
-      51821     # WireGuard (Cilium encryption)
     ];
   };
 }

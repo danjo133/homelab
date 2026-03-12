@@ -1,0 +1,58 @@
+# Cilium Base Profile
+# Minimal Cilium configuration without BGP or Gateway API
+#
+# Use this profile for:
+# - Simple CNI-only deployments
+# - Testing basic pod networking
+# - Environments where external routing is handled differently
+#
+# Usage in helmfile:
+#   values:
+#     - ./values/cilium/common.yaml
+#     - ./values/cilium/profile-base.yaml
+
+# =============================================================================
+# Kube-Proxy
+# =============================================================================
+
+# Keep kube-proxy (don't replace it)
+# Set to true if RKE2 has disable-kube-proxy: true
+kubeProxyReplacement: false
+
+# =============================================================================
+# BGP - Disabled
+# =============================================================================
+
+bgpControlPlane:
+  enabled: false
+
+# =============================================================================
+# Gateway API - Disabled
+# =============================================================================
+
+gatewayAPI:
+  enabled: false
+
+# Envoy not needed without Gateway API
+envoy:
+  enabled: false
+
+# =============================================================================
+# LoadBalancer
+# =============================================================================
+
+# No LoadBalancer IPAM - use NodePort or external LB
+loadBalancer:
+  mode: snat
+
+# No L2 announcements for lan access
+l2announcements:
+  enabled: true
+
+# =============================================================================
+# Masquerading
+# =============================================================================
+
+enableIPv4Masquerade: true
+bpf:
+  masquerade: false  # Use iptables masquerade

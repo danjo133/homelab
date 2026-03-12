@@ -1,0 +1,25 @@
+# CiliumBGPPClusterConfig - Generated from config.yaml
+# Do not edit directly - run: make generate-network-config
+# could be changed to a node label for only exposing bgp on certain hosts
+#
+# ASN Selection:
+# Private ASN range: 64512-65534 (like 10.x.x.x for IPs - free for internal use)
+---
+apiVersion: cilium.io/v2
+kind: CiliumBGPClusterConfig
+metadata:
+  name: cilium-bgp
+spec:
+  nodeSelector:
+    matchLabels:
+      bgp_enabled: "true"
+
+  bgpInstances:
+    - name: "instance-64513"
+      localASN: 64513
+      peers:
+        - name: "peer-64512-unifi"
+          peerAddress: "10.69.50.1"
+          peerASN: 64512
+          peerConfigRef:
+            name: "cilium-peer"

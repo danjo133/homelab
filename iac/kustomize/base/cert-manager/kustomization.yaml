@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# cert-manager ClusterIssuers and Certificates
+# Apply after cert-manager Helm release is installed
+#
+# Prerequisites:
+#   kubectl create secret generic cloudflare-api-token \
+#     --namespace cert-manager \
+#     --from-literal=api-token=<your-cloudflare-api-token>
+
+resources:
+  - cluster-issuer.yaml
+  - wildcard-certificate.yaml
+  # reference-grant.yaml is only needed for Gateway API (moved to cilium-gateway overlay)

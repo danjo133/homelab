@@ -1,0 +1,47 @@
+# Gateway - Main entry point for external traffic
+#
+# This Gateway:
+# - Gets a LoadBalancer IP from Cilium's BGP-advertised pool
+# - Terminates TLS using the wildcard certificate
+# - Routes traffic to HTTPRoutes in any namespace
+#
+# ExternalDNS will create DNS records based on HTTPRoute hostnames
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: main-gateway
+  namespace: kube-system
+  annotations:
+    # ExternalDNS will manage DNS for listeners
+    external-dns.alpha.kubernetes.io/hostname: "*.support.example.com"
+spec:
+  # Use Cilium's Gateway implementation (Envoy)
+  gatewayClassName: cilium
+
+  # Listeners define the ports and protocols
+  listeners:
+    # HTTP listener - redirects to HTTPS
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: "*.support.example.com"
+      allowedRoutes:
+        namespaces:
+          from: All
+
+    # HTTPS listener with TLS termination
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: "*.support.example.com"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          # Reference the wildcard certificate from cert-manager
+          - kind: Secret
+            name: wildcard-overkill-tls
+            namespace: cert-manager
+      allowedRoutes:
+        namespaces:
+          from: All

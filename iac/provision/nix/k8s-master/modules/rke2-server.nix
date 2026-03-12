@@ -4,51 +4,107 @@
 { config, pkgs, lib, ... }:
 
 let
+  # CNI selection
+  isCilium = config.kss.cni == "cilium";
+
   # RKE2 version
   rke2Version = "v1.31.4+rke2r1";
 
-  # RKE2 installation script
+  # Cleanup script to kill orphaned containerd-shim processes on stop/restart.
+  # RKE2 uses KillMode=process so the main rke2 process is killed, but
+  # containerd-shim processes survive by design (they reparent to init).
+  # Without cleanup, stale kube-apiserver/etcd/etc hold ports and block restart.
+  rke2Cleanup = pkgs.writeShellScript "rke2-server-cleanup" ''
+    export PATH="${lib.makeBinPath [ pkgs.coreutils pkgs.procps pkgs.gnused pkgs.gnugrep pkgs.util-linux pkgs.gawk pkgs.findutils ]}"
+
+    RKE2_DATA_DIR="/var/lib/rancher/rke2"
+
+    # Kill all containerd-shim processes spawned by RKE2
+    SHIM_PIDS=$(ps -e -o pid= -o args= | sed -e 's/^ *//; s/\s\s*/\t/;' | grep -w "$RKE2_DATA_DIR/data/[^/]*/bin/containerd-shim" | cut -f1)
+    if [ -n "$SHIM_PIDS" ]; then
+      echo "Killing orphaned containerd-shim processes: $SHIM_PIDS"
+      kill -9 $SHIM_PIDS 2>/dev/null || true
+    fi
+
+    # Unmount kubelet and CNI mounts
+    for mount_prefix in /run/k3s /var/lib/kubelet/pods /run/netns/cni-; do
+      MOUNTS=$(awk -v prefix="$mount_prefix" '$2 ~ "^"prefix {print $2}' /proc/self/mounts | sort -r)
+      if [ -n "$MOUNTS" ]; then
+        umount -- $MOUNTS 2>/dev/null || true
+      fi
+    done
+  '';
+
+  # RKE2 installation script - direct download to avoid NixOS path issues
   rke2Install = pkgs.writeShellScript "rke2-server-install" ''
     set -eu
 
-    export PATH="${lib.makeBinPath [ pkgs.curl pkgs.gnutar pkgs.gzip pkgs.coreutils pkgs.bash ]}"
+    export PATH="${lib.makeBinPath [ pkgs.curl pkgs.gnutar pkgs.gzip pkgs.coreutils pkgs.bash pkgs.gnused pkgs.gnugrep pkgs.gawk pkgs.util-linux pkgs.findutils pkgs.diffutils ]}"
 
-    RKE2_BIN="/var/lib/rancher/rke2/bin"
+    INSTALL_DIR="/opt/rke2"
     MARKER="/var/lib/rancher/rke2/.installed"
+    VERSION="${rke2Version}"
+    # URL-encode the + as %2B for GitHub
+    VERSION_URL=$(echo "$VERSION" | sed 's/+/%2B/g')
 
     if [ -f "$MARKER" ]; then
       echo "RKE2 already installed"
       exit 0
     fi
 
-    echo "Installing RKE2 server ${rke2Version}..."
+    echo "Installing RKE2 server $VERSION..."
 
     # Create directories
-    mkdir -p /var/lib/rancher/rke2/bin
+    mkdir -p "$INSTALL_DIR/bin"
+    mkdir -p "$INSTALL_DIR/share/rke2"
+    mkdir -p /var/lib/rancher/rke2
     mkdir -p /etc/rancher/rke2
     mkdir -p /var/log/kubernetes
 
-    # Download RKE2 installer
-    curl -sfL https://get.rke2.io -o /tmp/rke2-install.sh
-    chmod +x /tmp/rke2-install.sh
+    # Download RKE2 tarball
+    TARBALL_URL="https://github.com/rancher/rke2/releases/download/$VERSION_URL/rke2.linux-amd64.tar.gz"
+    CHECKSUM_URL="https://github.com/rancher/rke2/releases/download/$VERSION_URL/sha256sum-amd64.txt"
 
-    # Install RKE2 server
-    INSTALL_RKE2_VERSION="${rke2Version}" \
-    INSTALL_RKE2_TYPE="server" \
-      bash /tmp/rke2-install.sh
+    echo "Downloading RKE2 from $TARBALL_URL..."
+    curl -sfL "$TARBALL_URL" -o /tmp/rke2.tar.gz
+    curl -sfL "$CHECKSUM_URL" -o /tmp/sha256sum.txt
 
-    rm -f /tmp/rke2-install.sh
+    # Verify checksum
+    echo "Verifying checksum..."
+    EXPECTED_SUM=$(grep "rke2.linux-amd64.tar.gz" /tmp/sha256sum.txt | awk '{print $1}')
+    ACTUAL_SUM=$(sha256sum /tmp/rke2.tar.gz | awk '{print $1}')
+    if [ "$EXPECTED_SUM" != "$ACTUAL_SUM" ]; then
+      echo "ERROR: Checksum mismatch!"
+      echo "Expected: $EXPECTED_SUM"
+      echo "Actual:   $ACTUAL_SUM"
+      exit 1
+    fi
+    echo "Checksum verified."
+
+    # Extract to install directory
+    echo "Extracting to $INSTALL_DIR..."
+    tar -xzf /tmp/rke2.tar.gz -C "$INSTALL_DIR"
+
+    # Clean up
+    rm -f /tmp/rke2.tar.gz /tmp/sha256sum.txt
+
+    # Make binaries executable
+    chmod +x "$INSTALL_DIR/bin/"*
+
+    # Create symlinks in /var/lib/rancher/rke2/bin for compatibility
+    ln -sf "$INSTALL_DIR/bin/rke2" /var/lib/rancher/rke2/bin/rke2 || true
 
     # Mark installation complete
     touch "$MARKER"
     echo "RKE2 server installation complete"
+    echo "RKE2 binary at: $INSTALL_DIR/bin/rke2"
   '';
 
   # Script to store token in Vault (for workers to retrieve)
   storeTokenInVault = pkgs.writeShellScript "store-rke2-token" ''
     set -eu
 
-    export PATH="${lib.makeBinPath [ pkgs.curl pkgs.jq ]}"
+    export PATH="${lib.makeBinPath [ pkgs.curl pkgs.jq pkgs.coreutils]}"
 
     TOKEN_FILE="/var/lib/rancher/rke2/server/node-token"
     VAULT_ADDR="https://vault.support.example.com"
@@ -84,12 +140,22 @@ in
     mode = "0644";
     text = ''
       # RKE2 Server Configuration
+    '' + lib.optionalString isCilium ''
       # CNI disabled - Cilium will be installed via Helm
       cni: none
 
+      # Disable kube-proxy - Cilium handles kube-proxy replacement
+      disable-kube-proxy: true
+    '' + ''
+
+      # Node name - use hostname instead of OS transient hostname
+      node-name: k8s-master
+
       # Disable default components we'll replace
       disable:
+    '' + lib.optionalString isCilium ''
         - rke2-canal
+    '' + ''
         - rke2-ingress-nginx
 
       # TLS SANs for API server certificate
@@ -121,7 +187,7 @@ in
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
     before = [ "rke2-server.service" ];
-    wantedBy = [ "multi-user.target" ];
+    wantedBy = [ "rke2-server.service" ];
 
     serviceConfig = {
       Type = "oneshot";
@@ -130,18 +196,18 @@ in
     };
   };
 
-  # RKE2 server service
+  # RKE2 server service - starts asynchronously, does not block nixos-rebuild
   systemd.services.rke2-server = {
     description = "RKE2 Kubernetes Server";
     documentation = [ "https://docs.rke2.io" ];
     after = [ "network-online.target" "rke2-server-install.service" ];
-    wants = [ "network-online.target" ];
-    requires = [ "rke2-server-install.service" ];
+    wants = [ "network-online.target" "rke2-server-install.service" ];
     wantedBy = [ "multi-user.target" ];
 
     serviceConfig = {
-      Type = "notify";
-      ExecStart = "/usr/local/bin/rke2 server";
+      Type = "exec";
+      ExecStart = "/opt/rke2/bin/rke2 server";
+      ExecStopPost = "-${rke2Cleanup}";
       KillMode = "process";
       Delegate = "yes";
       LimitNOFILE = 1048576;
@@ -152,7 +218,7 @@ in
       Restart = "always";
       RestartSec = "5s";
       Environment = [
-        "PATH=/var/lib/rancher/rke2/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        "PATH=/run/wrappers/bin:/run/current-system/sw/bin:/var/lib/rancher/rke2/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
       ];
     };
   };
@@ -161,14 +227,14 @@ in
   systemd.services.rke2-token-info = {
     description = "RKE2 Token Information";
     after = [ "rke2-server.service" ];
-    requires = [ "rke2-server.service" ];
+    wants = [ "rke2-server.service" ];
     wantedBy = [ "multi-user.target" ];
 
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
       ExecStart = storeTokenInVault;
-      ExecStartPre = "${pkgs.coreutils}/bin/sleep 30";  # Wait for server to generate token
+      ExecStartPre = "${pkgs.coreutils}/bin/sleep 30";
     };
   };
 

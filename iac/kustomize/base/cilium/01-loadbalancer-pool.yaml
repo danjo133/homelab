@@ -1,0 +1,28 @@
+# CiliumLoadBalancerIPPool - Generated from config.yaml
+# Do not edit directly - run: make generate-network-config
+#
+# Network allocation (VLAN 50 - 10.69.50.0/24):
+# - Static hosts: .1-.127
+# - DHCP pool: .128-.191
+# - LoadBalancer VIPs: 10.69.50.192-223 (this pool)
+# - Reserved: .224-.254
+---
+apiVersion: cilium.io/v2
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: default-pool
+spec:
+  allowFirstLastIPs: "No"
+  blocks:
+    - cidr: "10.69.50.192/27"
+  #serviceSelector:
+  #  matchExpressions:
+  #  - key: lb.cilium.io/pool
+  #    operator: In
+  #    values: ["apps"]
+  serviceSelector:
+    matchExpressions:
+      # match all services (dummy NotIn trick)
+      - key: never-used-key
+        operator: NotIn
+        values: ["never-used-value"]

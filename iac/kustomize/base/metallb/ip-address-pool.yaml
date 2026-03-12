@@ -1,0 +1,11 @@
+# MetalLB IPAddressPool - VLAN 50 LoadBalancer IPs
+# Same range as Cilium BGP (not used simultaneously)
+# Range: 10.69.50.192 - 10.69.50.223 (32 IPs)
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: default-pool
+  namespace: metallb-system
+spec:
+  addresses:
+    - 10.69.50.192/27

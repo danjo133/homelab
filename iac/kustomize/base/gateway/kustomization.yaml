@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Gateway API resources for Cilium ingress
+# Apply after:
+# - Cilium with Gateway API enabled
+# - cert-manager with wildcard certificate
+
+resources:
+  - gatewayclass.yaml
+  - gateway.yaml
+  - http-redirect.yaml
+  # Uncomment to deploy the example route:
+  # - httproute-example.yaml

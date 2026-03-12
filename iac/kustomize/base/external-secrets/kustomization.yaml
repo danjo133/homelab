@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# external-secrets ClusterSecretStore and ExternalSecrets
+# Apply after external-secrets operator is installed
+#
+# Prerequisites:
+#   1. Run bootstrap-vault-k8s.sh to configure Vault
+#   2. Deploy external-secrets via helmfile
+
+resources:
+  - cluster-secret-store.yaml
+  - cloudflare-secret.yaml

@@ -6,15 +6,19 @@
 {
   imports = [
     # Common modules
-    ../common/vagrant-user.nix
-    ../common/base-system.nix
+    ./common/vagrant-user.nix
+    ./common/base-system.nix
     # VM-specific
     ./hardware-configuration.nix
     ./k8s-common/rke2-base.nix
+    ./k8s-common/cni.nix
     ./modules/base.nix
     ./modules/rke2-server.nix
     ./modules/security.nix
   ];
+
+  # CNI selection: "default" (Canal) or "cilium"
+  kss.cni = "default";
 
   # Boot configuration
   boot.loader.grub.enable = true;

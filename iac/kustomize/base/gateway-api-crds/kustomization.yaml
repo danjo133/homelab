@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Gateway API CRDs - Experimental Channel
+# Required for Cilium Gateway API support (includes GRPCRoute, TLSRoute)
+#
+# Apply this BEFORE deploying Cilium with Gateway API enabled.
+#
+# Channel: experimental (includes standard + TCPRoute, TLSRoute, UDPRoute, GRPCRoute)
+# Version: v1.4.1 (compatible with Cilium 1.18+)
+#
+# See: https://gateway-api.sigs.k8s.io/guides/
+
+resources:
+  - https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/experimental-install.yaml
+  #- https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml

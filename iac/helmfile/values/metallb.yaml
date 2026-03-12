@@ -1,0 +1,16 @@
+# MetalLB - Bare metal LoadBalancer
+# Chart: metallb/metallb
+#
+# Provides LoadBalancer IPs using L2 (ARP) mode on VLAN 50.
+# IPAddressPool and L2Advertisement CRs are applied via kustomize
+# after the chart installs the CRDs.
+
+# Speaker runs on all nodes to respond to ARP requests
+speaker:
+  tolerations:
+    - operator: Exists
+
+# Controller manages IP assignments
+controller:
+  tolerations:
+    - operator: Exists

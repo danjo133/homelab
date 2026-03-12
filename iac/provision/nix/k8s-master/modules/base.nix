@@ -14,6 +14,8 @@
 
     allowedTCPPorts = [
       22        # SSH
+      80        # HTTP
+      443       # HTTPS
       6443      # Kubernetes API server
       9345      # RKE2 supervisor API (for node joining)
       2379      # etcd client
@@ -23,12 +25,6 @@
       10252     # kube-controller-manager (deprecated but may be used)
       10257     # kube-controller-manager secure
       10259     # kube-scheduler secure
-    ];
-
-    allowedUDPPorts = [
-      8472      # VXLAN (Cilium)
-      51820     # WireGuard (Cilium encryption)
-      51821     # WireGuard (Cilium encryption)
     ];
   };
 }

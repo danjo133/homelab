@@ -1,0 +1,74 @@
+# Example HTTPRoute - Shows how to expose a service via Gateway
+#
+# This is a template showing how to route traffic from the Gateway
+# to a backend service. Copy and modify for your own services.
+#
+# ExternalDNS will automatically create DNS records for the hostname.
+
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: example-route
+  namespace: default
+  annotations:
+    # ExternalDNS annotation for automatic DNS record creation
+    external-dns.alpha.kubernetes.io/hostname: example.support.example.com
+spec:
+  # Parent Gateway to attach to
+  parentRefs:
+    - name: main-gateway
+      namespace: kube-system
+
+  # Hostname this route handles
+  hostnames:
+    - "example.support.example.com"
+
+  # Routing rules
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: example-service
+          port: 80
+
+---
+# Example Service and Deployment for testing
+# Uncomment to deploy a simple echo server
+
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: example-service
+#   namespace: default
+# spec:
+#   selector:
+#     app: example
+#   ports:
+#     - port: 80
+#       targetPort: 8080
+#
+# ---
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: example
+#   namespace: default
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: example
+#   template:
+#     metadata:
+#       labels:
+#         app: example
+#     spec:
+#       containers:
+#         - name: echo
+#           image: hashicorp/http-echo:latest
+#           args:
+#             - "-text=Hello from Kubernetes!"
+#           ports:
+#             - containerPort: 8080

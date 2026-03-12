@@ -1,116 +1,57 @@
 # Nginx Ingress Controller Helm Values
-# Ingress controller for routing external traffic
+# Chart: ingress-nginx/ingress-nginx from kubernetes.github.io
+#
+# This provides HTTP/HTTPS ingress routing with a LoadBalancer service.
+# Cilium BGP will advertise the LoadBalancer IP to the router.
 
-# Image
-image:
-  registry: docker.io
-  repository: nginx/nginx-ingress
-  tag: null  # Use default from chart
+controller:
+  # Replica count
+  replicaCount: 1
 
-# Deployment
-replicas: 1
-strategy:
-  type: RollingUpdate
-  rollingUpdate:
-    maxUnavailable: 1
+  # Service configuration - LoadBalancer type for BGP advertisement
+  service:
+    enabled: true
+    type: LoadBalancer
+    # externalTrafficPolicy: Local preserves client IP
+    externalTrafficPolicy: Local
 
-# RBAC
-rbac:
-  create: true
+  # Ingress class
+  ingressClassResource:
+    name: nginx
+    enabled: true
+    default: true
 
-# Service account
-serviceAccount:
-  create: true
-  name: nginx-ingress
+  # Pod resources
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
 
-# Pod security
-podSecurityPolicy:
-  enable: false
-
-podSecurityContext:
-  runAsNonRoot: true
-  runAsUser: 101
-  fsGroup: 101
-
-securityContext:
-  allowPrivilegeEscalation: true
-  capabilities:
-    add:
-      - NET_BIND_SERVICE
-    drop:
-      - ALL
-  readOnlyRootFilesystem: true
-
-# Service configuration
-service:
-  type: LoadBalancer
-  port: 80
-  targetPort: 80
-  
-  # For HTTP/2 and gRPC support
-  httpPort:
-    enableIPv6: true
-
-# Service for HTTPS
-serviceHttps:
-  enabled: true
-  type: LoadBalancer
-  port: 443
-  targetPort: 443
-  httpPort:
-    enableIPv6: true
-
-# Nginx configuration
-nginx:
-  # Default server configuration
-  serverTokens: "off"
-  
-  # Security headers
-  map:
-    "X-Frame-Options": "SAMEORIGIN"
-    "X-Content-Type-Options": "nosniff"
-    "X-XSS-Protection": "1; mode=block"
-  
-  # SSL/TLS configuration
-  ssl:
-    redirect: "off"  # Redirect HTTP to HTTPS
-  
-  # Rate limiting
-  rateLimiting:
-    enabled: false  # Can be enabled per ingress
-
-# Resources
-resources:
-  requests:
-    cpu: 100m
-    memory: 128Mi
-  limits:
-    cpu: 500m
-    memory: 512Mi
-
-# Node selection
-nodeSelector: {}
-tolerations:
-  - operator: Exists
-affinity: {}
-
-# Health check
-healthCheck:
-  enabled: true
-  uri: /nginx_health
-  interval: 15s
-
-# Prometheus metrics
-prometheus:
-  enabled: true
-  port: 9113
+  # Metrics for Prometheus
   metrics:
-    - upstream
-    - server
+    enabled: true
+    serviceMonitor:
+      enabled: false  # Enable when Prometheus Operator is deployed
 
-# Enable controller logging
-enableCustomResources: true
+  # Config
+  config:
+    # Security headers
+    server-tokens: "false"
+    # Proxy settings
+    proxy-body-size: "50m"
+    proxy-buffer-size: "8k"
 
-# Kubernetes Gateway API support (optional)
-gatewayAPI:
-  enable: false
+  # Tolerations to run on any node
+  tolerations:
+    - operator: Exists
+
+  # Admission webhooks
+  admissionWebhooks:
+    enabled: true
+
+# Default backend (optional)
+defaultBackend:
+  enabled: false

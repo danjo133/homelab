@@ -55,6 +55,9 @@
     tree
     rsync
 
+    # Required by kubelet for mounting volumes
+    util-linux  # provides mount, umount, etc.
+
     # Network tools
     dig
     tcpdump

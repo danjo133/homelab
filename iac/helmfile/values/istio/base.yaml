@@ -1,0 +1,13 @@
+# Istio Base Chart Values
+# Installs Istio CRDs and base resources
+#
+# This chart is a prerequisite for istiod and istio-gateway.
+# Most settings are defaults - CRDs and namespace setup.
+
+# Global settings
+global:
+  # Use istio-system as the namespace for Istio components
+  istioNamespace: istio-system
+
+# Use default revision
+defaultRevision: "default"

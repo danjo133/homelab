@@ -1,0 +1,107 @@
+# Cilium BGP Simple Profile
+# CNI + BGP for LoadBalancer IPs, no Gateway API complexity
+#
+# Use this profile for:
+# - Reliable LoadBalancer services via BGP
+# - nginx-ingress or similar for HTTP routing
+# - Avoiding Cilium Gateway API / Envoy issues
+#
+# What works:
+# - Pod networking (VXLAN tunnel)
+# - Services (ClusterIP, NodePort, LoadBalancer)
+# - BGP advertisement of LoadBalancer IPs
+# - L2 announcements for local access
+#
+# What's disabled:
+# - Gateway API (use nginx-ingress instead)
+# - Cilium Envoy proxy
+# - kube-proxy replacement (simpler, more reliable)
+
+# =============================================================================
+# Kubernetes API Server
+# =============================================================================
+k8sServiceHost: k8s-master.support.example.com
+k8sServicePort: 6443
+
+# =============================================================================
+# Network Devices
+# =============================================================================
+MTU: 1380
+devices:
+  - ens7
+
+# =============================================================================
+# Kube-Proxy Replacement
+# =============================================================================
+# Cilium replaces kube-proxy for service routing via BPF.
+# Required because RKE2 is configured with disable-kube-proxy: true.
+# This is independent of Gateway API / Envoy - it just handles ClusterIP,
+# NodePort, and LoadBalancer services in the eBPF datapath.
+kubeProxyReplacement: true
+
+# =============================================================================
+# BGP Control Plane
+# =============================================================================
+# BGP advertises LoadBalancer IPs to the router
+bgpControlPlane:
+  enabled: true
+
+# =============================================================================
+# Gateway API - DISABLED
+# =============================================================================
+gatewayAPI:
+  enabled: false
+
+envoy:
+  enabled: false
+
+# =============================================================================
+# Routing Mode: VXLAN Tunnel
+# =============================================================================
+routingMode: tunnel
+tunnelProtocol: vxlan
+
+autoDirectNodeRoutes: false
+ipv4NativeRoutingCIDR: ""
+
+endpointRoutes:
+  enabled: false
+
+# =============================================================================
+# Encryption - Disabled for simplicity
+# =============================================================================
+encryption:
+  enabled: false
+
+# =============================================================================
+# LoadBalancer
+# =============================================================================
+loadBalancer:
+  mode: snat
+
+# L2 announcements for local network access
+l2announcements:
+  enabled: true
+
+# =============================================================================
+# Masquerading
+# =============================================================================
+enableIPv4Masquerade: true
+
+bpf:
+  masquerade: true
+  # hostLegacyRouting enables iptables fallback for host-to-pod traffic.
+  # Required alongside socket LB for reliable host-network connectivity.
+  hostLegacyRouting: true
+
+# =============================================================================
+# Cgroup Configuration
+# =============================================================================
+# Mount the host's real cgroup2 root so Cilium's socket LB BPF programs
+# attach to all host-network processes (including kube-apiserver).
+# Without this, Cilium uses its own cgroup mount and the API server
+# can't reach ClusterIP services (webhooks fail).
+cgroup:
+  autoMount:
+    enabled: true
+  hostRoot: /sys/fs/cgroup

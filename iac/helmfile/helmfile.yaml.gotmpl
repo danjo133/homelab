@@ -1,0 +1,281 @@
+# Helmfile for Kubernetes cluster bootstrap
+#
+# =============================================================================
+# Environments
+# =============================================================================
+#
+# Usage:
+#   helmfile -e default apply       # MetalLB L2 + nginx-ingress (no Cilium)
+#   helmfile -e bgp-simple apply    # Cilium BGP + nginx-ingress (recommended)
+#   helmfile -e gateway-bgp apply   # Cilium BGP + Gateway API (complex)
+#   helmfile -e istio-mesh apply    # Cilium BGP + Istio service mesh
+#   helmfile -e base apply          # Minimal Cilium CNI + nginx-ingress
+#
+# default:     RKE2 built-in CNI (Canal), MetalLB L2 for LoadBalancer IPs, nginx-ingress
+# bgp-simple:  Cilium CNI + BGP for LB IPs + nginx-ingress (simple & reliable)
+# gateway-bgp: Cilium with kube-proxy replacement, BGP, Gateway API (Envoy)
+# istio-mesh:  Cilium CNI + BGP for LB IPs, Istio for service mesh & ingress
+# base:        Simple Cilium CNI with nginx-ingress for ingress (no BGP)
+
+environments:
+  default:
+    values:
+      - useCilium: false
+      - useMetalLB: true
+      - useGatewayAPI: false
+      - useIstio: false
+      - useNginx: true
+  bgp-simple:
+    values:
+      - useCilium: true
+      - useMetalLB: false
+      - ciliumProfile: bgp-simple
+      - useGatewayAPI: false
+      - useIstio: false
+      - useNginx: true
+  gateway-bgp:
+    values:
+      - useCilium: true
+      - useMetalLB: false
+      - ciliumProfile: gateway-bgp
+      - useGatewayAPI: true
+      - useIstio: false
+      - useNginx: false
+  istio-mesh:
+    values:
+      - useCilium: true
+      - useMetalLB: false
+      - ciliumProfile: istio-bgp
+      - useGatewayAPI: false
+      - useIstio: true
+      - useNginx: false
+  base:
+    values:
+      - useCilium: true
+      - useMetalLB: false
+      - ciliumProfile: base
+      - useGatewayAPI: false
+      - useIstio: false
+      - useNginx: true
+
+---
+# =============================================================================
+# Helm Releases
+# =============================================================================
+
+helmDefaults:
+  atomic: true
+  cleanupOnFail: true
+  timeout: 600
+  wait: true
+
+repositories:
+  - name: cilium
+    url: https://helm.cilium.io
+  - name: metallb
+    url: https://metallb.github.io/metallb
+  - name: jetstack
+    url: https://charts.jetstack.io
+  - name: external-secrets
+    url: https://charts.external-secrets.io
+  - name: external-dns
+    url: https://kubernetes-sigs.github.io/external-dns
+  - name: argo
+    url: https://argoproj.github.io/argo-helm
+  - name: ingress-nginx
+    url: https://kubernetes.github.io/ingress-nginx
+  - name: istio
+    url: https://istio-release.storage.googleapis.com/charts
+
+releases:
+  # ===========================================================================
+  # Cilium - Container Network Interface (only with Cilium profiles)
+  # ===========================================================================
+  - name: cilium
+    namespace: kube-system
+    createNamespace: true
+    chart: cilium/cilium
+    version: "1.18.6"
+    installed: {{ .Values | getOrNil "useCilium" | default false }}
+    values:
+      - ./values/cilium/common.yaml
+      - ./values/cilium/profile-{{ .Values | getOrNil "ciliumProfile" | default "base" }}.yaml
+
+  # ===========================================================================
+  # Tetragon - Pod Security & Runtime Threat Detection (only with Cilium)
+  # ===========================================================================
+  - name: tetragon
+    namespace: kube-system
+    createNamespace: true
+    chart: cilium/tetragon
+    version: "1.2.x"
+    installed: {{ .Values | getOrNil "useCilium" | default false }}
+    values:
+      - ./values/tetragon.yaml
+    needs:
+      - kube-system/cilium
+
+  # ===========================================================================
+  # MetalLB - Bare metal LoadBalancer (only without Cilium)
+  # ===========================================================================
+  - name: metallb
+    namespace: metallb-system
+    createNamespace: true
+    chart: metallb/metallb
+    version: "0.14.x"
+    installed: {{ .Values | getOrNil "useMetalLB" | default false }}
+    values:
+      - ./values/metallb.yaml
+
+  # ===========================================================================
+  # Nginx Ingress Controller
+  # ===========================================================================
+  - name: nginx-ingress
+    namespace: ingress-nginx
+    createNamespace: true
+    chart: ingress-nginx/ingress-nginx
+    version: "4.11.x"
+    installed: {{ .Values.useNginx }}
+    values:
+      - ./values/nginx-ingress.yaml
+{{ if .Values | getOrNil "useCilium" | default false }}
+    needs:
+      - kube-system/cilium
+{{ else if .Values | getOrNil "useMetalLB" | default false }}
+    needs:
+      - metallb-system/metallb
+{{ end }}
+
+  # ===========================================================================
+  # Istio Service Mesh (only with istio-mesh profile)
+  # ===========================================================================
+
+  # Istio Base - CRDs and base resources
+  - name: istio-base
+    namespace: istio-system
+    createNamespace: true
+    chart: istio/base
+    version: "1.28.x"
+    installed: {{ .Values.useIstio }}
+    values:
+      - ./values/istio/base.yaml
+{{ if .Values | getOrNil "useCilium" | default false }}
+    needs:
+      - kube-system/cilium
+{{ end }}
+
+  # Istio Control Plane (istiod)
+  - name: istiod
+    namespace: istio-system
+    createNamespace: true
+    chart: istio/istiod
+    version: "1.28.x"
+    installed: {{ .Values.useIstio }}
+    values:
+      - ./values/istio/istiod.yaml
+    needs:
+      - istio-system/istio-base
+
+  # Istio Ingress Gateway
+  - name: istio-ingressgateway
+    namespace: istio-ingress
+    createNamespace: true
+    chart: istio/gateway
+    version: "1.28.x"
+    installed: {{ .Values.useIstio }}
+    values:
+      - ./values/istio/gateway.yaml
+    needs:
+      - istio-system/istiod
+
+  # ===========================================================================
+  # cert-manager - Certificate Management
+  # ===========================================================================
+  - name: cert-manager
+    namespace: cert-manager
+    createNamespace: true
+    chart: jetstack/cert-manager
+    version: "v1.16.x"
+    values:
+      - ./values/cert-manager.yaml
+{{ if .Values | getOrNil "useCilium" | default false }}
+    needs:
+      - kube-system/cilium
+{{ end }}
+
+  # ===========================================================================
+  # external-secrets - Secret Synchronization from Vault
+  # ===========================================================================
+  - name: external-secrets
+    namespace: external-secrets
+    createNamespace: true
+    chart: external-secrets/external-secrets
+    version: "0.10.x"
+    values:
+      - ./values/external-secrets.yaml
+    needs:
+      - cert-manager/cert-manager
+
+  # ===========================================================================
+  # ExternalDNS - Automatic DNS Management
+  # ===========================================================================
+  - name: external-dns
+    namespace: external-dns
+    createNamespace: true
+    chart: external-dns/external-dns
+    version: "1.15.x"
+    installed: {{ or .Values.useGatewayAPI .Values.useNginx }}
+    values:
+      - ./values/external-dns.yaml
+{{ if .Values.useGatewayAPI }}
+    set:
+      - name: sources
+        values:
+          - service
+          - ingress
+          - gateway-httproute
+{{ end }}
+    needs:
+      - cert-manager/cert-manager
+
+  # ===========================================================================
+  # ArgoCD - GitOps Continuous Deployment
+  # ===========================================================================
+  - name: argocd
+    namespace: argocd
+    createNamespace: true
+    chart: argo/argo-cd
+    version: "7.7.x"
+    values:
+      - ./values/argocd.yaml
+    needs:
+      - external-secrets/external-secrets
+
+---
+# =============================================================================
+# Deployment Instructions
+# =============================================================================
+#
+# 1. Validate:
+#    helmfile -e default lint         # Validate MetalLB + nginx config
+#    helmfile -e bgp-simple lint      # Validate Cilium BGP config
+#
+# 2. Deploy (simplest - no Cilium needed):
+#    helmfile -e default apply        # MetalLB L2 + nginx-ingress
+#
+# 3. Deploy with Cilium:
+#    helmfile -e bgp-simple apply     # BGP + nginx-ingress (recommended)
+#    helmfile -e gateway-bgp apply    # BGP + Cilium Gateway API (complex)
+#    helmfile -e istio-mesh apply     # BGP + Istio service mesh
+#    helmfile -e base apply           # No BGP, just nginx-ingress
+#
+# 4. Check status:
+#    kubectl get pods -n metallb-system
+#    kubectl get pods -n ingress-nginx
+#    kubectl get pods -n cert-manager
+#    kubectl get pods -n external-secrets
+#    kubectl get pods -n argocd
+#
+# 5. Switch environments:
+#    helmfile -e <old> destroy
+#    helmfile -e <new> apply

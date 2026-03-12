@@ -1,0 +1,166 @@
+# Cilium CNI Helm Values - STANDALONE REFERENCE
+# Container Network Interface with BGP, Gateway API, and kube-proxy replacement
+#
+# NOTE: This is a standalone single-file configuration kept for reference.
+# The preferred approach is to use the modular configs in ./cilium/:
+#   - common.yaml + profile-gateway-bgp.yaml (for this feature set)
+#   - common.yaml + profile-base.yaml (for minimal CNI)
+
+# Image configuration
+image:
+  repository: quay.io/cilium/cilium
+  tag: null  # Use default from chart
+  useDigest: true
+
+# Cilium operator
+operator:
+  replicas: 1
+
+# =============================================================================
+# Core Networking
+# =============================================================================
+
+# Kube-proxy replacement (enabled in RKE2 with disable-kube-proxy: true)
+kubeProxyReplacement: true
+
+# IPAM configuration
+ipam:
+  mode: kubernetes
+
+# Routing mode - tunnel (VXLAN) for cross-node pod traffic
+routingMode: tunnel
+tunnelProtocol: vxlan
+
+# Enable masquerading for pod-to-external traffic
+enableIPv4Masquerade: true
+bpf:
+  masquerade: true
+
+# =============================================================================
+# BGP Control Plane
+# =============================================================================
+
+bgpControlPlane:
+  enabled: true
+
+# =============================================================================
+# Gateway API (Envoy-based ingress)
+# =============================================================================
+
+gatewayAPI:
+  enabled: true
+
+# Envoy config for Gateway API
+envoy:
+  enabled: true
+
+# =============================================================================
+# LoadBalancer IPAM
+# =============================================================================
+
+# Enable LoadBalancer IP allocation
+# Actual IP pool defined via CiliumLoadBalancerIPPool CRD
+loadBalancer:
+  # Use BGP to announce LoadBalancer IPs
+  mode: snat  # or "dsr" for direct server return (more complex)
+
+# L2 announcements disabled - we use BGP instead
+l2announcements:
+  enabled: false
+
+# =============================================================================
+# Security & Policy
+# =============================================================================
+
+# Enable Cilium NetworkPolicy
+networkPolicy:
+  enabled: true
+
+# Host firewall (optional, can conflict with NixOS firewall)
+hostFirewall:
+  enabled: false
+
+# =============================================================================
+# Hubble Observability
+# =============================================================================
+
+hubble:
+  enabled: true
+  relay:
+    enabled: true
+    replicas: 1
+  ui:
+    enabled: true
+    replicas: 1
+    service:
+      type: ClusterIP
+  metrics:
+    enabled:
+      - dns
+      - drop
+      - tcp
+      - flow
+      - port-distribution
+      - icmp
+      - httpV2:exemplars=true;labelsContext=source_ip,source_namespace,source_workload,destination_ip,destination_namespace,destination_workload,traffic_direction
+
+# =============================================================================
+# Monitoring
+# =============================================================================
+
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: false  # Enable if using Prometheus Operator
+
+# =============================================================================
+# Resources & Scheduling
+# =============================================================================
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+# Allow scheduling on all nodes including control plane
+tolerations:
+  - operator: Exists
+
+# Node selector (optional)
+nodeSelector: {}
+
+# =============================================================================
+# RBAC & Service Accounts
+# =============================================================================
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+  name: cilium
+
+# =============================================================================
+# Security Context
+# =============================================================================
+
+podSecurityContext:
+  runAsNonRoot: false
+  runAsUser: 0
+
+securityContext:
+  privileged: true
+  capabilities:
+    add:
+      - NET_ADMIN
+      - SYS_MODULE
+
+# =============================================================================
+# DNS Proxy
+# =============================================================================
+
+dnsProxy:
+  enabled: true

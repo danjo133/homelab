@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: kubernetes-homelab-cilium-gateway
+
+# Extends base with Gateway API CRDs, Cilium BGP, and Gateway resources
+# Use with helmfile environment: gateway-bgp
+resources:
+  - ../../base
+  # Gateway API CRDs (experimental channel - includes GRPCRoute, TLSRoute)
+  # Must be applied before Cilium can process Gateway resources
+  - ../../base/gateway-api-crds/
+  # Cilium BGP and LoadBalancer CRDs
+  - ../../base/cilium/
+  # Gateway API resources (Gateway, HTTPRoutes)
+  - ../../base/gateway/
+  # ReferenceGrant allowing Gateway to access cert-manager secrets
+  - ../../base/cert-manager/reference-grant.yaml

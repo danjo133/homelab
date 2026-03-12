@@ -4,20 +4,19 @@ kind: Kustomization
 metadata:
   name: kubernetes-homelab-base
 
-# Resources included in this base
+# Universal resources (no Cilium/Gateway dependency)
+# For Cilium-specific resources, use overlays/cilium-bgp or overlays/cilium-gateway
 resources:
-  # cert-manager ClusterIssuer configurations
-  # - cert-manager-issuer.yaml
-  
-  # Vault SecretStore for external-secrets
-  # - vault-secretstore.yaml
-  
-  # RBAC and network policies
-  # - rbac.yaml
-  # - network-policies.yaml
-  
-  # Monitoring and logging
-  # - prometheus-rules.yaml
+  # Vault auth service account for token review
+  # (Must be applied before external-secrets can authenticate to Vault)
+  - vault-auth/
+
+  # external-secrets ClusterSecretStore and ExternalSecrets
+  # (Syncs secrets from Vault to Kubernetes)
+  - external-secrets/
+
+  # cert-manager ClusterIssuers and Certificates
+  - cert-manager/
 
 # Common labels
 commonLabels:
@@ -28,10 +27,3 @@ commonLabels:
 commonAnnotations:
   documentation: "https://github.com/yourusername/kss"
   owner: "homelab-team"
-
-# Namespace
-namespace: default
-
-# API version
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization

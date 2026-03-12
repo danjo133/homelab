@@ -27,6 +27,9 @@
       nogateway
     interface enp0s6
       nogateway
+
+    # Don't manage Cilium/container interfaces - they're managed by the CNI
+    denyinterfaces cilium* lxc* veth* cni* docker* br-*
   '';
 
   # Basic system packages available on all VMs
@@ -38,6 +41,7 @@
     htop
     jq
     tree
+    coreutils
   ];
 
   # Enable serial console for debugging

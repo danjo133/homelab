@@ -1,0 +1,36 @@
+# Wildcard Certificate for *.support.example.com
+#
+# This certificate covers all subdomains under support.example.com
+# Used by Gateway API / Ingress for TLS termination
+#
+# The certificate will be stored in a Secret that can be referenced
+# by Gateway resources or copied to other namespaces as needed.
+
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-overkill
+  namespace: cert-manager
+spec:
+  # Secret where the certificate will be stored
+  secretName: wildcard-overkill-tls
+
+  # Certificate duration and renewal
+  duration: 2160h    # 90 days
+  renewBefore: 360h  # Renew 15 days before expiry
+
+  # Common name and SANs
+  commonName: "*.support.example.com"
+  dnsNames:
+    - "*.support.example.com"
+    - "support.example.com"
+
+  # Use the production Let's Encrypt issuer
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+
+  # Private key settings
+  privateKey:
+    algorithm: ECDSA
+    size: 256

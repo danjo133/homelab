@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: kubernetes-homelab-cilium-bgp
+
+# Extends base with Cilium BGP resources
+# Use with helmfile environments: bgp-simple, base
+resources:
+  - ../../base
+  # Cilium BGP and LoadBalancer CRDs
+  # (Generated from iac/network/config.yaml via make generate-network-config)
+  - ../../base/cilium/
