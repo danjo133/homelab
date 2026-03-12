@@ -7,3 +7,5 @@ kind: Kustomization
 resources:
   - cluster-secret-store.yaml
   - cloudflare-secret.yaml
+  - keycloak-db-secret.yaml
+  - argocd-oidc-secret.yaml

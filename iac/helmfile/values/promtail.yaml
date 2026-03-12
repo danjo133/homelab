@@ -1,0 +1,23 @@
+# Promtail Log Collection Agent
+# Chart: grafana/promtail from grafana.github.io/helm-charts
+#
+# DaemonSet that collects logs from /var/log/pods and pushes to Loki.
+
+config:
+  clients:
+    - url: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
+
+  snippets:
+    # Enrich with namespace, pod, container, node labels
+    pipelineStages:
+      - cri: {}
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    memory: 64Mi
+
+tolerations:
+  - operator: Exists

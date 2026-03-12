@@ -4,18 +4,11 @@
 { config, pkgs, lib, ... }:
 
 {
-  # Kernel modules for storage
+  # Additional kernel modules for storage (iscsi_tcp is in rke2-base.nix)
   boot.kernelModules = [
-    "iscsi_tcp"     # iSCSI for Longhorn
     "dm_crypt"      # For encrypted volumes
     "dm_snapshot"   # For snapshots
   ];
-
-  # iSCSI initiator for Longhorn
-  services.openiscsi = {
-    enable = true;
-    name = "iqn.2024-01.local.k8s:${config.networking.hostName}";
-  };
 
   # NFS client packages (already in rke2-base, but explicit here)
   environment.systemPackages = with pkgs; [
@@ -30,12 +23,7 @@
   # Multipath for iSCSI (optional but recommended for Longhorn)
   # services.multipathd.enable = true;
 
-  # Ensure iscsid is running for Longhorn
-  systemd.services.iscsid = {
-    wantedBy = [ "multi-user.target" ];
-  };
-
-  # Directory for Longhorn data
+  # Directory for Longhorn data (iscsid + symlinks are in rke2-base.nix)
   systemd.tmpfiles.rules = [
     "d /var/lib/longhorn 0755 root root -"
   ];

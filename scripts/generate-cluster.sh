@@ -57,6 +57,15 @@ BGP_ASN=$(yq -r '.bgp.asn' "$CLUSTER_YAML")
 # Shared support services domain (Vault, Harbor, MinIO are on the shared support VM)
 SUPPORT_DOMAIN="support.example.com"
 
+# Read optional OIDC config (needed by nix/cluster.nix and helmfile-values.yaml)
+OIDC_ENABLED=$(yq -r '.oidc.enabled // "false"' "$CLUSTER_YAML")
+OIDC_ISSUER_URL=$(yq -r '.oidc.issuer_url // ""' "$CLUSTER_YAML")
+OIDC_CLIENT_ID=$(yq -r '.oidc.client_id // "kubernetes"' "$CLUSTER_YAML")
+
+# Read optional identity config
+ROOT_IDP_URL=$(yq -r '.identity.root_idp_url // ""' "$CLUSTER_YAML")
+BROKER_REALM=$(yq -r '.identity.broker_realm // "broker"' "$CLUSTER_YAML")
+
 # Read worker info
 WORKER_COUNT=$(yq '.workers | length' "$CLUSTER_YAML")
 
@@ -65,7 +74,7 @@ DOMAIN_SLUG=$(echo "$DOMAIN" | tr '.' '-')
 
 # Create output directories
 GEN_DIR="$CLUSTER_DIR/generated"
-rm -rf "$GEN_DIR/kustomize/metallb" "$GEN_DIR/kustomize/cilium" "$GEN_DIR/kustomize/cert-manager" "$GEN_DIR/kustomize/gateway"
+rm -rf "$GEN_DIR/kustomize/metallb" "$GEN_DIR/kustomize/cilium" "$GEN_DIR/kustomize/cert-manager" "$GEN_DIR/kustomize/gateway" "$GEN_DIR/kustomize/oidc-rbac" "$GEN_DIR/kustomize/monitoring"
 mkdir -p "$GEN_DIR/nix" "$GEN_DIR/kustomize/external-secrets"
 
 # ============================================================================
@@ -150,6 +159,20 @@ cat > "$GEN_DIR/nix/cluster.nix" << NIXEOF
     masterHostname = "$NAME-master";
     vaultAuthMount = "$VAULT_AUTH_MOUNT";
   };
+NIXEOF
+
+if [ "$OIDC_ENABLED" = "true" ]; then
+    cat >> "$GEN_DIR/nix/cluster.nix" << NIXEOF
+
+  kss.cluster.oidc = {
+    enabled = true;
+    issuerUrl = "$OIDC_ISSUER_URL";
+    clientId = "$OIDC_CLIENT_ID";
+  };
+NIXEOF
+fi
+
+cat >> "$GEN_DIR/nix/cluster.nix" << NIXEOF
 }
 NIXEOF
 
@@ -198,6 +221,7 @@ done
 # 5. Generate helmfile-values.yaml
 # ============================================================================
 echo "  Generating helmfile-values.yaml..."
+
 cat > "$GEN_DIR/helmfile-values.yaml" << YAMLEOF
 # Auto-generated from cluster.yaml — do not edit
 # Cluster: $NAME
@@ -208,6 +232,16 @@ lbPoolCidr: "$LB_CIDR"
 vaultAuthMount: $VAULT_AUTH_MOUNT
 bgpAsn: $BGP_ASN
 YAMLEOF
+
+if [ "$OIDC_ENABLED" = "true" ]; then
+    cat >> "$GEN_DIR/helmfile-values.yaml" << YAMLEOF
+
+# OIDC configuration
+oidcEnabled: true
+oidcIssuerUrl: "$OIDC_ISSUER_URL"
+oidcClientId: "$OIDC_CLIENT_ID"
+YAMLEOF
+fi
 
 # ============================================================================
 # 6. Generate kustomize overlays (conditional on helmfile_env)
@@ -525,11 +559,18 @@ kind: Kustomization
 resources:
   - cluster-secret-store.yaml
   - cloudflare-secret.yaml
+  - keycloak-db-secret.yaml
+  - argocd-oidc-secret.yaml
 YAMLEOF
 
-# Copy shared cloudflare ExternalSecret into generated dir
+# Copy shared ExternalSecrets into generated dir
+# These must be deployed before helmfile releases that consume the secrets
 cp "$PROJECT_ROOT/iac/kustomize/base/external-secrets/cloudflare-secret.yaml" \
    "$GEN_DIR/kustomize/external-secrets/cloudflare-secret.yaml"
+cp "$PROJECT_ROOT/iac/kustomize/base/keycloak/keycloak-db-secret.yaml" \
+   "$GEN_DIR/kustomize/external-secrets/keycloak-db-secret.yaml"
+cp "$PROJECT_ROOT/iac/kustomize/base/keycloak/argocd-oidc-secret.yaml" \
+   "$GEN_DIR/kustomize/external-secrets/argocd-oidc-secret.yaml"
 
 cat > "$GEN_DIR/kustomize/external-secrets/cluster-secret-store.yaml" << YAMLEOF
 # Auto-generated from cluster.yaml — do not edit
@@ -551,6 +592,160 @@ spec:
           serviceAccountRef:
             name: "external-secrets"
             namespace: "external-secrets"
+YAMLEOF
+
+# ============================================================================
+# 10. Generate kustomize/keycloak/ (per-cluster Keycloak hostname overlay)
+# ============================================================================
+echo "  Generating kustomize/keycloak/..."
+mkdir -p "$GEN_DIR/kustomize/keycloak"
+
+cat > "$GEN_DIR/kustomize/keycloak/kustomization.yaml" << YAMLEOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Keycloak broker with per-cluster hostname
+
+resources:
+  - ../../../../../kustomize/base/keycloak
+
+patches:
+  - target:
+      kind: Keycloak
+      name: broker-keycloak
+    patch: |
+      - op: replace
+        path: /spec/hostname/hostname
+        value: auth.$DOMAIN
+  - target:
+      kind: Ingress
+      name: broker-keycloak
+    patch: |
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: auth.$DOMAIN
+      - op: replace
+        path: /spec/rules/0/host
+        value: auth.$DOMAIN
+YAMLEOF
+
+# ============================================================================
+# 11. Generate kustomize/oidc-rbac/ (OIDC group -> ClusterRole bindings)
+# ============================================================================
+if [ "$OIDC_ENABLED" = "true" ]; then
+    echo "  Generating kustomize/oidc-rbac/..."
+    mkdir -p "$GEN_DIR/kustomize/oidc-rbac"
+
+    cat > "$GEN_DIR/kustomize/oidc-rbac/kustomization.yaml" << YAMLEOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — OIDC group to ClusterRole bindings
+
+resources:
+  - k8s-operator-role.yaml
+  - platform-admin-binding.yaml
+  - k8s-admin-binding.yaml
+  - k8s-operator-binding.yaml
+YAMLEOF
+
+    cat > "$GEN_DIR/kustomize/oidc-rbac/k8s-operator-role.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Custom ClusterRole for k8s-operators: read-only access to operational resources
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8s-operator
+rules:
+  - apiGroups: [""]
+    resources:
+      - pods
+      - pods/log
+      - services
+      - events
+      - namespaces
+      - configmaps
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+      - deployments
+      - replicasets
+      - statefulsets
+      - daemonsets
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources:
+      - ingresses
+    verbs: ["get", "list", "watch"]
+YAMLEOF
+
+    cat > "$GEN_DIR/kustomize/oidc-rbac/platform-admin-binding.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: oidc-platform-admins
+subjects:
+  - kind: Group
+    name: "oidc:platform-admins"
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+YAMLEOF
+
+    cat > "$GEN_DIR/kustomize/oidc-rbac/k8s-admin-binding.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: oidc-k8s-admins
+subjects:
+  - kind: Group
+    name: "oidc:k8s-admins"
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+YAMLEOF
+
+    cat > "$GEN_DIR/kustomize/oidc-rbac/k8s-operator-binding.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: oidc-k8s-operators
+subjects:
+  - kind: Group
+    name: "oidc:k8s-operators"
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: k8s-operator
+  apiGroup: rbac.authorization.k8s.io
+YAMLEOF
+
+fi
+
+# ============================================================================
+# 12. Generate kustomize/monitoring/ (per-cluster monitoring secrets)
+# ============================================================================
+echo "  Generating kustomize/monitoring/..."
+mkdir -p "$GEN_DIR/kustomize/monitoring"
+
+cat > "$GEN_DIR/kustomize/monitoring/kustomization.yaml" << YAMLEOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Monitoring ExternalSecrets
+
+resources:
+  - ../../../../../kustomize/base/monitoring
 YAMLEOF
 
 echo ""

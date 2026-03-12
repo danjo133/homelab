@@ -15,4 +15,10 @@
     masterHostname = "kss-master";
     vaultAuthMount = "kubernetes-kss";
   };
+
+  kss.cluster.oidc = {
+    enabled = true;
+    issuerUrl = "https://auth.simple-k8s.example.com/realms/broker";
+    clientId = "kubernetes";
+  };
 }

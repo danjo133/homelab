@@ -36,6 +36,10 @@ controller:
     serviceMonitor:
       enabled: false  # Enable when Prometheus Operator is deployed
 
+  # Use wildcard cert as default TLS certificate for all ingresses
+  extraArgs:
+    default-ssl-certificate: cert-manager/wildcard-kss-example-com-tls
+
   # Config
   config:
     # Security headers

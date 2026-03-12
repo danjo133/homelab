@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jit-config
+  namespace: identity
+data:
+  KEYCLOAK_URL: "https://auth.simple-k8s.example.com"
+  KEYCLOAK_REALM: "broker"
+  CLIENT_ID: "jit-service"
+  # Groups eligible for elevation
+  ELIGIBLE_GROUPS: "platform-admins,k8s-admins"
+  # Maximum elevation duration in seconds (default 5 minutes)
+  MAX_DURATION: "300"
+  # Cooldown between elevations in seconds (default 15 minutes)
+  COOLDOWN: "900"
+  # Log level
+  LOG_LEVEL: "info"

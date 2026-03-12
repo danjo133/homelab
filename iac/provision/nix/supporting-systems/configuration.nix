@@ -16,6 +16,7 @@
     ./modules/minio.nix
     ./modules/nfs.nix
     ./modules/harbor.nix
+    ./modules/keycloak.nix
 
     # OPTIONAL: Uncomment for Let's Encrypt certificates
     # Requires: sops-nix setup with Cloudflare API token

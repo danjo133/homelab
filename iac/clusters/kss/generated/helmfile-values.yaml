@@ -6,3 +6,8 @@ k8sServiceHost: kss-master.simple-k8s.example.com
 lbPoolCidr: "10.69.50.192/28"
 vaultAuthMount: kubernetes-kss
 bgpAsn: 64514
+
+# OIDC configuration
+oidcEnabled: true
+oidcIssuerUrl: "https://auth.simple-k8s.example.com/realms/broker"
+oidcClientId: "kubernetes"

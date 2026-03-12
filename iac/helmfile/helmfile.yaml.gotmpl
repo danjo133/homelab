@@ -86,6 +86,22 @@ repositories:
     url: https://kubernetes.github.io/ingress-nginx
   - name: istio
     url: https://istio-release.storage.googleapis.com/charts
+  - name: bitnami
+    url: https://charts.bitnami.com/bitnami
+  - name: oauth2-proxy
+    url: https://oauth2-proxy.github.io/manifests
+  - name: spiffe
+    url: https://spiffe.github.io/helm-charts-hardened
+  - name: gatekeeper
+    url: https://open-policy-agent.github.io/gatekeeper/charts
+  - name: longhorn
+    url: https://charts.longhorn.io
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+  - name: aqua
+    url: https://aquasecurity.github.io/helm-charts
 
 releases:
   # ===========================================================================
@@ -95,7 +111,7 @@ releases:
     namespace: kube-system
     createNamespace: true
     chart: cilium/cilium
-    version: "1.18.6"
+    version: "1.19.0"
     installed: {{ .Values | getOrNil "useCilium" | default false }}
     disableValidationOnInstall: true
     disableValidation: true
@@ -259,6 +275,142 @@ releases:
       - ./values/argocd.yaml
     needs:
       - external-secrets/external-secrets
+
+  # ===========================================================================
+  # Keycloak DB - PostgreSQL for Broker Keycloak
+  # ===========================================================================
+  - name: keycloak-db
+    namespace: keycloak
+    createNamespace: true
+    chart: bitnami/postgresql
+    version: "16.x"
+    values:
+      - ./values/keycloak-db.yaml
+{{- $dbpass := exec "sh" (list "-c" "kubectl get secret keycloak-db-credentials -n keycloak -o jsonpath={.data.password} 2>/dev/null | base64 -d 2>/dev/null; true") }}
+{{- if $dbpass }}
+    set:
+      - name: global.postgresql.auth.password
+        value: {{ $dbpass | quote }}
+{{- end }}
+    needs:
+      - external-secrets/external-secrets
+
+  # ===========================================================================
+  # OAuth2-Proxy - Web SSO via OIDC
+  # ===========================================================================
+  - name: oauth2-proxy
+    namespace: oauth2-proxy
+    createNamespace: true
+    chart: oauth2-proxy/oauth2-proxy
+    version: "7.x"
+    installed: false
+    values:
+      - ./values/oauth2-proxy.yaml
+    needs:
+      - cert-manager/cert-manager
+      - external-secrets/external-secrets
+
+  # ===========================================================================
+  # SPIRE - SPIFFE Workload Identity
+  # ===========================================================================
+  - name: spire
+    namespace: spire-system
+    createNamespace: true
+    chart: spiffe/spire
+    version: "0.23.x"
+    installed: false
+    values:
+      - ./values/spire.yaml
+    needs:
+      - cert-manager/cert-manager
+
+  # ===========================================================================
+  # OPA Gatekeeper - Policy Enforcement
+  # ===========================================================================
+  - name: gatekeeper
+    namespace: gatekeeper-system
+    createNamespace: true
+    chart: gatekeeper/gatekeeper
+    version: "3.18.x"
+    installed: false
+    values:
+      - ./values/gatekeeper.yaml
+
+  # ===========================================================================
+  # Longhorn - Distributed Block Storage
+  # ===========================================================================
+  - name: longhorn
+    namespace: longhorn-system
+    createNamespace: true
+    chart: longhorn/longhorn
+    version: "1.7.x"
+    disableValidationOnInstall: true
+    disableValidation: true
+    values:
+      - ./values/longhorn.yaml
+{{ if .Values.useNginx }}
+    needs:
+      - ingress-nginx/nginx-ingress
+{{ end }}
+
+  # ===========================================================================
+  # kube-prometheus-stack - Monitoring (Prometheus + Grafana + AlertManager)
+  # ===========================================================================
+  - name: kube-prometheus-stack
+    namespace: monitoring
+    createNamespace: true
+    chart: prometheus-community/kube-prometheus-stack
+    version: "65.x"
+    timeout: 900
+    disableValidationOnInstall: true
+    disableValidation: true
+    values:
+      - ./values/kube-prometheus-stack.yaml
+{{ if .Values.useNginx }}
+    needs:
+      - ingress-nginx/nginx-ingress
+{{ end }}
+
+  # ===========================================================================
+  # Loki - Log Aggregation
+  # ===========================================================================
+  - name: loki
+    namespace: monitoring
+    createNamespace: true
+    chart: grafana/loki
+    version: "6.x"
+    values:
+      - ./values/loki.yaml
+    needs:
+      - monitoring/kube-prometheus-stack
+
+  # ===========================================================================
+  # Promtail - Log Collection Agent
+  # ===========================================================================
+  - name: promtail
+    namespace: monitoring
+    createNamespace: true
+    chart: grafana/promtail
+    version: "6.x"
+    values:
+      - ./values/promtail.yaml
+    needs:
+      - monitoring/loki
+
+  # ===========================================================================
+  # Trivy Operator - Container Image Vulnerability Scanning
+  # ===========================================================================
+  - name: trivy-operator
+    namespace: trivy-system
+    createNamespace: true
+    chart: aqua/trivy-operator
+    version: "0.24.x"
+    disableValidationOnInstall: true
+    disableValidation: true
+    values:
+      - ./values/trivy-operator.yaml
+    needs:
+      - cert-manager/cert-manager
 
 ---
 # =============================================================================

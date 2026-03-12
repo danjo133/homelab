@@ -4,7 +4,7 @@
 { config, pkgs, lib, ... }:
 
 {
-  # Kernel modules required for container networking
+  # Kernel modules required for container networking and Longhorn
   boot.kernelModules = [
     "overlay"
     "br_netfilter"
@@ -15,6 +15,7 @@
     "iptable_filter"
     "nf_nat"
     "nf_conntrack"
+    "iscsi_tcp"     # Longhorn iSCSI
   ];
 
   # Sysctl settings for Kubernetes networking
@@ -72,6 +73,9 @@
 
     # NFS client
     nfs-utils
+
+    # Longhorn prerequisites
+    openiscsi
   ];
 
   # System limits for container workloads
@@ -91,12 +95,22 @@
   # TODO: answer why this is required?
   swapDevices = lib.mkForce [];
 
-  # RKE2 data directory
+  # Longhorn: iSCSI initiator (all nodes)
+  services.openiscsi = {
+    enable = true;
+    name = "iqn.2024-01.local.k8s:${config.networking.hostName}";
+  };
+
+  # RKE2 data directory + Longhorn FHS symlinks
+  # Longhorn uses nsenter to find iscsiadm at FHS paths (/usr/bin, /usr/sbin).
+  # NixOS puts it in /run/current-system/sw/bin/ — create compatibility symlinks.
   systemd.tmpfiles.rules = [
     "d /var/lib/rancher 0755 root root -"
     "d /var/lib/rancher/rke2 0755 root root -"
     "d /etc/rancher 0755 root root -"
     "d /etc/rancher/rke2 0755 root root -"
+    "L+ /usr/sbin/iscsiadm - - - - /run/current-system/sw/bin/iscsiadm"
+    "L+ /usr/bin/iscsiadm - - - - /run/current-system/sw/bin/iscsiadm"
   ];
 
   # Environment variables for RKE2 binaries

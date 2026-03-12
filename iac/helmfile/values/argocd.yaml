@@ -10,28 +10,48 @@ server:
   autoscaling:
     enabled: false
   replicas: 1
-  
+
   service:
     type: ClusterIP
     port: 80
     targetPort: 8080
-  
+
   # Ingress for ArgoCD UI
   ingress:
-    enabled: false
-    # Configure with cert-manager annotation
-    # annotations:
-    #   cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    # hosts:
-    #   - argocd.support.example.com
-    # tls:
-    #   - secretName: argocd-tls
-    #     hosts:
-    #       - argocd.support.example.com
-  
-  # Admin password (set via external-secrets or manual)
-  config:
-    # configManagementPlugins: |
+    enabled: true
+    ingressClassName: nginx
+    hostname: argocd.simple-k8s.example.com
+    tls: true
+
+  # Ingress/config handled via configs.cm below
+
+# ArgoCD config (argo-cd chart 7.x uses configs.* instead of server.config/rbacConfig)
+configs:
+  params:
+    server.insecure: true
+  cm:
+    url: "https://argocd.simple-k8s.example.com"
+    oidc.config: |
+      name: Keycloak
+      issuer: https://auth.simple-k8s.example.com/realms/broker
+      clientID: argocd
+      clientSecret: $argocd-oidc-secret:client-secret
+      requestedScopes:
+        - openid
+        - profile
+        - email
+        - groups
+
+  rbac:
+    policy.csv: |
+      # Map Keycloak groups to ArgoCD roles
+      g, oidc:platform-admins, role:admin
+      g, oidc:k8s-admins, role:admin
+      g, oidc:web-admins, role:admin
+      g, oidc:k8s-operators, role:readonly
+      g, oidc:web-operators, role:readonly
+    policy.default: role:readonly
+    scopes: '[groups]'
 
 # ArgoCD repository server
 repoServer:

@@ -1,0 +1,29 @@
+# Ingress for broker Keycloak
+# Managed separately from the Keycloak CR for proper TLS/cert-manager support
+# Hostname is overridden per-cluster via kustomize patch
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: broker-keycloak
+  namespace: keycloak
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+    nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - auth.simple-k8s.example.com
+      secretName: broker-keycloak-tls
+  rules:
+    - host: auth.simple-k8s.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: broker-keycloak-service
+                port:
+                  number: 8080

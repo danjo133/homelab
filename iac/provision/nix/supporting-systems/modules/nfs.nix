@@ -7,6 +7,7 @@ let
   nfsExportDir = "/export";
   k8sRwxDir = "${nfsExportDir}/kubernetes-rwx";
   backupsDir = "${nfsExportDir}/backups";
+  longhornDir = "${nfsExportDir}/longhorn";
 
   # Allowed network - VLAN 50 CIDR
   allowedNetwork = "10.69.50.0/24";
@@ -43,6 +44,7 @@ in
     "d ${nfsExportDir} 0755 root root -"
     "d ${k8sRwxDir} 0777 nobody nogroup -"
     "d ${backupsDir} 0755 root root -"
+    "d ${longhornDir} 0755 root root -"
   ];
 
   # Firewall rules for NFS

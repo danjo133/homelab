@@ -187,6 +187,91 @@ MINIOEOF
     echo "    Username: admin"
     echo "    Password: $HARBOR_ADMIN_PASSWORD"
   '';
+
+  # Harbor proxy cache setup script - creates registry endpoints and proxy cache projects
+  harborProxyCacheSetup = pkgs.writeShellScript "harbor-proxy-cache-setup" ''
+    set -eu
+
+    export PATH="${pkgs.curl}/bin:${pkgs.jq}/bin:${pkgs.coreutils}/bin:$PATH"
+
+    HARBOR_URL="http://127.0.0.1:8080"
+    HARBOR_API="$HARBOR_URL/api/v2.0"
+    HARBOR_ADMIN_PASSWORD=$(cat /etc/harbor/admin_password)
+    AUTH="admin:$HARBOR_ADMIN_PASSWORD"
+    MARKER="${harborDir}/.proxy-caches-complete"
+
+    if [ -f "$MARKER" ]; then
+      echo "Harbor proxy caches already configured"
+      exit 0
+    fi
+
+    # Wait for Harbor API to be ready
+    echo "==> Waiting for Harbor API..."
+    for i in $(seq 1 60); do
+      if curl -sf "$HARBOR_API/systeminfo" -u "$AUTH" >/dev/null 2>&1; then
+        echo "Harbor API is ready"
+        break
+      fi
+      if [ "$i" -eq 60 ]; then
+        echo "ERROR: Harbor API not ready after 120s"
+        exit 1
+      fi
+      sleep 2
+    done
+
+    # Helper: create a registry endpoint if it doesn't exist
+    create_registry() {
+      local name="$1" type="$2" url="$3"
+      if curl -sf "$HARBOR_API/registries" -u "$AUTH" | jq -e ".[] | select(.name == \"$name\")" >/dev/null 2>&1; then
+        echo "  Registry endpoint '$name' already exists"
+      else
+        echo "  Creating registry endpoint '$name' -> $url"
+        curl -sf -X POST "$HARBOR_API/registries" -u "$AUTH" \
+          -H 'Content-Type: application/json' \
+          -d "{\"name\": \"$name\", \"type\": \"$type\", \"url\": \"$url\", \"insecure\": false}" \
+          || { echo "ERROR: Failed to create registry '$name'"; return 1; }
+      fi
+    }
+
+    # Helper: create a proxy cache project if it doesn't exist
+    create_proxy_project() {
+      local project_name="$1" registry_name="$2"
+      if curl -sf "$HARBOR_API/projects" -u "$AUTH" | jq -e ".[] | select(.name == \"$project_name\")" >/dev/null 2>&1; then
+        echo "  Project '$project_name' already exists"
+      else
+        # Look up registry ID
+        local reg_id
+        reg_id=$(curl -sf "$HARBOR_API/registries" -u "$AUTH" | jq -r ".[] | select(.name == \"$registry_name\") | .id")
+        if [ -z "$reg_id" ] || [ "$reg_id" = "null" ]; then
+          echo "ERROR: Registry '$registry_name' not found"
+          return 1
+        fi
+        echo "  Creating proxy cache project '$project_name' (registry id=$reg_id)"
+        curl -sf -X POST "$HARBOR_API/projects" -u "$AUTH" \
+          -H 'Content-Type: application/json' \
+          -d "{
+            \"project_name\": \"$project_name\",
+            \"public\": true,
+            \"registry_id\": $reg_id,
+            \"metadata\": {\"public\": \"true\"}
+          }" \
+          || { echo "ERROR: Failed to create project '$project_name'"; return 1; }
+      fi
+    }
+
+    echo "==> Creating registry endpoints..."
+    create_registry "docker-hub"  "docker-hub"    "https://hub.docker.com"
+    create_registry "ghcr"        "github-ghcr"   "https://ghcr.io"
+    create_registry "quay"        "quay"          "https://quay.io"
+
+    echo "==> Creating proxy cache projects..."
+    create_proxy_project "docker.io"       "docker-hub"
+    create_proxy_project "ghcr.io"         "ghcr"
+    create_proxy_project "quay.io"         "quay"
+
+    touch "$MARKER"
+    echo "==> Harbor proxy caches configured successfully"
+  '';
 in
 {
   # Enable Docker for Harbor
@@ -219,6 +304,25 @@ in
     };
 
     # Don't fail the boot if Harbor setup fails
+    unitConfig = {
+      StartLimitIntervalSec = 0;
+    };
+  };
+
+  # Harbor proxy cache setup - creates registry mirrors after Harbor is running
+  systemd.services.harbor-proxy-caches = {
+    description = "Harbor Proxy Cache Configuration";
+    requires = [ "harbor-setup.service" ];
+    after = [ "harbor-setup.service" ];
+    wantedBy = [ "multi-user.target" ];
+
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = harborProxyCacheSetup;
+      TimeoutStartSec = "5min";
+    };
+
     unitConfig = {
       StartLimitIntervalSec = 0;
     };

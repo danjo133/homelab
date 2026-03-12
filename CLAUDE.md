@@ -4,91 +4,84 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Kubernetes homelab infrastructure-as-code project for provisioning an RKE2 cluster with supporting services. The setup uses NixOS VMs managed by Vagrant with libvirt/KVM on an Arch Linux workstation.
+Kubernetes homelab infrastructure-as-code: RKE2 clusters on NixOS VMs, managed by Vagrant with libvirt/KVM on Arch Linux.
 
 ## Current Status
 
-**Phase 0-1 Complete**: Base VM infrastructure and supporting services are working.
+**Working:**
+- Support VM (Vault, Harbor, MinIO, NFS, Nginx) — fully operational
+- kss cluster (1 master + 3 workers, Canal CNI, MetalLB L2) — was working, needs clusterrole redeployment after Longhorn incident
+- Keycloak broker with upstream IdP federation, ArgoCD OIDC, cert-manager, external-secrets
+- Monitoring (Prometheus, Grafana, Loki)
 
-- Custom NixOS Vagrant box builds successfully
-- VMs boot and get DHCP addresses on VLAN 50
-- SSH access works with ECDSA keys
-- Network isolation configured (VLAN 50 isolated, management from VLAN 10 allowed)
-- iptables configured to allow bridge traffic
+**Not working:**
+- kcs cluster — Cilium/BGP network sinkhole, kept for future Cilium/Istio/Envoy experimentation
 
-**Phase 1 Complete**: Supporting services on `support` VM are fully operational.
+## Task Runner
 
-- **Vault**: Auto-initializes, auto-unseals, PKI configured (Root CA + Intermediate CA)
-- **MinIO**: S3-compatible storage running (buckets need manual creation via bootstrap script)
-- **Harbor**: Container registry auto-installs on first boot with Trivy scanner
-- **NFS**: Exports configured for Kubernetes RWX volumes and backups
-- **Nginx**: Reverse proxy with TLS termination for all services
-
-**Phase 2 Complete**: Kubernetes cluster working with multi-cluster support.
-
-- **Multi-cluster architecture**: Clusters defined in `iac/clusters/<name>/cluster.yaml`
-- **Generation script**: `scripts/generate-cluster.sh` produces NixOS wrappers, Makefile vars, helmfile values, kustomize overlays
-- **Parameterized NixOS**: All k8s modules use `config.kss.cluster.*` options instead of hardcoded values
-- **Dynamic Vagrantfile**: Reads cluster definitions from cluster.yaml files
-- **Per-cluster Vault auth**: Each cluster gets its own `kubernetes-<name>` auth mount
-- **Current cluster**: `kss` (1 master + 3 workers, all Ready)
-
-## Key Commands
+All operations use `just` (justfile). Cluster-aware commands require `KSS_CLUSTER` env var:
 
 ```bash
-# Multi-cluster: all k8s targets accept CLUSTER=<name> (default: kss)
-# Example: make CLUSTER=kss2 cluster-status
+export KSS_CLUSTER=kss    # Required — no default, fails if unset
 
-# Cluster config generation
-make generate-cluster              # Generate configs from cluster.yaml
-make CLUSTER=kss2 generate-cluster # Generate for a different cluster
+# Global
+just help                  # Show all commands
+just status                # VM + support + cluster status
+just generate              # Generate cluster configs from cluster.yaml
+just validate              # Validate helm/kustomize
 
-# Cluster lifecycle
-make cluster-up                # Start all cluster VMs
-make cluster-down              # Stop all cluster VMs
-make cluster-destroy           # Destroy all cluster VMs
-make cluster-recreate          # Destroy and recreate
-make cluster-rebuild-all       # Sync and rebuild all nodes
-make cluster-status            # Check nodes and pods
-make cluster-kubeconfig        # Fetch kubeconfig to ~/.kube/config-<cluster>
+# VM lifecycle
+just vm-build-box          # Build NixOS Vagrant box
+just vm-up [target]        # Start VMs (all/support/cluster/master/workers)
+just vm-down [target]      # Stop VMs
+just vm-destroy            # Destroy cluster VMs
+just vm-status             # Show Vagrant status
+just ssh <target>          # SSH into VM (support/master/worker-N)
 
-# Node management
-make master-up                 # Start master VM
-make workers-up                # Start all worker VMs
-make sync-master               # Sync NixOS config to master
-make rebuild-master-switch     # Rebuild master permanently
-make sync-worker-1             # Sync config to worker-1 (also -2, -3)
-make rebuild-worker-1-switch   # Rebuild worker-1 permanently (also -2, -3)
-make distribute-token          # Copy join token to workers
-make ssh-master                # SSH into master
-make ssh-worker-1              # SSH into worker-1
+# Support VM
+just support-sync          # Sync NixOS config
+just support-rebuild       # Rebuild (switch mode)
+just support-status        # Check services
+just vault-backup          # Backup Vault keys
+just vault-token           # Show root token
 
-# Deployment
-make deploy-default            # MetalLB L2 + nginx-ingress + secrets
-make deploy-bgp-simple         # Cilium BGP + nginx-ingress + secrets
-make deploy-vault-auth         # Per-cluster Vault auth mount setup
-make deploy-secrets            # Per-cluster ClusterSecretStore + ExternalSecrets
+# Kubernetes cluster
+just cluster-sync [target]    # Sync NixOS config (master/worker-N/all)
+just cluster-rebuild [target] # Rebuild node (master/worker-N/all)
+just cluster-token            # Distribute join token
+just cluster-kubeconfig       # Fetch kubeconfig
+just cluster-status           # Show nodes and pods
 
-# Support VM (shared, not cluster-specific)
-make sync-support              # Sync NixOS config to VM
-make rebuild-support-switch    # Rebuild with 'switch' (permanent)
-make support-status            # Check all service status
+# Bootstrap (requires KUBECONFIG)
+just bootstrap-vault-auth     # Per-cluster Vault auth
+just bootstrap-secrets        # ClusterSecretStore + ExternalSecrets
+just bootstrap-deploy         # Full: vault-auth + helmfile + secrets
 
-# Vault key management
-make vault-backup-keys         # Backup Vault keys to local file
-make vault-show-token          # Show Vault root token
+# Identity
+just identity-keycloak        # Deploy Keycloak broker
+just identity-fix-scopes      # Fix client scope assignments
+just identity-oidc-rbac       # OIDC RBAC bindings
+just identity-deploy          # All identity components
+just identity-status          # Show status
 
-# VM management (global)
-make up                        # Start all Vagrant VMs
-make down                      # Stop all Vagrant VMs
-make status                    # Show Vagrant VM status
+# Platform
+just platform-longhorn        # Longhorn storage
+just platform-monitoring      # Prometheus + Grafana + Loki
+just platform-trivy           # Trivy scanner
+just platform-deploy          # All platform services
+just platform-status          # Show status
+
+# Debug
+just debug-cilium [cmd]       # status/health/endpoints/services/config/bpf/logs/restart
+just debug-network [cmd]      # diag/master/worker1/clusterip/generate
+just debug-cluster            # General diagnostics
 ```
 
 ## Architecture
 
 ### Infrastructure Layout
 
-- **Supporting Systems VM** (`support`): Will host Vault, Harbor, MinIO, NFS
+- **Supporting Systems VM** (`support`): Vault, Harbor, MinIO, NFS
 - **Kubernetes Cluster**: 1 master + 3 workers running RKE2 on NixOS
 - All VMs use VLAN 50 bridged networking for cluster/internet access
 - Libvirt NAT network used only for Vagrant SSH management
@@ -106,33 +99,26 @@ Traffic flow:
 - VMs (VLAN 50) → Other VLANs: Blocked
 ```
 
+### Remote Execution
+
+Code is edited on `workstation` (local workstation) via sshfs mount at `~/mnt/homelab`. Vagrant/libvirt runs on `hypervisor` (remote host) where the project lives at `~/dev/homelab`. All vagrant/SSH commands go through `hypervisor`.
+
 ### DNS Configuration (Unifi)
 
-VMs use fixed MAC addresses for their VLAN 50 interface. Configure static DHCP leases in Unifi:
-
-| VM | MAC Address | Hostname | Suggested IP |
-|----|-------------|----------|--------------|
+| VM | MAC Address | Hostname | IP |
+|----|-------------|----------|----|
 | support | `52:54:00:69:50:10` | support | 10.69.50.10 |
 | kss-master | `52:54:00:69:50:20` | kss-master | 10.69.50.20 |
 | kss-worker-1 | `52:54:00:69:50:31` | kss-worker-1 | 10.69.50.31 |
 | kss-worker-2 | `52:54:00:69:50:32` | kss-worker-2 | 10.69.50.32 |
 | kss-worker-3 | `52:54:00:69:50:33` | kss-worker-3 | 10.69.50.33 |
 
-**Multi-cluster**: Additional clusters use different IPs/MACs defined in their `cluster.yaml`.
-
-**Unifi Setup Steps:**
-1. Go to Settings → Networks → VLAN 50
-2. Under DHCP, add fixed IP assignments for each MAC address
-3. Create DNS records for each hostname pointing to the fixed IPs
-4. Optionally create CNAME records for services (e.g., `vault.support.example.com` → `support`)
-
-VMs send their hostname via DHCP Option 12, so Unifi should display correct names after VM restart.
-
 ### Domain Structure
 
 - Root domain: `example.com` (Cloudflare)
 - Subdomain: `example.com` (Unifi router DNS)
-- Services: `*.support.example.com`
+- Support services: `*.support.example.com`
+- Per-cluster: `*.<cluster>.example.com` (e.g., `argocd.simple-k8s.example.com`)
 
 ### Key Components
 
@@ -142,50 +128,58 @@ VMs send their hostname via DHCP Option 12, so Unifi should display correct name
 | Virtualization | libvirt/KVM via Vagrant |
 | VM OS | NixOS (declarative) |
 | Kubernetes | RKE2 |
-| CNI | Cilium + Tetragon |
+| CNI | Canal (kss) / Cilium + Tetragon (kcs) |
 | Secrets | Vault + external-secrets |
 | Certificates | cert-manager (Let's Encrypt via CloudFlare DNS01) |
 | GitOps | ArgoCD |
 | Registry | Harbor (with proxy caches) |
 | Storage | Longhorn, MinIO, NFS |
 | Monitoring | Prometheus, Grafana, Loki |
+| Identity | Keycloak (broker + upstream IdP) |
 
-### Directory Structure
+## Directory Structure
 
 ```
-iac/                          # Primary infrastructure code
-├── Vagrantfile               # VM definitions (reads from clusters/*/cluster.yaml)
-├── clusters/                 # Per-cluster configuration
-│   └── kss/                  # First cluster
-│       ├── cluster.yaml      # Single source of truth for cluster params
-│       └── generated/        # Output of generate-cluster.sh
-│           ├── vars.mk       # Make variables
-│           ├── nix/           # NixOS wrappers (master.nix, worker-N.nix, cluster.nix)
-│           ├── helmfile-values.yaml
-│           └── kustomize/     # Per-cluster MetalLB pool, ClusterSecretStore
-├── provision/nix/            # Shared NixOS configurations
-│   ├── supporting-systems/   # Support VM configuration
-│   │   ├── configuration.nix
-│   │   └── modules/          # vault.nix, harbor.nix, minio.nix, etc.
-│   ├── k8s-common/           # Shared K8s node configuration
-│   │   ├── cluster-options.nix # kss.cluster option declarations
-│   │   ├── rke2-base.nix     # Common RKE2 config, kernel modules, sysctl
-│   │   ├── cni.nix           # CNI selection (default/cilium)
-│   │   └── vault-ca.nix      # Vault CA trust setup
-│   ├── k8s-master/           # K8s control plane (parameterized via kss.cluster.*)
-│   │   ├── configuration.nix
-│   │   └── modules/          # base.nix, rke2-server.nix, security.nix
-│   ├── k8s-worker/           # Shared worker node config (parameterized)
-│   │   ├── configuration.nix
-│   │   └── modules/          # base.nix, rke2-agent.nix, security.nix, storage.nix
-│   └── k8s-worker-{1,2,3}/   # Legacy per-worker wrappers (replaced by generated/)
-├── helmfile/                 # Kubernetes bootstrap (accepts per-cluster values)
-└── kustomize/                # Base GitOps manifests
+justfile                          # User-facing command interface
+CLAUDE.md                         # AI context (this file)
+README.md                         # Human documentation
+.sops.yaml                        # SOPS encryption config
 
-scripts/
-└── generate-cluster.sh       # Generates per-cluster configs from cluster.yaml
+stages/                           # Operational scripts
+  lib/common.sh                   # Shared functions (paths, SSH, colors, validation)
+  0_global/                       # status, generate, clean, validate
+  1_vms/                          # up, down, destroy, status, ssh, build-box
+  2_support/                      # sync, rebuild, status, vault-backup/restore/token
+  3_cluster/                      # sync, rebuild, token, kubeconfig, status
+  4_bootstrap/                    # vault-auth, secrets, deploy
+  5_identity/                     # keycloak, oidc, spire, gatekeeper, jit
+  6_platform/                     # longhorn, monitoring, trivy
+  debug/                          # cilium, network, cluster-diag
 
-iac_ansible/                  # Legacy (Ansible approach, not used)
+iac/                              # Infrastructure definitions (NixOS, Vagrant, helmfile)
+  Vagrantfile                     # VM definitions (reads cluster.yaml)
+  clusters/
+    kss/                          # Working cluster
+      cluster.yaml                # Single source of truth
+      generated/                  # Output of generate-cluster.sh
+    kcs/                          # Future Cilium/Istio cluster
+  provision/nix/
+    supporting-systems/           # Support VM NixOS config
+    k8s-common/                   # Shared K8s node config (cluster-options.nix, etc.)
+    k8s-master/                   # Master NixOS config
+    k8s-worker/                   # Worker NixOS config (parameterized)
+    common/                       # Shared NixOS modules
+  helmfile/                       # Kubernetes bootstrap helm releases
+  kustomize/                      # Base GitOps manifests
+  scripts/                        # Bootstrap scripts (called by stages)
+  network/                        # Network config generation
+
+scripts/                          # Utility scripts
+  generate-cluster.sh             # Generates per-cluster configs from cluster.yaml
+  fix-keycloak-scopes.sh          # Keycloak scope fix workaround
+  hypervisor-exec.sh                    # Remote execution helper
+
+archive/                          # Old documentation (pending review/deletion)
 ```
 
 ## Configuration Files
@@ -199,9 +193,8 @@ iac_ansible/                  # Legacy (Ansible approach, not used)
 | `iac/nix-box-config.nix` | Base NixOS image (SSH, users, DHCP routing) |
 | `iac/setup-libvirt-network.sh` | Creates VLAN interface, bridge, iptables rules |
 | `iac/build-nix-box.sh` | Builds NixOS qcow2 and packages as Vagrant box |
-| `iac/provision/nix/supporting-systems/` | Support VM NixOS configuration |
-| `Makefile` | Build targets with `CLUSTER` variable (default: kss) |
-| `ARCH-LINUX-SETUP.md` | Complete host setup guide |
+| `stages/lib/common.sh` | Shared shell library (paths, SSH, cluster config, helpers) |
+| `justfile` | Task runner command definitions |
 
 ## Support VM Services
 
@@ -212,51 +205,26 @@ iac_ansible/                  # Legacy (Ansible approach, not used)
 | MinIO Console | 9001 | `https://minio-console.support.example.com` | Web UI |
 | Harbor | 8080 | `https://harbor.support.example.com` | Container registry with Trivy |
 | NFS | 2049 | N/A (direct) | Exports: `/export/kubernetes-rwx`, `/export/backups` |
-| Harbor Metrics | 9090 | N/A | Prometheus scraping endpoint |
 
-**Credentials Location** (on support VM):
-- Vault keys: `/var/lib/vault/init-keys.json`
-- MinIO: `/etc/minio/credentials`
-- Harbor admin: `/etc/harbor/admin_password`
-
-**DNS Setup Required**: Configure Unifi DNS with A records pointing to support VM IP for `*.support.example.com`.
+**Credentials** (on support VM): Vault at `/var/lib/vault/init-keys.json`, MinIO at `/etc/minio/credentials`, Harbor at `/etc/harbor/admin_password`.
 
 ## Important Implementation Details
 
 ### SSH Key
-The Vagrant box uses a custom ECDSA key (not the insecure RSA key):
-- Private key: `~/.vagrant.d/ecdsa_private_key`
-- Public key baked into `nix-box-config.nix`
-- If regenerating, must rebuild the box
+Custom ECDSA key at `~/.vagrant.d/ecdsa_private_key`, baked into `nix-box-config.nix`. Rebuild box if regenerated.
 
-### iptables Requirement
-Docker sets FORWARD policy to DROP. The setup script adds rules to allow bridge traffic:
-```bash
-iptables -I FORWARD -i br-k8s -j ACCEPT
-iptables -I FORWARD -o br-k8s -j ACCEPT
-```
+### iptables
+Docker sets FORWARD to DROP. Setup script adds: `iptables -I FORWARD -i br-k8s -j ACCEPT` / `-o br-k8s`.
 
-### NixOS Box Customizations
-- `networking.useDHCP = true` with dhcpcd configured to not set gateway on NAT interface
-- Vagrant user with passwordless sudo
-- SSH enabled with password auth (for recovery)
-- Firewall disabled (handled by Unifi)
+### NixOS Box
+DHCP with dhcpcd configured to not set gateway on NAT interface. Vagrant user with passwordless sudo. Firewall disabled.
 
-## Implementation Phases
-
-See `iac/docs/TODO.md` for detailed checklist.
-
-- [x] Phase 0: Pre-infrastructure setup (git, network design)
-- [x] Phase 0.5: VM infrastructure (Vagrant, NixOS box, networking)
-- [x] Phase 1: Supporting infrastructure VM (Vault, Harbor, MinIO, NFS)
-- [~] Phase 2: Kubernetes cluster VMs and RKE2 (NixOS configs created, needs testing)
-- [ ] Phase 3: Cluster bootstrap with Helmfile
-- [ ] Phase 4: Deploy services via ArgoCD
-- [ ] Phase 5-10: Networking, backups, monitoring, security, CI/CD, docs
+### KSS_CLUSTER Environment Variable
+All cluster-aware scripts require `KSS_CLUSTER` to be set. No defaults. Scripts call `require_cluster` from `stages/lib/common.sh` which validates the env var and checks that the cluster.yaml exists.
 
 ## Environment Requirements
 
 - **Host**: Arch Linux with 48GB+ RAM
 - **Virtualization**: libvirt/KVM (not VirtualBox)
 - **Network**: Ethernet connection to switch with VLAN 50 trunk
-- **Tools**: Vagrant, vagrant-libvirt plugin, nix, nixos-generators
+- **Tools**: just, Vagrant, vagrant-libvirt, nix, yq, jq, sops, age, helmfile, kubectl

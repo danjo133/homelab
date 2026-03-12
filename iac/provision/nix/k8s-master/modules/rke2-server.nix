@@ -106,6 +106,21 @@ let
   clusterDomain = config.kss.cluster.domain;
   vaultAddr = config.kss.cluster.vaultAddr;
 
+  # OIDC config
+  oidcEnabled = config.kss.cluster.oidc.enabled;
+  oidcIssuerUrl = config.kss.cluster.oidc.issuerUrl;
+  oidcClientId = config.kss.cluster.oidc.clientId;
+
+  # Pre-formatted OIDC kube-apiserver args (indentation must match kube-apiserver-arg list items)
+  oidcApiServerArgs = lib.optionalString oidcEnabled (lib.concatMapStrings (arg: "\n  - \"${arg}\"") [
+    "oidc-issuer-url=${oidcIssuerUrl}"
+    "oidc-client-id=${oidcClientId}"
+    "oidc-username-claim=preferred_username"
+    "oidc-username-prefix=oidc:"
+    "oidc-groups-claim=groups"
+    "oidc-groups-prefix=oidc:"
+  ]);
+
   # Script to store token in Vault (for workers to retrieve)
   storeTokenInVault = pkgs.writeShellScript "store-rke2-token" ''
     set -eu
@@ -181,7 +196,7 @@ in
         - "audit-log-path=/var/log/kubernetes/audit.log"
         - "audit-log-maxage=30"
         - "audit-log-maxbackup=10"
-        - "audit-log-maxsize=100"
+        - "audit-log-maxsize=100"${oidcApiServerArgs}
 
       # etcd settings
       etcd-expose-metrics: true

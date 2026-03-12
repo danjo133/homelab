@@ -27,7 +27,7 @@
 # =============================================================================
 # Kubernetes API Server
 # =============================================================================
-k8sServiceHost: k8s-master.support.example.com
+# k8sServiceHost is set per-cluster via helmfile --state-values-file
 k8sServicePort: 6443
 
 # =============================================================================

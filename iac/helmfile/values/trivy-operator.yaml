@@ -1,0 +1,37 @@
+# Trivy Operator — Container Image Vulnerability Scanning
+# Chart: aqua/trivy-operator from aquasecurity.github.io/helm-charts
+#
+# Scans container images and produces VulnerabilityReport CRDs.
+
+operator:
+  # Scan all namespaces except kube-system (reduces noise)
+  scanJobsConcurrentLimit: 3
+  vulnerabilityScannerEnabled: true
+  configAuditScannerEnabled: false
+  rbacAssessmentScannerEnabled: false
+  infraAssessmentScannerEnabled: false
+  clusterComplianceEnabled: false
+
+trivy:
+  severity: CRITICAL,HIGH
+  ignoreUnfixed: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+# Exclude kube-system to reduce noise
+excludeNamespaces: "kube-system"
+
+# Prometheus metrics for Grafana dashboard
+serviceMonitor:
+  enabled: true
+
+resources:
+  requests:
+    cpu: 20m
+    memory: 128Mi
+  limits:
+    memory: 256Mi

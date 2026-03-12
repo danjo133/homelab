@@ -1,0 +1,50 @@
+# OAuth2-Proxy Helm Values
+# Web SSO via OIDC through broker Keycloak
+
+config:
+  clientID: oauth2-proxy
+  cookieName: "_oauth2_proxy"
+
+extraArgs:
+  provider: oidc
+  oidc-issuer-url: "https://auth.simple-k8s.example.com/realms/broker"
+  cookie-domain: ".simple-k8s.example.com"
+  cookie-secure: "true"
+  cookie-samesite: "lax"
+  cookie-expire: "15m"
+  cookie-refresh: "1m"
+  pass-access-token: "true"
+  set-authorization-header: "true"
+  set-xauthrequest: "true"
+  email-domain: "*"
+  scope: "openid profile email groups"
+  # Allow auth via header for nginx auth_request
+  reverse-proxy: "true"
+  skip-provider-button: "true"
+
+# Credentials from Kubernetes secrets (populated by ExternalSecrets)
+existingSecret: oauth2-proxy-credentials
+
+ingress:
+  enabled: true
+  className: nginx
+  path: /oauth2
+  pathType: Prefix
+  hosts:
+    - oauth2-proxy.simple-k8s.example.com
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  tls:
+    - secretName: oauth2-proxy-tls
+      hosts:
+        - oauth2-proxy.simple-k8s.example.com
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+replicaCount: 1

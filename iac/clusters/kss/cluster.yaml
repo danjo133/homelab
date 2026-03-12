@@ -38,3 +38,14 @@ vault:
 
 bgp:
   asn: 64514
+
+# OIDC authentication via broker Keycloak
+oidc:
+  enabled: true
+  issuer_url: "https://auth.simple-k8s.example.com/realms/broker"
+  client_id: kubernetes
+
+# Identity system configuration
+identity:
+  root_idp_url: "https://idp.support.example.com"
+  broker_realm: broker

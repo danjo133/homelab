@@ -1,0 +1,28 @@
+# OPA Gatekeeper Helm Values
+# Kubernetes admission controller for policy enforcement
+
+replicas: 1
+
+audit:
+  replicas: 1
+  # How often to check existing resources against constraints
+  auditInterval: 60
+  # Log denials
+  logLevel: INFO
+
+# Enable mutation webhooks
+enableMutation: true
+
+# Namespaces exempt from policy enforcement
+exemptNamespaces:
+  - kube-system
+  - gatekeeper-system
+  - spire-system
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

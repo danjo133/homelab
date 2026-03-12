@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jit-elevation
+  namespace: identity
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - jit.simple-k8s.example.com
+      secretName: jit-elevation-tls
+  rules:
+    - host: jit.simple-k8s.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: jit-elevation
+                port:
+                  number: 80

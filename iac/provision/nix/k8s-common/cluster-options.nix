@@ -44,5 +44,25 @@
       default = "kubernetes";
       description = "Vault Kubernetes auth mount path";
     };
+
+    oidc = {
+      enabled = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Enable OIDC authentication for kube-apiserver";
+      };
+
+      issuerUrl = lib.mkOption {
+        type = lib.types.str;
+        default = "";
+        description = "OIDC issuer URL (e.g. https://auth.simple-k8s.example.com/realms/broker)";
+      };
+
+      clientId = lib.mkOption {
+        type = lib.types.str;
+        default = "kubernetes";
+        description = "OIDC client ID for kubectl authentication";
+      };
+    };
   };
 }

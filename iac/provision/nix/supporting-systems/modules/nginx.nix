@@ -115,6 +115,28 @@ in
       };
     };
 
+    # Keycloak IdP
+    virtualHosts."idp.support.example.com" = {
+      forceSSL = true;
+      sslCertificate = lib.mkDefault certFile;
+      sslCertificateKey = lib.mkDefault keyFile;
+      locations."/" = {
+        proxyPass = "http://127.0.0.1:8180";
+        proxyWebsockets = true;
+        extraConfig = ''
+          # Keycloak sends large OIDC headers
+          proxy_buffer_size 128k;
+          proxy_buffers 4 256k;
+          proxy_busy_buffers_size 256k;
+
+          # Forward headers for proper HTTPS behind nginx
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_set_header X-Forwarded-Host $host;
+        '';
+      };
+    };
+
     # Harbor Registry
     virtualHosts."harbor.support.example.com" = {
       forceSSL = true;

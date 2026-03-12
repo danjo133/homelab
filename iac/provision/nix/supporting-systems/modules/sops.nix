@@ -38,6 +38,14 @@ in
         mode = "0400";
         # Will be available at /run/secrets/cloudflare_api_token
       };
+
+      # Keycloak admin password (read by root services: keycloak-admin-env, keycloak-auto-setup)
+      "keycloak_admin_password" = {
+        owner = "root";
+        group = "root";
+        mode = "0400";
+        # Will be available at /run/secrets/keycloak_admin_password
+      };
     };
   };
 
