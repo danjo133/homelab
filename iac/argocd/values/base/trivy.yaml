@@ -1,0 +1,30 @@
+# Trivy operator — container vulnerability scanning
+operator:
+  scanJobsConcurrentLimit: 3
+  vulnerabilityScannerEnabled: true
+  configAuditScannerEnabled: false
+  rbacAssessmentScannerEnabled: false
+  infraAssessmentScannerEnabled: false
+  clusterComplianceEnabled: false
+
+trivy:
+  severity: CRITICAL,HIGH
+  ignoreUnfixed: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+excludeNamespaces: "kube-system"
+
+serviceMonitor:
+  enabled: true
+
+resources:
+  requests:
+    cpu: 20m
+    memory: 128Mi
+  limits:
+    memory: 256Mi

@@ -1,0 +1,13 @@
+# Headlamp — kss cluster overrides
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  hosts:
+    - host: k8s.simple-k8s.example.com
+      paths:
+        - path: /
+          type: ImplementationSpecific
+  tls:
+    - secretName: wildcard-simple-k8s.example.com-tls
+      hosts:
+        - k8s.simple-k8s.example.com

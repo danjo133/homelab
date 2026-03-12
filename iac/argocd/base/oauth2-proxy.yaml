@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oauth2-proxy
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: identity
+  sources:
+    - repoURL: https://github.com/example-user/homelab.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://oauth2-proxy.github.io/manifests
+      chart: oauth2-proxy
+      targetRevision: "10.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/oauth2-proxy.yaml
+          - $values/iac/argocd/values/CLUSTER_NAME/oauth2-proxy.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: oauth2-proxy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -5,6 +5,7 @@ kind: Kustomization
 # Federates from root IdP on support VM
 
 resources:
+  - keycloak-db-cluster.yaml
   - keycloak-instance.yaml
   - keycloak-ingress.yaml
   - broker-realm-import.yaml
@@ -17,5 +18,5 @@ resources:
   - kiali-client-secret.yaml
   - headlamp-client-secret.yaml
   # NOTE: keycloak-db-secret.yaml and argocd-oidc-secret.yaml are deployed
-  # during bootstrap (external-secrets kustomize) because helmfile releases
-  # (keycloak-db, argocd) need them at deploy time.
+  # during bootstrap (external-secrets kustomize) because they are needed
+  # before the cnpg Cluster and ArgoCD can start.

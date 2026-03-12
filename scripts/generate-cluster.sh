@@ -849,7 +849,7 @@ cp "$PROJECT_ROOT/iac/kustomize/base/keycloak/argocd-oidc-secret.yaml" \
 cat > "$GEN_DIR/kustomize/external-secrets/cluster-secret-store.yaml" << YAMLEOF
 # Auto-generated from cluster.yaml — do not edit
 # Cluster: $NAME — ClusterSecretStore with per-cluster Vault namespace
-apiVersion: external-secrets.io/v1beta1
+apiVersion: external-secrets.io/v1
 kind: ClusterSecretStore
 metadata:
   name: vault

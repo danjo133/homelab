@@ -1,0 +1,60 @@
+# Istio istiod — kcs cluster values
+profile: ambient
+
+autoscaleEnabled: false
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+meshConfig:
+  accessLogFile: /dev/stdout
+  enableTracing: true
+  enablePrometheusMerge: true
+  defaultConfig:
+    proxyMetadata:
+      ISTIO_META_DNS_CAPTURE: "true"
+      ISTIO_META_DNS_AUTO_ALLOCATE: "true"
+    tracing:
+      sampling: 1.0
+  outboundTrafficPolicy:
+    mode: ALLOW_ANY
+  extensionProviders:
+    - name: oauth2-proxy
+      envoyExtAuthzHttp:
+        service: oauth2-proxy.oauth2-proxy.svc.cluster.local
+        port: 80
+        includeRequestHeadersInCheck:
+          - cookie
+          - authorization
+          - host
+        headersToUpstreamOnAllow:
+          - authorization
+          - x-auth-request-user
+          - x-auth-request-email
+          - x-auth-request-groups
+          - x-auth-request-access-token
+        headersToDownstreamOnDeny:
+          - set-cookie
+          - location
+
+global:
+  istioNamespace: istio-system
+  logging:
+    level: "default:info"
+
+telemetry:
+  enabled: true
+  v2:
+    prometheus:
+      enabled: true
+
+env:
+  PILOT_ENABLE_STATUS: "true"
+  PILOT_ENABLE_GATEWAY_API: "true"
+  PILOT_ENABLE_GATEWAY_API_STATUS: "true"
+  PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER: "true"

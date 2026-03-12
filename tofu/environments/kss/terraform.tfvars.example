@@ -2,16 +2,12 @@
 # Sensitive values can also be set via environment variables:
 #   export TF_VAR_vault_token="..."
 #   export TF_VAR_harbor_admin_password="..."
-#   export TF_VAR_state_encryption_passphrase="..."
-
 vault_addr  = "https://vault.support.example.com"
 vault_token = ""
 
 harbor_url            = "https://harbor.support.example.com"
 harbor_admin_user     = "admin"
 harbor_admin_password = ""
-
-state_encryption_passphrase = ""
 
 # Kubernetes auth config — set these after cluster is running.
 # The import-cluster.sh script extracts these automatically.

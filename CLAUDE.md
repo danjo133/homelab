@@ -210,7 +210,7 @@ tofu/                             # OpenTofu IaC (Phase 2)
     import-base.sh                # Import base env resources
     import-cluster.sh             # Import per-cluster env resources
 
-iac/argocd/                       # ArgoCD App-of-Apps (Phase 3 — planned)
+iac/argocd/                       # ArgoCD App-of-Apps (primary deployment)
   projects/                       # ArgoCD AppProject definitions
   base/                           # Shared Application YAMLs
   clusters/                       # Per-cluster kustomization overlays
@@ -258,6 +258,56 @@ DHCP with dhcpcd configured to not set gateway on NAT interface. Vagrant user wi
 
 ### KSS_CLUSTER Environment Variable
 All cluster-aware scripts require `KSS_CLUSTER` to be set. No defaults. Scripts call `require_cluster` from `stages/lib/common.sh` which validates the env var and checks that the cluster.yaml exists.
+
+## Working with This Repository
+
+### Deployment Model
+
+ArgoCD is the primary deployment mechanism. It manages all Kubernetes resources via an app-of-apps pattern rooted in `iac/argocd/`. The only exceptions bootstrapped directly via helmfile are:
+- **Cilium CNI** — must exist before ArgoCD can run
+- **ArgoCD itself** — cannot deploy itself
+
+Everything else flows through ArgoCD: operator Applications (Helm charts), kustomize overlays, CRs. Changes take effect when code is pushed to GitLab and ArgoCD syncs.
+
+### Git Workflow
+
+Code is pushed to GitLab (`https://github.com/example-user/homelab.git`), which is the source of truth for ArgoCD. **Claude does not have credentials to push** — commit locally and ask the user to push. Never attempt `git push` without being told to.
+
+### Key Principles
+
+1. **Everything is IaC** — no manual `kubectl apply`, `helm install`, or ad-hoc cluster changes. All state must be defined in this repository and deployed through ArgoCD or helmfile bootstrap.
+2. **Security is paramount** — never commit secrets, credentials, or tokens. All secrets flow through Vault + external-secrets. Use SOPS/age for any encrypted values that must live in-repo. Audit changes for accidental secret exposure.
+3. **ArgoCD manages the cluster** — do not use `kubectl apply` to deploy resources that ArgoCD manages. This causes SSA field ownership conflicts. Instead, modify the source manifests, commit, push, and let ArgoCD sync.
+4. **Use `just` commands** — the justfile is the user-facing interface. Prefer `just <command>` over running stage scripts directly.
+5. **Generate before deploying** — after modifying base kustomize or cluster.yaml, run `just generate` to regenerate per-cluster configs before pushing.
+
+### Making Changes
+
+**Adding a new operator/chart:**
+1. Create ArgoCD Application in `iac/argocd/base/<name>.yaml`
+2. Create Helm values in `iac/argocd/values/base/<name>.yaml`
+3. Add to `iac/argocd/base/kustomization.yaml` in the correct wave
+4. Update the relevant ArgoCD AppProject (`iac/argocd/projects/`) with sourceRepos and destination namespaces
+5. Optionally add helmfile release + values for bootstrap path
+6. Commit and push — ArgoCD syncs automatically
+
+**Adding Kubernetes resources (CRs, secrets, config):**
+1. Add manifests to the appropriate `iac/kustomize/base/<component>/` directory
+2. Update the component's `kustomization.yaml`
+3. Run `just generate` to propagate to per-cluster overlays
+4. Commit and push — ArgoCD syncs via kustomize overlay
+
+**Modifying Helm values:**
+1. Edit `iac/argocd/values/base/<name>.yaml` (ArgoCD path) and/or `iac/helmfile/values/<name>.yaml.gotmpl` (bootstrap path)
+2. Commit and push — ArgoCD detects the values change and syncs
+
+### What NOT to Do
+
+- Do not `kubectl apply` resources that ArgoCD owns — it causes SSA conflicts
+- Do not `helm install/upgrade` — ArgoCD or helmfile manages all releases
+- Do not store secrets in plaintext anywhere in the repo
+- Do not bypass the justfile for operations it covers
+- Do not push to GitLab without the user's explicit approval
 
 ## Environment Requirements
 

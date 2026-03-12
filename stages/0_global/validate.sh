@@ -15,7 +15,7 @@ fi
 # Validate Kustomize
 header "Kustomize Validation"
 if command -v kustomize &>/dev/null; then
-  for overlay in base overlays/cilium-bgp overlays/cilium-gateway; do
+  for overlay in base; do
     dir="${KUSTOMIZE_DIR}/${overlay}"
     if [[ -d "$dir" ]]; then
       if kustomize build "$dir" > /dev/null 2>&1; then

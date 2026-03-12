@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: headlamp
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: applications
+  sources:
+    - repoURL: https://github.com/example-user/homelab.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://kubernetes-sigs.github.io/headlamp/
+      chart: headlamp
+      targetRevision: "0.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/headlamp.yaml
+          - $values/iac/argocd/values/CLUSTER_NAME/headlamp.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: headlamp
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jqPathExpressions:
+        - .spec.template.spec.hostUsers
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true

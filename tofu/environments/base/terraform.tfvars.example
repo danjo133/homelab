@@ -4,8 +4,6 @@
 #   export TF_VAR_keycloak_admin_password="..."
 #   export TF_VAR_minio_access_key="..."
 #   export TF_VAR_minio_secret_key="..."
-#   export TF_VAR_state_encryption_passphrase="..."
-
 vault_addr  = "https://vault.support.example.com"
 vault_token = ""
 
@@ -17,8 +15,6 @@ minio_endpoint   = "minio.support.example.com"
 minio_access_key = ""
 minio_secret_key = ""
 minio_ssl        = true
-
-state_encryption_passphrase = ""
 
 vault_namespaces = ["kss", "kcs"]
 minio_buckets    = ["harbor", "loki-kss", "loki-kcs", "tofu-state"]

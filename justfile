@@ -101,21 +101,9 @@ cluster-status:
 
 # ─── Bootstrap ────────────────────────────────
 
-# Setup per-cluster Vault auth
-bootstrap-vault-auth:
-    ./stages/4_bootstrap/vault-auth.sh
-
-# Deploy ClusterSecretStore + ExternalSecrets
-bootstrap-secrets:
-    ./stages/4_bootstrap/secrets.sh
-
-# Deploy core services via helmfile
-bootstrap-deploy:
-    ./stages/4_bootstrap/deploy.sh
-
-# Ensure per-cluster Harbor project exists
-bootstrap-harbor-project:
-    ./stages/4_bootstrap/harbor-projects.sh
+# Bootstrap ArgoCD + apply root-app (one-time)
+bootstrap-argocd:
+    ./stages/4_bootstrap/bootstrap-argocd.sh
 
 # Docker login to Harbor (using credentials from Vault)
 harbor-login:
@@ -125,15 +113,26 @@ harbor-login:
 bootstrap-status:
     ./stages/4_bootstrap/status.sh
 
+# ─── ArgoCD ──────────────────────────────────
+
+# Query ArgoCD application health by project
+argocd-status project="":
+    #!/usr/bin/env bash
+    if [[ -n "{{project}}" ]]; then
+        kubectl get applications -n argocd -l "argocd.argoproj.io/project={{project}}" -o wide
+    else
+        kubectl get applications -n argocd -o wide
+    fi
+
+# Force sync a specific ArgoCD application
+argocd-sync app:
+    kubectl -n argocd patch application "{{app}}" --type merge -p '{"operation":{"initiatedBy":{"username":"admin"},"sync":{"revision":"HEAD"}}}'
+
 # ─── Identity ─────────────────────────────────
 
 # Deploy Keycloak operator CRDs
 identity-keycloak-operator:
     ./stages/5_identity/keycloak-operator.sh
-
-# Bootstrap Keycloak secrets in Vault
-identity-keycloak-secrets:
-    ./stages/5_identity/keycloak-secrets.sh
 
 # Deploy Keycloak broker instance
 identity-keycloak:
@@ -180,10 +179,6 @@ identity-status:
     ./stages/5_identity/status.sh
 
 # ─── Platform Services ────────────────────────
-
-# Bootstrap phase4 secrets
-platform-secrets:
-    ./stages/6_platform/secrets.sh
 
 # Deploy monitoring stack
 platform-monitoring:

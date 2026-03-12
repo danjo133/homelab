@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oidc-rbac
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: identity
+  source:
+    repoURL: https://github.com/example-user/homelab.git
+    targetRevision: main
+    path: iac/argocd/clusters/kss/kustomize/oidc-rbac
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: identity
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions: []

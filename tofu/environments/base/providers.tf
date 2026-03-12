@@ -21,3 +21,9 @@ provider "minio" {
   minio_password = var.minio_secret_key
   minio_ssl      = var.minio_ssl
 }
+
+# GitLab CE on support VM
+provider "gitlab" {
+  base_url = "${var.gitlab_url}/api/v4/"
+  token    = var.gitlab_token
+}

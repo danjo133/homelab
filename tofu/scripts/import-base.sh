@@ -15,7 +15,6 @@
 #   export TF_VAR_keycloak_admin_password="..."
 #   export TF_VAR_minio_access_key="..."
 #   export TF_VAR_minio_secret_key="..."
-#   export TF_VAR_state_encryption_passphrase="..."
 #   ./tofu/scripts/import-base.sh
 
 set -euo pipefail
@@ -27,7 +26,7 @@ BASE_DIR="$PROJECT_ROOT/tofu/environments/base"
 source "$PROJECT_ROOT/stages/lib/common.sh"
 
 # Verify required env vars
-for var in TF_VAR_vault_token TF_VAR_keycloak_admin_password TF_VAR_minio_access_key TF_VAR_minio_secret_key TF_VAR_state_encryption_passphrase; do
+for var in TF_VAR_vault_token TF_VAR_keycloak_admin_password TF_VAR_minio_access_key TF_VAR_minio_secret_key; do
   if [[ -z "${!var:-}" ]]; then
     error "Required env var $var is not set"
     exit 1
@@ -42,14 +41,21 @@ KC_PASS="$TF_VAR_keycloak_admin_password"
 
 header "Importing base environment resources"
 
-# Helper: run tofu import, skip if already in state
+IMPORT_FAILURES=()
+
+# Helper: run tofu import, skip if already in state, warn on failure
 import_resource() {
   local addr="$1" id="$2"
   if tofu -chdir="$BASE_DIR" state show "$addr" >/dev/null 2>&1; then
     echo "  Already imported: $addr"
   else
     echo "  Importing: $addr"
-    tofu -chdir="$BASE_DIR" import "$addr" "$id"
+    if tofu -chdir="$BASE_DIR" import "$addr" "$id"; then
+      true
+    else
+      warn "  FAILED to import: $addr (will need tofu apply)"
+      IMPORT_FAILURES+=("$addr")
+    fi
   fi
 }
 
@@ -136,7 +142,41 @@ import_resource "module.keycloak_upstream.keycloak_openid_user_realm_role_protoc
   "$REALM_ID/client/$TELEPORT_CLIENT_UUID/$TELEPORT_ROLES_MAPPER_ID"
 
 # ============================================================================
-# 3. MinIO buckets
+# 3. GitLab resources
+# ============================================================================
+header "GitLab: importing group and project"
+
+if [[ -n "${TF_VAR_gitlab_token:-}" ]]; then
+  GL_URL="${TF_VAR_gitlab_url:-https://gitlab.support.example.com}"
+
+  INFRA_GROUP_ID=$(curl -sf -H "PRIVATE-TOKEN: $TF_VAR_gitlab_token" \
+    "$GL_URL/api/v4/groups?search=infra" | jq -r '.[] | select(.path == "infra") | .id')
+
+  if [[ -n "$INFRA_GROUP_ID" && "$INFRA_GROUP_ID" != "null" ]]; then
+    import_resource "module.gitlab_config.gitlab_group.infra" "$INFRA_GROUP_ID"
+
+    KSS_PROJECT_ID=$(curl -sf -H "PRIVATE-TOKEN: $TF_VAR_gitlab_token" \
+      "$GL_URL/api/v4/groups/$INFRA_GROUP_ID/projects?search=kss" | jq -r '.[] | select(.path == "kss") | .id')
+
+    if [[ -n "$KSS_PROJECT_ID" && "$KSS_PROJECT_ID" != "null" ]]; then
+      import_resource "module.gitlab_config.gitlab_project.kss" "$KSS_PROJECT_ID"
+    fi
+
+    ARGOCD_USER_ID=$(curl -sf -H "PRIVATE-TOKEN: $TF_VAR_gitlab_token" \
+      "$GL_URL/api/v4/users?username=argocd" | jq -r '.[0].id // empty')
+
+    if [[ -n "$ARGOCD_USER_ID" ]]; then
+      import_resource "module.gitlab_config.gitlab_user.argocd" "$ARGOCD_USER_ID"
+    fi
+  else
+    info "GitLab infra group not found — will be created by tofu apply"
+  fi
+else
+  warn "TF_VAR_gitlab_token not set — skipping GitLab imports"
+fi
+
+# ============================================================================
+# 4. MinIO buckets
 # ============================================================================
 header "MinIO: importing buckets"
 
@@ -145,9 +185,17 @@ for bucket in harbor loki-kss loki-kcs tofu-state; do
 done
 
 # ============================================================================
-# Verify
+# Summary
 # ============================================================================
-header "Verifying import — running plan"
-echo ""
-echo "Run: tofu -chdir=$BASE_DIR plan"
-echo "Expected: 'No changes. Your infrastructure matches the configuration.'"
+header "Import complete"
+
+if [[ ${#IMPORT_FAILURES[@]} -gt 0 ]]; then
+  warn "Some resources failed to import (will be created by tofu apply):"
+  for f in "${IMPORT_FAILURES[@]}"; do
+    echo "  - $f"
+  done
+  echo ""
+fi
+
+echo "Next: tofu -chdir=$BASE_DIR plan"
+echo "Then: tofu -chdir=$BASE_DIR apply"

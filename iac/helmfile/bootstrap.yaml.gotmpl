@@ -1,0 +1,80 @@
+# Minimal bootstrap helmfile — only what's needed before ArgoCD can run
+#
+# kss: ArgoCD only (Canal CNI ships with RKE2)
+# kcs: Cilium + ArgoCD (nodes stay NotReady without CNI)
+#
+# Usage:
+#   helmfile -f bootstrap.yaml apply                    # kss (default env)
+#   helmfile -f bootstrap.yaml -e istio-mesh apply      # kcs (Cilium CNI)
+
+environments:
+  default:
+    values:
+      - useCilium: false
+  istio-mesh:
+    values:
+      - useCilium: true
+      - ciliumProfile: istio-bgp
+
+---
+
+helmDefaults:
+  atomic: true
+  cleanupOnFail: true
+  timeout: 600
+  wait: true
+
+repositories:
+  - name: argo
+    url: https://argoproj.github.io/argo-helm
+  - name: cilium
+    url: https://helm.cilium.io
+
+releases:
+  # Cilium CNI — only for clusters that don't have a built-in CNI
+  - name: cilium
+    namespace: kube-system
+    createNamespace: true
+    chart: cilium/cilium
+    version: "1.19.0"
+    installed: {{ .Values | getOrNil "useCilium" | default false }}
+    disableValidationOnInstall: true
+    disableValidation: true
+    values:
+      - ./values/cilium/common.yaml.gotmpl
+      - ./values/cilium/profile-{{ .Values | getOrNil "ciliumProfile" | default "base" }}.yaml.gotmpl
+{{ if .Values | getOrNil "k8sServiceHost" }}
+    set:
+      - name: k8sServiceHost
+        value: "{{ .Values.k8sServiceHost }}"
+{{ end }}
+
+  # ArgoCD — bootstrap install, then self-managed
+  - name: argocd
+    namespace: argocd
+    createNamespace: true
+    chart: argo/argo-cd
+    version: "7.7.x"
+    values:
+      - server:
+          service:
+            type: ClusterIP
+        configs:
+          params:
+            server.insecure: true
+          cm:
+            kustomize.buildOptions: "--load-restrictor LoadRestrictionsNone"
+        controller:
+          resources:
+            requests:
+              cpu: 100m
+              memory: 1Gi
+            limits:
+              memory: 2Gi
+        repoServer:
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 1Gi

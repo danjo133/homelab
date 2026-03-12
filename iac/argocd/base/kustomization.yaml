@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Wave -5: CRDs
+  - prometheus-crds.yaml
+  # Wave -3: Core operators
+  - cert-manager.yaml
+  - external-secrets.yaml
+  # Wave -2: Core config
+  - vault-auth.yaml
+  # Wave -1: DNS
+  - external-dns.yaml
+  # Wave 0: Platform operators
+  - argocd.yaml
+  - longhorn.yaml
+  - gatekeeper.yaml
+  - spire.yaml
+  - cnpg-operator.yaml
+  # Wave 1: Identity
+  - keycloak-operator.yaml
+  - oauth2-proxy.yaml
+  # Wave 2: Monitoring
+  - kube-prometheus-stack.yaml
+  - loki.yaml
+  - alloy.yaml
+  # Wave 3: Security
+  - gatekeeper-policies.yaml
+  - trivy.yaml
+  # Wave 4: Applications
+  - headlamp.yaml

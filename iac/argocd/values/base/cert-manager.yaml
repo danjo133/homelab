@@ -1,0 +1,31 @@
+# cert-manager — automated certificate management
+crds:
+  enabled: true
+
+replicaCount: 1
+
+webhook:
+  replicaCount: 1
+
+cainjector:
+  replicaCount: 1
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+nodeSelector: {}
+tolerations:
+  - operator: Exists
+affinity: {}
+
+startupapicheck:
+  enabled: false
+
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: false

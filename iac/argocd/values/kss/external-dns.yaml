@@ -1,0 +1,2 @@
+# ExternalDNS — kss cluster overrides
+txtOwnerId: "k8s-cluster-kss"

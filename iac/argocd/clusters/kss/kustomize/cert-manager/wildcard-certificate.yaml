@@ -1,0 +1,20 @@
+# Wildcard certificate for *.simple-k8s.example.com
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-simple-k8s.example.com
+  namespace: cert-manager
+spec:
+  secretName: wildcard-simple-k8s.example.com-tls
+  duration: 2160h
+  renewBefore: 360h
+  commonName: "*.simple-k8s.example.com"
+  dnsNames:
+    - "*.simple-k8s.example.com"
+    - "simple-k8s.example.com"
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  privateKey:
+    algorithm: ECDSA
+    size: 256

@@ -8,12 +8,10 @@
 # Root PKI mount — the CA certificate itself was generated once and is NOT
 # managed as a resource (one-shot operation, cannot be re-imported).
 resource "vault_mount" "pki" {
-  path        = "pki"
-  type        = "pki"
-  description = "Root PKI CA"
+  path = "pki"
+  type = "pki"
 
-  default_lease_ttl_seconds = 3600
-  max_lease_ttl_seconds     = 315360000 # 87600h
+  max_lease_ttl_seconds = 315360000 # 87600h
 }
 
 resource "vault_pki_secret_backend_config_urls" "root" {

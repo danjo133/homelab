@@ -1,0 +1,10 @@
+# SPIRE — kcs cluster overrides
+global:
+  spire:
+    trustDomain: mesh-k8s.example.com
+    clusterName: kcs
+
+spire-server:
+  oidcDiscoveryProvider:
+    ingress:
+      enabled: false

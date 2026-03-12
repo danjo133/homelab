@@ -39,7 +39,7 @@ in
         # Will be available at /run/secrets/cloudflare_api_token
       };
 
-      # Keycloak admin password (read by root services: keycloak-admin-env, keycloak-auto-setup)
+      # Keycloak admin password (read by root services: keycloak-admin-env, keycloak-oidc-secrets)
       "keycloak_admin_password" = {
         owner = "root";
         group = "root";

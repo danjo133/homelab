@@ -1,0 +1,134 @@
+# kube-prometheus-stack — Prometheus + Grafana + AlertManager
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 1Gi
+      limits:
+        memory: 2Gi
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+grafana:
+  enabled: true
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+  admin:
+    existingSecret: grafana-admin-secret
+    userKey: admin-user
+    passwordKey: admin-password
+  grafana.ini:
+    auth:
+      disable_login_form: false
+    auth.generic_oauth:
+      enabled: true
+      name: Keycloak
+      allow_sign_up: true
+      auto_login: false
+      client_id: grafana
+      client_secret: "${GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET}"
+      scopes: openid profile email groups
+      role_attribute_path: "contains(groups[*], 'platform-admins') && 'Admin' || contains(groups[*], 'web-admins') && 'Admin' || contains(groups[*], 'web-operators') && 'Viewer' || 'Viewer'"
+      role_attribute_strict: false
+  envFromSecrets:
+    - name: grafana-oidc-secret
+      optional: true
+  additionalDataSources:
+    - name: Loki
+      uid: loki
+      type: loki
+      url: http://loki.monitoring.svc.cluster.local:3100
+      access: proxy
+      isDefault: false
+  defaultDashboardsEnabled: true
+  defaultDashboardsTimezone: utc
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 1Gi
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      receiver: "null"
+      group_by: ["alertname", "namespace"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      routes:
+        - receiver: webhook
+          matchers:
+            - severity="critical"
+    receivers:
+      - name: "null"
+      - name: webhook
+        webhook_configs:
+          - url: "http://placeholder.local/webhook"
+            send_resolved: true
+
+nodeExporter:
+  enabled: true
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 64Mi
+  tolerations:
+    - operator: Exists
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+kubeApiServer:
+  enabled: true
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubelet:
+  enabled: true
+coreDns:
+  enabled: true

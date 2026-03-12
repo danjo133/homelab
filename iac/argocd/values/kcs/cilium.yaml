@@ -1,0 +1,134 @@
+# Cilium — kcs cluster values (combined common + istio-bgp profile)
+
+# Image
+image:
+  repository: quay.io/cilium/cilium
+  useDigest: true
+
+# Operator
+operator:
+  replicas: 1
+
+# IPAM
+ipam:
+  mode: kubernetes
+
+# Routing — VXLAN tunnel
+routingMode: tunnel
+tunnelProtocol: vxlan
+
+# Core
+networkPolicy:
+  enabled: true
+hostFirewall:
+  enabled: false
+
+# Hubble
+hubble:
+  enabled: true
+  relay:
+    enabled: true
+    replicas: 1
+  ui:
+    enabled: true
+    replicas: 1
+    service:
+      type: ClusterIP
+  metrics:
+    enabled:
+      - dns
+      - drop
+      - tcp
+      - flow
+      - port-distribution
+      - icmp
+
+# Monitoring
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+
+# Resources
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+# Scheduling
+tolerations:
+  - operator: Exists
+nodeSelector: {}
+
+# RBAC
+rbac:
+  create: true
+serviceAccount:
+  create: true
+  name: cilium
+
+# Security context
+podSecurityContext:
+  runAsNonRoot: false
+  runAsUser: 0
+securityContext:
+  privileged: true
+  capabilities:
+    add:
+      - NET_ADMIN
+      - SYS_MODULE
+
+# DNS
+dnsProxy:
+  enabled: true
+
+# Istio-BGP profile settings
+k8sServicePort: 6443
+MTU: 1380
+devices:
+  - ens7
+
+# CNI chaining for Istio
+cni:
+  exclusive: false
+
+# Socket LB — host namespace only for ztunnel compatibility
+socketLB:
+  hostNamespaceOnly: true
+
+# Kube-proxy replacement
+kubeProxyReplacement: true
+
+# BGP
+bgpControlPlane:
+  enabled: true
+
+# Gateway API disabled (Istio provides its own)
+gatewayAPI:
+  enabled: false
+envoy:
+  enabled: false
+
+# Native routing disabled (using tunnel)
+autoDirectNodeRoutes: false
+ipv4NativeRoutingCIDR: ""
+endpointRoutes:
+  enabled: false
+
+# Encryption disabled (Istio provides mTLS)
+encryption:
+  enabled: false
+
+# LoadBalancer
+loadBalancer:
+  mode: snat
+l2announcements:
+  enabled: true
+
+# Masquerading — iptables (not eBPF, for Istio health probes)
+enableIPv4Masquerade: true
+bpf:
+  masquerade: false
+  hostLegacyRouting: true

@@ -1,0 +1,8 @@
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: kss-pool
+  namespace: metallb-system
+spec:
+  addresses:
+    - 10.69.50.192/28

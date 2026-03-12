@@ -21,7 +21,12 @@ resource "keycloak_realm" "upstream" {
   duplicate_emails_allowed = false
   reset_password_allowed   = true
   edit_username_allowed    = false
-  brute_force_protected    = true
+
+  security_defenses {
+    brute_force_detection {
+      permanent_lockout = false
+    }
+  }
 
   access_token_lifespan    = "5m"  # 300s
   sso_session_idle_timeout = "30m" # 1800s
@@ -66,9 +71,10 @@ resource "keycloak_user" "alice" {
 }
 
 resource "keycloak_user_roles" "alice" {
-  realm_id = keycloak_realm.upstream.id
-  user_id  = keycloak_user.alice.id
-  role_ids = [keycloak_role.admin.id]
+  realm_id   = keycloak_realm.upstream.id
+  user_id    = keycloak_user.alice.id
+  role_ids   = [keycloak_role.admin.id]
+  exhaustive = false
 }
 
 resource "keycloak_user" "bob" {
@@ -89,9 +95,10 @@ resource "keycloak_user" "bob" {
 }
 
 resource "keycloak_user_roles" "bob" {
-  realm_id = keycloak_realm.upstream.id
-  user_id  = keycloak_user.bob.id
-  role_ids = [keycloak_role.user.id]
+  realm_id   = keycloak_realm.upstream.id
+  user_id    = keycloak_user.bob.id
+  role_ids   = [keycloak_role.user.id]
+  exhaustive = false
 }
 
 resource "keycloak_user" "carol" {
@@ -112,9 +119,10 @@ resource "keycloak_user" "carol" {
 }
 
 resource "keycloak_user_roles" "carol" {
-  realm_id = keycloak_realm.upstream.id
-  user_id  = keycloak_user.carol.id
-  role_ids = [keycloak_role.user.id]
+  realm_id   = keycloak_realm.upstream.id
+  user_id    = keycloak_user.carol.id
+  role_ids   = [keycloak_role.user.id]
+  exhaustive = false
 }
 
 resource "keycloak_user" "admin" {
@@ -135,9 +143,10 @@ resource "keycloak_user" "admin" {
 }
 
 resource "keycloak_user_roles" "admin" {
-  realm_id = keycloak_realm.upstream.id
-  user_id  = keycloak_user.admin.id
-  role_ids = [keycloak_role.admin.id]
+  realm_id   = keycloak_realm.upstream.id
+  user_id    = keycloak_user.admin.id
+  role_ids   = [keycloak_role.admin.id]
+  exhaustive = false
 }
 
 # ============================================================================
@@ -155,6 +164,7 @@ resource "keycloak_openid_client" "broker_client" {
   standard_flow_enabled        = true
   direct_access_grants_enabled = false
   service_accounts_enabled     = false
+  use_refresh_tokens           = false
 
   valid_redirect_uris = [
     "https://auth.simple-k8s.example.com/realms/broker/broker/upstream/endpoint",
@@ -176,6 +186,7 @@ resource "keycloak_openid_client" "teleport" {
   standard_flow_enabled        = true
   direct_access_grants_enabled = false
   service_accounts_enabled     = false
+  use_refresh_tokens           = false
 
   valid_redirect_uris = [
     "https://teleport.support.example.com:3080/v1/webapi/oidc/callback",
@@ -209,6 +220,7 @@ resource "keycloak_openid_client" "gitlab" {
   standard_flow_enabled        = true
   direct_access_grants_enabled = false
   service_accounts_enabled     = false
+  use_refresh_tokens           = false
 
   valid_redirect_uris = [
     "https://gitlab.support.example.com/users/auth/openid_connect/callback",

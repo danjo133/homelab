@@ -1,11 +1,3 @@
-# --- State encryption ---
-
-variable "state_encryption_passphrase" {
-  description = "Passphrase for OpenTofu state encryption (PBKDF2 + AES-GCM)"
-  type        = string
-  sensitive   = true
-}
-
 # --- Vault ---
 
 variable "vault_addr" {

@@ -1,0 +1,50 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../../../kustomize/base/cluster-setup
+
+patches:
+  # DELETE the Namespace (owned by jit-elevation app)
+  - target:
+      kind: Namespace
+      name: identity
+    patch: |
+      $patch: delete
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: identity
+
+  - target:
+      kind: ConfigMap
+      name: cluster-setup-config
+    patch: |
+      - op: replace
+        path: /data/CLUSTER_NAME
+        value: "kss"
+      - op: replace
+        path: /data/CLUSTER_DOMAIN
+        value: "simple-k8s.example.com"
+      - op: replace
+        path: /data/KEYCLOAK_URL
+        value: "https://auth.simple-k8s.example.com"
+      - op: replace
+        path: /data/API_SERVER
+        value: "https://kss-master.simple-k8s.example.com:6443"
+  - target:
+      kind: Ingress
+      name: cluster-setup
+    patch: |
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: setup.simple-k8s.example.com
+      - op: replace
+        path: /spec/rules/0/host
+        value: setup.simple-k8s.example.com
+      - op: replace
+        path: /metadata/annotations/nginx.ingress.kubernetes.io~1auth-url
+        value: "http://oauth2-proxy.oauth2-proxy.svc.cluster.local/oauth2/auth"
+      - op: replace
+        path: /metadata/annotations/nginx.ingress.kubernetes.io~1auth-signin
+        value: "https://oauth2-proxy.simple-k8s.example.com/oauth2/start?rd=$scheme://$host$escaped_request_uri"

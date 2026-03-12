@@ -1,0 +1,20 @@
+# Wildcard Certificate for *.mesh-k8s.example.com
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-kcs
+  namespace: cert-manager
+spec:
+  secretName: wildcard-mesh-k8s.example.com-tls
+  duration: 2160h    # 90 days
+  renewBefore: 360h  # Renew 15 days before expiry
+  commonName: "*.mesh-k8s.example.com"
+  dnsNames:
+    - "*.mesh-k8s.example.com"
+    - "mesh-k8s.example.com"
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  privateKey:
+    algorithm: ECDSA
+    size: 256

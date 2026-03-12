@@ -1,0 +1,19 @@
+# Headlamp — Kubernetes dashboard with OIDC
+config:
+  oidc:
+    secret:
+      create: false
+      name: headlamp-oidc
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+replicaCount: 1

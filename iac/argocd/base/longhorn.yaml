@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: longhorn
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  sources:
+    - repoURL: https://github.com/example-user/homelab.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://charts.longhorn.io
+      chart: longhorn
+      targetRevision: "1.8.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/longhorn.yaml
+          - $values/iac/argocd/values/CLUSTER_NAME/longhorn.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: longhorn-system
+  ignoreDifferences:
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      jqPathExpressions:
+        - .spec.preserveUnknownFields
+        - .spec.conversion
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true

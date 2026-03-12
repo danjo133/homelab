@@ -1,0 +1,17 @@
+# kube-prometheus-stack — kcs cluster overrides
+grafana:
+  ingress:
+    enabled: false  # Uses Gateway API HTTPRoute
+    hosts:
+      - grafana.mesh-k8s.example.com
+    tls:
+      - secretName: wildcard-mesh-k8s.example.com-tls
+        hosts:
+          - grafana.mesh-k8s.example.com
+  grafana.ini:
+    server:
+      root_url: "https://grafana.mesh-k8s.example.com"
+    auth.generic_oauth:
+      auth_url: "https://auth.mesh-k8s.example.com/realms/broker/protocol/openid-connect/auth"
+      token_url: "https://auth.mesh-k8s.example.com/realms/broker/protocol/openid-connect/token"
+      api_url: "https://auth.mesh-k8s.example.com/realms/broker/protocol/openid-connect/userinfo"

@@ -16,7 +16,6 @@
 #   export KUBECONFIG=~/.kube/config-kss
 #   export TF_VAR_vault_token="..."
 #   export TF_VAR_harbor_admin_password="..."
-#   export TF_VAR_state_encryption_passphrase="..."
 #   ./tofu/scripts/import-cluster.sh
 
 set -euo pipefail
@@ -32,7 +31,7 @@ ENV_DIR="$PROJECT_ROOT/tofu/environments/${KSS_CLUSTER}"
 NS="${CLUSTER_VAULT_NAMESPACE}"
 
 # Verify required env vars
-for var in TF_VAR_vault_token TF_VAR_harbor_admin_password TF_VAR_state_encryption_passphrase; do
+for var in TF_VAR_vault_token TF_VAR_harbor_admin_password; do
   if [[ -z "${!var:-}" ]]; then
     error "Required env var $var is not set"
     exit 1
@@ -47,14 +46,21 @@ HARBOR_PASS="$TF_VAR_harbor_admin_password"
 
 header "Importing ${KSS_CLUSTER} cluster environment"
 
-# Helper: run tofu import, skip if already in state
+IMPORT_FAILURES=()
+
+# Helper: run tofu import, skip if already in state, warn on failure
 import_resource() {
   local addr="$1" id="$2"
   if tofu -chdir="$ENV_DIR" state show "$addr" >/dev/null 2>&1; then
     echo "  Already imported: $addr"
   else
     echo "  Importing: $addr"
-    tofu -chdir="$ENV_DIR" import "$addr" "$id"
+    if tofu -chdir="$ENV_DIR" import "$addr" "$id"; then
+      true
+    else
+      warn "  FAILED to import: $addr (will need tofu apply)"
+      IMPORT_FAILURES+=("$addr")
+    fi
   fi
 }
 
@@ -81,24 +87,24 @@ import_resource "module.vault_cluster.vault_policy.keycloak_operator" "keycloak-
 # ============================================================================
 header "Vault: KV secrets"
 
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_admin" "secret/keycloak/admin"
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_broker_client" "secret/keycloak/broker-client"
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_test_users" "secret/keycloak/test-users"
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_argocd_client" "secret/keycloak/argocd-client"
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_oauth2_proxy_client" "secret/keycloak/oauth2-proxy-client"
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_grafana_client" "secret/keycloak/grafana-client"
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_jit_service" "secret/keycloak/jit-service"
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_kiali_client" "secret/keycloak/kiali-client"
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_headlamp_client" "secret/keycloak/headlamp-client"
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_teleport_client" "secret/keycloak/teleport-client"
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_gitlab_client" "secret/keycloak/gitlab-client"
-import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_db_credentials" "secret/keycloak/db-credentials"
-import_resource "module.vault_cluster.vault_kv_secret_v2.cloudflare" "secret/cloudflare"
-import_resource "module.vault_cluster.vault_kv_secret_v2.oauth2_proxy" "secret/oauth2-proxy"
-import_resource "module.vault_cluster.vault_kv_secret_v2.harbor_admin" "secret/harbor/admin"
-import_resource "module.vault_cluster.vault_kv_secret_v2.harbor_cluster_pull" "secret/harbor/${KSS_CLUSTER}-pull"
-import_resource "module.vault_cluster.vault_kv_secret_v2.grafana_admin" "secret/grafana/admin"
-import_resource "module.vault_cluster.vault_kv_secret_v2.minio_loki" "secret/minio/loki-${KSS_CLUSTER}"
+import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_admin" "secret/data/keycloak/admin"
+import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_broker_client" "secret/data/keycloak/broker-client"
+import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_test_users" "secret/data/keycloak/test-users"
+import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_argocd_client" "secret/data/keycloak/argocd-client"
+import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_oauth2_proxy_client" "secret/data/keycloak/oauth2-proxy-client"
+import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_grafana_client" "secret/data/keycloak/grafana-client"
+import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_jit_service" "secret/data/keycloak/jit-service"
+import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_kiali_client" "secret/data/keycloak/kiali-client"
+import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_headlamp_client" "secret/data/keycloak/headlamp-client"
+import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_teleport_client" "secret/data/keycloak/teleport-client"
+import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_gitlab_client" "secret/data/keycloak/gitlab-client"
+import_resource "module.vault_cluster.vault_kv_secret_v2.keycloak_db_credentials" "secret/data/keycloak/db-credentials"
+import_resource "module.vault_cluster.vault_kv_secret_v2.cloudflare" "secret/data/cloudflare"
+import_resource "module.vault_cluster.vault_kv_secret_v2.oauth2_proxy" "secret/data/oauth2-proxy"
+import_resource "module.vault_cluster.vault_kv_secret_v2.harbor_admin" "secret/data/harbor/admin"
+import_resource "module.vault_cluster.vault_kv_secret_v2.harbor_cluster_pull" "secret/data/harbor/${KSS_CLUSTER}-pull"
+import_resource "module.vault_cluster.vault_kv_secret_v2.grafana_admin" "secret/data/grafana/admin"
+import_resource "module.vault_cluster.vault_kv_secret_v2.minio_loki" "secret/data/minio/loki-${KSS_CLUSTER}"
 
 # ============================================================================
 # 4. Vault Kubernetes auth
@@ -157,9 +163,17 @@ else
 fi
 
 # ============================================================================
-# Verify
+# Summary
 # ============================================================================
-header "Verifying import — running plan"
-echo ""
-echo "Run: tofu -chdir=$ENV_DIR plan"
-echo "Expected: 'No changes. Your infrastructure matches the configuration.'"
+header "Import complete"
+
+if [[ ${#IMPORT_FAILURES[@]} -gt 0 ]]; then
+  warn "Some resources failed to import (will be created by tofu apply):"
+  for f in "${IMPORT_FAILURES[@]}"; do
+    echo "  - $f"
+  done
+  echo ""
+fi
+
+echo "Next: tofu -chdir=$ENV_DIR plan"
+echo "Then: tofu -chdir=$ENV_DIR apply"

@@ -1,0 +1,32 @@
+# Nginx ingress controller
+controller:
+  replicaCount: 1
+  service:
+    enabled: true
+    type: LoadBalancer
+    externalTrafficPolicy: Local
+  ingressClassResource:
+    name: nginx
+    enabled: true
+    default: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false
+  config:
+    server-tokens: "false"
+    proxy-body-size: "50m"
+    proxy-buffer-size: "8k"
+  tolerations:
+    - operator: Exists
+  admissionWebhooks:
+    enabled: true
+
+defaultBackend:
+  enabled: false

@@ -18,3 +18,9 @@ module "minio_config" {
   source  = "../../modules/minio-config"
   buckets = var.minio_buckets
 }
+
+module "gitlab_config" {
+  source           = "../../modules/gitlab-config"
+  argocd_password  = var.gitlab_argocd_password
+  vault_namespaces = var.vault_namespaces
+}

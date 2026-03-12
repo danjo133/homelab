@@ -1,0 +1,17 @@
+# HTTPRoute for JIT Elevation
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: jit-elevation
+  namespace: identity
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: istio-ingress
+      sectionName: https
+  hostnames:
+    - jit.mesh-k8s.example.com
+  rules:
+    - backendRefs:
+        - name: jit-elevation
+          port: 80

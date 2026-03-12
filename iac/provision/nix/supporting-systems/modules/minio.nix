@@ -26,10 +26,12 @@ in
     MINIO_BROWSER_REDIRECT_URL = "https://minio-console.support.example.com";
   };
 
-  # Ensure directories exist
+  # Ensure directories exist with correct ownership
+  # 'Z' rule recursively fixes ownership (handles buckets created by OpenTofu as root)
   systemd.tmpfiles.rules = [
     "d ${minioConfigDir} 0750 minio minio -"
     "d ${minioDataDir} 0750 minio minio -"
+    "Z ${minioDataDir} 0750 minio minio -"
   ];
 
   # Auto-generate credentials on first boot

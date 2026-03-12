@@ -1,0 +1,13 @@
+# ClusterRoleBinding: k8s-admin group gets cluster-admin
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: oidc-k8s-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: Group
+    name: k8s-admins
+    apiGroup: rbac.authorization.k8s.io

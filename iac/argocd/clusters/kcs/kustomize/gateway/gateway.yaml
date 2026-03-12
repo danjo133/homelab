@@ -1,0 +1,34 @@
+# Gateway - Main entry point for external traffic (Istio)
+# Terminates TLS using the wildcard certificate for *.mesh-k8s.example.com
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: main-gateway
+  namespace: istio-ingress
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: "*.mesh-k8s.example.com"
+spec:
+  gatewayClassName: istio
+  listeners:
+    # HTTP listener - redirects to HTTPS
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: "*.mesh-k8s.example.com"
+      allowedRoutes:
+        namespaces:
+          from: All
+    # HTTPS listener with TLS termination
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: "*.mesh-k8s.example.com"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: wildcard-mesh-k8s.example.com-tls
+            namespace: cert-manager
+      allowedRoutes:
+        namespaces:
+          from: All

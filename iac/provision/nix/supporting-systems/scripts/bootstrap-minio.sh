@@ -4,7 +4,7 @@
 # NOTE: This script is STILL NEEDED - the NixOS module only sets up MinIO service.
 # This script handles:
 # - Generating root credentials (if not exists)
-# - Creating buckets: harbor, loki, backups, velero
+# - Creating buckets: harbor, loki-kss, loki-kcs, backups, velero
 # - Setting bucket policies
 #
 # Run this AFTER NixOS configuration is applied and MinIO is running:
@@ -65,7 +65,7 @@ echo "==> Configuring MinIO client..."
 mc alias set "${MINIO_ALIAS}" "${MINIO_ENDPOINT}" "${MINIO_ROOT_USER}" "${MINIO_ROOT_PASSWORD}"
 
 # Create buckets
-BUCKETS=("harbor" "loki" "backups" "velero")
+BUCKETS=("harbor" "loki-kss" "loki-kcs" "backups" "velero")
 
 for bucket in "${BUCKETS[@]}"; do
     if mc ls "${MINIO_ALIAS}/${bucket}" > /dev/null 2>&1; then
@@ -82,8 +82,9 @@ echo "==> Setting bucket policies..."
 # Harbor bucket - needs full access for registry
 mc anonymous set none "${MINIO_ALIAS}/harbor"
 
-# Loki bucket - append-only would be ideal but minio doesn't support it natively
-mc anonymous set none "${MINIO_ALIAS}/loki"
+# Loki buckets (per-cluster) - private
+mc anonymous set none "${MINIO_ALIAS}/loki-kss"
+mc anonymous set none "${MINIO_ALIAS}/loki-kcs"
 
 # Backups bucket - private
 mc anonymous set none "${MINIO_ALIAS}/backups"

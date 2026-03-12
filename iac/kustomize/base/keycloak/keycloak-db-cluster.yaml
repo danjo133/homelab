@@ -1,0 +1,28 @@
+# CloudNativePG Cluster for Keycloak
+# Uses official postgres image natively (no Bitnami wrappers)
+# Credentials from keycloak-db-credentials ExternalSecret (Vault)
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: keycloak-db
+  namespace: keycloak
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:18
+
+  bootstrap:
+    initdb:
+      database: keycloak
+      owner: keycloak
+      secret:
+        name: keycloak-db-credentials
+
+  storage:
+    size: 2Gi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi

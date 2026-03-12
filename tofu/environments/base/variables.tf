@@ -1,11 +1,3 @@
-# --- State encryption ---
-
-variable "state_encryption_passphrase" {
-  description = "Passphrase for OpenTofu state encryption (PBKDF2 + AES-GCM)"
-  type        = string
-  sensitive   = true
-}
-
 # --- Vault ---
 
 variable "vault_addr" {
@@ -64,6 +56,26 @@ variable "minio_ssl" {
   description = "Use SSL for MinIO"
   type        = bool
   default     = true
+}
+
+# --- GitLab ---
+
+variable "gitlab_url" {
+  description = "GitLab server URL"
+  type        = string
+  default     = "https://gitlab.support.example.com"
+}
+
+variable "gitlab_token" {
+  description = "GitLab personal access token (admin)"
+  type        = string
+  sensitive   = true
+}
+
+variable "gitlab_argocd_password" {
+  description = "Password for the ArgoCD GitLab service user"
+  type        = string
+  sensitive   = true
 }
 
 # --- Module configuration ---

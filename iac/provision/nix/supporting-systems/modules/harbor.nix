@@ -7,7 +7,7 @@
 let
   harborDir = "/opt/harbor";
   harborDataDir = "/var/lib/harbor";
-  harborVersion = "v2.11.0";
+  harborVersion = "v2.14.2";
   harborInstallerUrl = "https://github.com/goharbor/harbor/releases/download/${harborVersion}/harbor-offline-installer-${harborVersion}.tgz";
 
   # Harbor auto-setup script
@@ -132,7 +132,7 @@ log:
     rotate_size: 200M
     location: /var/log/harbor
 
-_version: 2.11.0
+_version: 2.14.2
 
 secret_key: $SECRET_KEY
 

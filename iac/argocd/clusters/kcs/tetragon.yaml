@@ -1,0 +1,68 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tetragon
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+spec:
+  project: bootstrap
+  source:
+    repoURL: https://helm.cilium.io
+    chart: tetragon
+    targetRevision: "1.2.*"
+    helm:
+      values: |
+        image:
+          repository: quay.io/cilium/tetragon
+        podSecurityPolicy:
+          enabled: false
+        rbac:
+          create: true
+        serviceAccount:
+          create: true
+          name: tetragon
+        replicas: 1
+        podSecurityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+              - SYS_ADMIN
+              - SYS_RESOURCE
+              - SYS_PTRACE
+              - NET_ADMIN
+        tolerations:
+          - operator: Exists
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 256Mi
+        tetragon:
+          exportEvents: true
+          eventTypes:
+            - ProcessExec
+            - ProcessExit
+            - FileOpen
+            - NetworkConnect
+        monitoring:
+          enabled: true
+          port: 2112
+        logLevel: info
+        updateStrategy:
+          type: RollingUpdate
+          rollingUpdate:
+            maxUnavailable: 1
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

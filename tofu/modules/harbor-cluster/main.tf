@@ -4,8 +4,11 @@
 # the Harbor Tofu provider doesn't support registry endpoints well.
 
 resource "harbor_project" "cluster" {
-  name   = var.cluster_name
-  public = false
+  name                   = var.cluster_name
+  public                 = false
+  vulnerability_scanning = false
+  force_destroy          = false
+  storage_quota          = -1
 }
 
 resource "harbor_robot_account" "pull" {

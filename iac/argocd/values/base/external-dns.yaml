@@ -1,0 +1,44 @@
+# ExternalDNS — automatic DNS management via Cloudflare
+provider:
+  name: cloudflare
+
+sources:
+  - service
+  - ingress
+
+domainFilters:
+  - example.com
+
+txtPrefix: "externaldns-"
+
+policy: sync
+
+registry: txt
+
+env:
+  - name: CF_API_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: cloudflare-api-token
+        key: api-token
+
+interval: 1m
+
+logLevel: info
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+
+tolerations:
+  - operator: Exists
+
+serviceAccount:
+  create: true
+  name: external-dns
+
+rbac:
+  create: true

@@ -1,0 +1,21 @@
+# AuthorizationPolicy for OAuth2-Proxy ext-authz on protected routes
+# Protects setup.mesh-k8s.example.com and hubble.mesh-k8s.example.com
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: oauth2-proxy-auth
+  namespace: istio-ingress
+spec:
+  targetRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: main-gateway
+  action: CUSTOM
+  provider:
+    name: oauth2-proxy
+  rules:
+    - to:
+        - operation:
+            hosts:
+              - setup.mesh-k8s.example.com
+              - hubble.mesh-k8s.example.com

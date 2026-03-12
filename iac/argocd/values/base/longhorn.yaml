@@ -1,0 +1,42 @@
+# Longhorn — distributed block storage
+defaultSettings:
+  defaultReplicaCount: 2
+  backupTarget: "nfs://10.69.50.10:/export/longhorn"
+  createDefaultDiskLabeledNodes: false
+  storageOverProvisioningPercentage: 200
+  storageMinimalAvailablePercentage: 15
+  guaranteedInstanceManagerCPU: 5
+
+persistence:
+  defaultClass: true
+  defaultClassReplicaCount: 2
+
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+
+longhornManager:
+  tolerations:
+    - operator: Exists
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+longhornDriver:
+  tolerations:
+    - operator: Exists
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+metrics:
+  serviceMonitor:
+    enabled: true

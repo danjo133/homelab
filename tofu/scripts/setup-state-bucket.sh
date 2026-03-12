@@ -3,7 +3,7 @@
 #
 # Prerequisites:
 #   - MinIO running on support VM
-#   - mc (MinIO client) installed (provided by dev shell)
+#   - mcli (minio-client on Arch) installed
 #   - SSH access to support VM via hypervisor
 #
 # Usage: ./tofu/scripts/setup-state-bucket.sh
@@ -27,18 +27,18 @@ if [[ -z "$MINIO_ACCESS_KEY" || -z "$MINIO_SECRET_KEY" ]]; then
   exit 1
 fi
 
-# Configure mc alias
+# Configure mcli alias
 info "Configuring MinIO client..."
-mc alias set kss-minio https://minio.support.example.com "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" --quiet
+mcli alias set kss-minio https://minio.support.example.com "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" --quiet
 
 # Create bucket
 info "Creating tofu-state bucket..."
-mc mb kss-minio/tofu-state --ignore-existing --quiet
+mcli mb kss-minio/tofu-state --ignore-existing --quiet
 
 # Enable versioning for state protection
 info "Enabling versioning on tofu-state bucket..."
-mc version enable kss-minio/tofu-state --quiet 2>/dev/null || warn "Versioning may not be supported on this MinIO version"
+mcli version enable kss-minio/tofu-state --quiet 2>/dev/null || warn "Versioning may not be supported on this MinIO version"
 
 success "MinIO tofu-state bucket ready"
 echo ""
-echo "You can now run: tofu -chdir=tofu/environments/base init"
+echo "You can now run: just tofu-init base"

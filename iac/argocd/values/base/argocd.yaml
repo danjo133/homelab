@@ -1,0 +1,56 @@
+# ArgoCD — GitOps continuous deployment
+server:
+  autoscaling:
+    enabled: false
+  replicas: 1
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    tls: true
+
+configs:
+  params:
+    server.insecure: true
+  cm:
+    kustomize.buildOptions: "--load-restrictor LoadRestrictionsNone"
+  rbac:
+    policy.csv: |
+      g, oidc:platform-admins, role:admin
+      g, oidc:k8s-admins, role:admin
+      g, oidc:web-admins, role:admin
+      g, oidc:k8s-operators, role:readonly
+      g, oidc:web-operators, role:readonly
+    policy.default: role:readonly
+    scopes: '[groups]'
+
+repoServer:
+  autoscaling:
+    enabled: false
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+
+controller:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 1Gi
+    limits:
+      memory: 2Gi
+
+crds:
+  install: true
+  keep: true
+
+redis:
+  enabled: true
+
+global:
+  logging:
+    level: info
+    format: json

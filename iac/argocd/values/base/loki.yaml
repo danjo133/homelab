@@ -1,0 +1,81 @@
+# Loki — log aggregation (SingleBinary mode)
+deploymentMode: SingleBinary
+
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: s3
+        schema: v13
+        index:
+          prefix: loki_index_
+          period: 24h
+  storage:
+    type: s3
+    s3:
+      endpoint: https://minio.support.example.com
+      region: us-east-1
+      s3ForcePathStyle: true
+      insecure: false
+  limits_config:
+    retention_period: 168h
+    ingestion_rate_mb: 10
+    ingestion_burst_size_mb: 20
+    max_query_series: 5000
+  storage_config:
+    tsdb_shipper:
+      active_index_directory: /var/loki/tsdb-index
+      cache_location: /var/loki/tsdb-cache
+
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 512Mi
+    limits:
+      memory: 1536Mi
+  persistence:
+    enabled: true
+    size: 10Gi
+  extraEnv:
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: loki-minio-secret
+          key: access-key
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: loki-minio-secret
+          key: secret-key
+
+backend:
+  replicas: 0
+read:
+  replicas: 0
+write:
+  replicas: 0
+
+gateway:
+  enabled: false
+
+monitoring:
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+  lokiCanary:
+    enabled: false
+
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+
+test:
+  enabled: false

@@ -1,0 +1,21 @@
+# OPA Gatekeeper — policy enforcement
+replicas: 1
+
+audit:
+  replicas: 1
+  auditInterval: 60
+  logLevel: INFO
+
+enableMutation: true
+
+exemptNamespaces:
+  - kube-system
+  - gatekeeper-system
+  - spire-system
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 256Mi

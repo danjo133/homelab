@@ -6,7 +6,7 @@
 
 let
   gitlabDir = "/var/lib/gitlab";
-  gitlabImage = "gitlab/gitlab-ce:17.8.1-ce.0";
+  gitlabImage = "gitlab/gitlab-ce:18.8.4-ce.0";
   vaultAddr = "http://127.0.0.1:8200";
   keysFile = "/var/lib/openbao/init-keys.json";
   setupMarker = "${gitlabDir}/.setup-complete";
@@ -271,8 +271,8 @@ in
   systemd.services.gitlab-setup = {
     description = "GitLab CE Auto-Setup (Docker Compose)";
     requires = [ "docker.service" "minio.service" ];
-    after = [ "docker.service" "network-online.target" "minio.service" "keycloak-auto-setup.service" ];
-    wants = [ "keycloak-auto-setup.service" ];
+    after = [ "docker.service" "network-online.target" "minio.service" "keycloak-oidc-secrets.service" ];
+    wants = [ "keycloak-oidc-secrets.service" ];
     wantedBy = [ "multi-user.target" ];
 
     serviceConfig = {

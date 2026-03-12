@@ -1,0 +1,5 @@
+# Longhorn — kss cluster overrides
+ingress:
+  host: longhorn.simple-k8s.example.com
+  tls: true
+  tlsSecret: wildcard-simple-k8s.example.com-tls

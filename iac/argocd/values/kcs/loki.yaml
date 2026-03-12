@@ -1,0 +1,9 @@
+# Loki — kcs cluster overrides
+loki:
+  storage:
+    s3:
+      bucketnames: loki-kcs
+    bucketNames:
+      chunks: loki-kcs
+      ruler: loki-kcs
+      admin: loki-kcs
