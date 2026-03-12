@@ -66,6 +66,19 @@ resource "vault_kv_secret_v2" "keycloak_db_credentials" {
   lifecycle { ignore_changes = [data_json] }
 }
 
+resource "vault_kv_secret_v2" "open_webui_db" {
+  mount = vault_mount.kv.path
+  name  = "open-webui/db-credentials"
+
+  data_json = jsonencode({
+    username          = "open-webui"
+    password          = "placeholder"
+    "postgres-password" = "placeholder"
+  })
+
+  lifecycle { ignore_changes = [data_json] }
+}
+
 # --- Infrastructure secrets ---
 
 resource "vault_kv_secret_v2" "cloudflare" {
@@ -108,7 +121,7 @@ resource "vault_kv_secret_v2" "harbor_cluster_pull" {
   name  = "harbor/${var.cluster_name}-pull"
 
   data_json = jsonencode({
-    username = "robot$${var.cluster_name}+pull"
+    username = "robot_$${var.cluster_name}+pull"
     password = "placeholder"
     url      = "https://harbor.support.example.com"
   })

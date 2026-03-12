@@ -82,9 +82,17 @@ if [[ -n "$UPSTREAM_PASS" ]]; then
     -d "grant_type=password" | jq -r '.access_token') || true
 
   if [[ -n "$UPSTREAM_TOKEN" && "$UPSTREAM_TOKEN" != "null" ]]; then
-    BROKER_SECRET=$(curl -sf "${UPSTREAM_URL}/admin/realms/upstream/clients" \
+    # Get client UUID first, then use the dedicated client-secret endpoint
+    # (the client list response may not include secrets in all Keycloak versions)
+    BROKER_UUID=$(curl -sf "${UPSTREAM_URL}/admin/realms/upstream/clients?clientId=broker-client" \
       -H "Authorization: Bearer ${UPSTREAM_TOKEN}" \
-      | jq -r '.[] | select(.clientId == "broker-client") | .secret // empty') || true
+      | jq -r '.[0].id // empty') || true
+
+    if [[ -n "$BROKER_UUID" ]]; then
+      BROKER_SECRET=$(curl -sf "${UPSTREAM_URL}/admin/realms/upstream/clients/${BROKER_UUID}/client-secret" \
+        -H "Authorization: Bearer ${UPSTREAM_TOKEN}" \
+        | jq -r '.value // empty') || true
+    fi
 
     if [[ -n "$BROKER_SECRET" ]]; then
       info "Writing keycloak/broker-client..."
@@ -92,6 +100,8 @@ if [[ -n "$UPSTREAM_PASS" ]]; then
       success "keycloak/broker-client written"
     else
       warn "Could not read broker-client secret from upstream Keycloak"
+      warn "The client list API may not expose secrets. Read it from the base tofu state:"
+      warn "  tofu -chdir=tofu/environments/base output -raw broker_client_secret"
     fi
   else
     warn "Could not authenticate to upstream Keycloak — set TF_VAR_keycloak_admin_password"

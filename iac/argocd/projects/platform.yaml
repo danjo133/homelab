@@ -16,6 +16,7 @@ spec:
     - https://aquasecurity.github.io/helm-charts
     - https://cloudnative-pg.github.io/charts
     - https://openziti.io/helm-charts
+    - https://charts.releases.teleport.dev
   destinations:
     - server: https://kubernetes.default.svc
       namespace: argocd
@@ -35,6 +36,8 @@ spec:
       namespace: cnpg-system
     - server: https://kubernetes.default.svc
       namespace: ziti-system
+    - server: https://kubernetes.default.svc
+      namespace: teleport
     - server: https://kubernetes.default.svc
       namespace: kube-system
   clusterResourceWhitelist:

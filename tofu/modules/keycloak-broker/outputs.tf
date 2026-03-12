@@ -38,3 +38,9 @@ output "headlamp_client_secret" {
   value       = keycloak_openid_client.headlamp.client_secret
   sensitive   = true
 }
+
+output "open_webui_client_secret" {
+  description = "Secret of the open-webui client"
+  value       = keycloak_openid_client.open_webui.client_secret
+  sensitive   = true
+}

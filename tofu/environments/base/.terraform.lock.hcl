@@ -45,6 +45,23 @@ provider "registry.opentofu.org/gitlabhq/gitlab" {
   ]
 }
 
+provider "registry.opentofu.org/hashicorp/random" {
+  version     = "3.8.1"
+  constraints = "~> 3.6"
+  hashes = [
+    "h1:EHn3jsqOKhWjbg0X+psk0Ww96yz3N7ASqEKKuFvDFwo=",
+    "zh:25c458c7c676f15705e872202dad7dcd0982e4a48e7ea1800afa5fc64e77f4c8",
+    "zh:2edeaf6f1b20435b2f81855ad98a2e70956d473be9e52a5fdf57ccd0098ba476",
+    "zh:44becb9d5f75d55e36dfed0c5beabaf4c92e0a2bc61a3814d698271c646d48e7",
+    "zh:7699032612c3b16cc69928add8973de47b10ce81b1141f30644a0e8a895b5cd3",
+    "zh:86d07aa98d17703de9fbf402c89590dc1e01dbe5671dd6bc5e487eb8fe87eee0",
+    "zh:8c411c77b8390a49a8a1bc9f176529e6b32369dd33a723606c8533e5ca4d68c1",
+    "zh:a5ecc8255a612652a56b28149994985e2c4dc046e5d34d416d47fa7767f5c28f",
+    "zh:aea3fe1a5669b932eda9c5c72e5f327db8da707fe514aaca0d0ef60cb24892f9",
+    "zh:f56e26e6977f755d7ae56fa6320af96ecf4bb09580d47cb481efbf27f1c5afff",
+  ]
+}
+
 provider "registry.opentofu.org/hashicorp/tls" {
   version     = "4.2.1"
   constraints = "~> 4.0"
@@ -104,30 +121,6 @@ provider "registry.opentofu.org/keycloak/keycloak" {
   ]
 }
 
-provider "registry.opentofu.org/mrparkers/keycloak" {
-  version = "5.7.0"
-  hashes = [
-    "h1:VSlrHkPQm4mczl+5ttuj6jAh2eVvupaoeymEn9Qi5vo=",
-    "zh:19be4505b17e4818db121a82917cb6723019cf379cfb82b720eaa2886f15bede",
-    "zh:2bd1565ed22db6a9fb50d60626e22c277f3b034a71f65e6c0011e42f56cad2bb",
-    "zh:34a9e2dfb06331dc6146491c4a0721001195c6a769cdc2d4546edb2acf2b39bd",
-    "zh:3f86bf9eac6d73eeaa926471826b6888da77950f68e6a3a95dc2d9201a4a88fa",
-    "zh:4b9053fde2c8dee6469c8b273bf5491a27228a1df28e30b86714118f0f876baf",
-    "zh:522aa6bcecc6b8d517415237f4ec079488ef7de0e980a634bf6a8b481c13effc",
-    "zh:52f85208815ca65b8d3cd5465b28005ba63f854122bc61fbf04925c986d48e78",
-    "zh:636555042a6051d2e1113e5f945edb9f432e2d09b81cf6e50a59a534819d98dd",
-    "zh:73a1fecfb3d9666bf87c2eb7d001281b8cfcd7132573b8c3d4febc2db55f0a2f",
-    "zh:76fa26d055ceeb0869a50e4b63871f4b07f55045af6b46b83686016531e9fb22",
-    "zh:8df147e619d7ac3d3f9840ba0d1895d34bde179e818863e2e7b52e2c05c12f58",
-    "zh:9c830253990e13ec284d0d312fea562938e4a8fc664dacb3af5f1eb16dcae1ae",
-    "zh:abd0bd630b362cd6f77fbb33625bc6f515782eb58cb096b4ce69dea252254aef",
-    "zh:d1474a67ffc3288b2d0c99f6e8edc937ac8ef54afed0306e3c6f033aa836a5f6",
-    "zh:ed19408f15667bfb572120858bdde929a20ce2d1f29468973905980c03299767",
-    "zh:ef8bc311f7d1ad821b65ba43af92e2ce835e739d391098b13e01a61747b5c648",
-    "zh:f57319d9a7ac387d5070c909fd0084ccfc296f1f3193efde995ae24aa1729a39",
-  ]
-}
-
 provider "registry.opentofu.org/netfoundry/ziti" {
   version     = "1.0.4"
   constraints = "~> 1.0"
@@ -148,5 +141,18 @@ provider "registry.opentofu.org/netfoundry/ziti" {
     "zh:cb7d341d2ce7755ca703487799a711a07ad74229fb467beb042f00ca56127bfe",
     "zh:e6aaf7b5527499335bfe0f7262ec412e80f44969d35d9aca6f2f15d8cf96abe2",
     "zh:fc2760502778f7dc98d749049f0de3fa9ddc2e8d9ab575a3e744e9439d20359b",
+  ]
+}
+
+provider "terraform.releases.teleport.dev/gravitational/teleport" {
+  version     = "18.7.1"
+  constraints = "~> 18.0"
+  hashes = [
+    "h1:C+8ZuH2ZcmubM4RVmjVTbxfDQauKgVreLOciZqZoNE4=",
+    "zh:0d72b759af28153fb3b5048c9355aa1f54031343674054229f8cc6d308da798b",
+    "zh:0e9c894f02b5f389c1d6e0b91f40732b10f30f35aafaadd4d580fc8a8009cf83",
+    "zh:4b96698046931eb1f1b6ce9a98030888a992683d24d7e394d66272cbe0d0c9b1",
+    "zh:706fae1abcdd1db3e16d5ab2b17e805e1e5bd18988be27cbdbe488510579990b",
+    "zh:e37ca1e5d6127a79a42c1968efda0968143c08526dca514e26a517017879f875",
   ]
 }

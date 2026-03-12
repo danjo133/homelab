@@ -21,6 +21,7 @@ resources:
   - kiali.yaml
   # kcs-specific kustomize apps
   - cilium-config.yaml
+  - tetragon-policies.yaml
   - gateway-config.yaml
   - cluster-secrets.yaml
   - cluster-certs.yaml
@@ -36,6 +37,7 @@ resources:
   - architecture.yaml
   - kiali-config.yaml
   - ziti-router-config.yaml
+  - teleport-kube-agent-config.yaml
   # Apps auto-discovery
   - apps-discovery.yaml
   - appset-own-chart.yaml
@@ -106,3 +108,17 @@ patches:
       - op: replace
         path: /spec/sources/1/helm/valueFiles/1
         value: $values/iac/argocd/values/kcs/ziti-router.yaml
+  - target:
+      kind: Application
+      name: teleport-kube-agent
+    patch: |
+      - op: replace
+        path: /spec/sources/1/helm/valueFiles/1
+        value: $values/iac/argocd/values/kcs/teleport-kube-agent.yaml
+  - target:
+      kind: Application
+      name: open-webui
+    patch: |
+      - op: replace
+        path: /spec/sources/1/helm/valueFiles/1
+        value: $values/iac/argocd/values/kcs/open-webui.yaml

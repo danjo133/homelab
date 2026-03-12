@@ -16,7 +16,7 @@ views {
       admin -> gitopsFlow.*,
       gitopsFlow.* -> gitopsFlow.*,
       gitopsFlow.* -> homelab.*,
-      gitopsFlow.appSets -> homelab.supportVM.harbor
+      gitopsFlow.gitlabCi -> homelab.supportVM.harbor
   }
 
   view gitopsDeployFlow {
@@ -31,14 +31,17 @@ views {
       homelab.kss.imageUpdater,
       gitopsFlow.rootApp,
       gitopsFlow.appOfApps,
-      gitopsFlow.appSets
+      gitopsFlow.appSets,
+      gitopsFlow.gitlabCi
 
     include
       admin -> homelab.supportVM.gitlab,
-      homelab.supportVM.gitlab -> homelab.kss.argocd,
+      homelab.kss.argocd -> homelab.supportVM.gitlab,
       homelab.kss.argocd -> gitopsFlow.rootApp,
       gitopsFlow.rootApp -> gitopsFlow.appOfApps,
       gitopsFlow.appSets -> homelab.supportVM.gitlab,
-      homelab.kss.imageUpdater -> homelab.supportVM.harbor
+      homelab.kss.imageUpdater -> homelab.supportVM.harbor,
+      gitopsFlow.gitlabCi -> gitopsFlow.gitlabRepo,
+      gitopsFlow.gitlabCi -> homelab.supportVM.harbor
   }
 }

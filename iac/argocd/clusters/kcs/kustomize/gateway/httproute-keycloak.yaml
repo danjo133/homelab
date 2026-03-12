@@ -4,6 +4,12 @@ kind: HTTPRoute
 metadata:
   name: keycloak
   namespace: keycloak
+  annotations:
+    portal.example.com/name: "Keycloak"
+    portal.example.com/description: "Identity provider and SSO broker"
+    portal.example.com/icon: "\U0001F510"
+    portal.example.com/category: "Identity"
+    portal.example.com/order: "10"
 spec:
   parentRefs:
     - name: main-gateway

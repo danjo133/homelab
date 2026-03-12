@@ -138,6 +138,10 @@ secret_key: $SECRET_KEY
 
 external_url: https://harbor.support.example.com
 
+# Use underscore prefix for robot accounts to avoid $ escaping issues
+# across shells, CI variables, Go templates, and container tooling
+robot_name_prefix: robot_
+
 metric:
   enabled: true
   port: 9090
@@ -293,7 +297,7 @@ MINIOEOF
     HARBOR_API="$HARBOR_URL/api/v2.0"
     HARBOR_ADMIN_PASSWORD=$(cat /etc/harbor/admin_password)
     AUTH="admin:$HARBOR_ADMIN_PASSWORD"
-    MARKER="${harborDir}/.apps-project-complete"
+    MARKER="${harborDir}/.apps-project-v2"
     VAULT_ADDR="http://127.0.0.1:8200"
     KEYS_FILE="/var/lib/openbao/init-keys.json"
 
@@ -314,6 +318,24 @@ MINIOEOF
         exit 1
       fi
       sleep 2
+    done
+
+    # --- Set robot name prefix to avoid $ escaping issues ---
+    echo "==> Setting robot name prefix to robot_..."
+    curl -sf -X PUT "$HARBOR_API/configurations" -u "$AUTH" \
+      -H 'Content-Type: application/json' \
+      -d '{"robot_name_prefix": "robot_"}' \
+      || echo "  WARNING: Could not set robot_name_prefix (may already be set)"
+
+    # --- Clean up old robot$ prefix accounts if they exist ---
+    echo "==> Cleaning up old robot accounts with \$ prefix..."
+    for old_suffix in push pull; do
+      old_id=$(curl -sf "$HARBOR_API/projects/apps/robots" -u "$AUTH" \
+        | jq -r ".[] | select(.name == \"robot\$apps+$old_suffix\") | .id // empty")
+      if [ -n "$old_id" ]; then
+        echo "  Deleting old robot\$apps+$old_suffix (id=$old_id)"
+        curl -sf -X DELETE "$HARBOR_API/robots/$old_id" -u "$AUTH" || true
+      fi
     done
 
     # --- gcr.io proxy cache ---
@@ -379,13 +401,13 @@ MINIOEOF
       # Delete existing robot if present (project-level robots endpoint)
       local existing_id
       existing_id=$(curl -sf "$HARBOR_API/projects/apps/robots" -u "$AUTH" \
-        | jq -r ".[] | select(.name == \"robot\$apps+$robot_name\") | .id")
+        | jq -r ".[] | select(.name == \"robot_apps+$robot_name\") | .id")
       if [ -n "$existing_id" ] && [ "$existing_id" != "null" ]; then
-        echo "  Deleting existing robot 'robot\$apps+$robot_name' (id=$existing_id) for re-creation..." >&2
+        echo "  Deleting existing robot 'robot_apps+$robot_name' (id=$existing_id) for re-creation..." >&2
         curl -sf -X DELETE "$HARBOR_API/robots/$existing_id" -u "$AUTH" || true
       fi
 
-      echo "  Creating robot account 'robot\$apps+$robot_name'..." >&2
+      echo "  Creating robot account 'robot_apps+$robot_name'..." >&2
       local RESULT
       RESULT=$(curl -sf -X POST "$HARBOR_API/robots" -u "$AUTH" \
         -H 'Content-Type: application/json' \

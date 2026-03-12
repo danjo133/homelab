@@ -27,6 +27,7 @@ resources:
   - architecture.yaml
   - headlamp-config.yaml
   - ziti-router-config.yaml
+  - teleport-kube-agent-config.yaml
   # Apps auto-discovery
   - apps-discovery.yaml
   - appset-own-chart.yaml
@@ -97,3 +98,17 @@ patches:
       - op: replace
         path: /spec/sources/1/helm/valueFiles/1
         value: $values/iac/argocd/values/kss/ziti-router.yaml
+  - target:
+      kind: Application
+      name: teleport-kube-agent
+    patch: |
+      - op: replace
+        path: /spec/sources/1/helm/valueFiles/1
+        value: $values/iac/argocd/values/kss/teleport-kube-agent.yaml
+  - target:
+      kind: Application
+      name: open-webui
+    patch: |
+      - op: replace
+        path: /spec/sources/1/helm/valueFiles/1
+        value: $values/iac/argocd/values/kss/open-webui.yaml

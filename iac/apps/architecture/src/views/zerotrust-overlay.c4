@@ -2,7 +2,7 @@ views {
 
   view zitiOverview of zitiOverlay {
     title 'OpenZiti Zero-Trust Overlay'
-    description 'Controller, routers, overlay services, and client enrollment'
+    description 'Controller, routers, tiered overlay services, and client enrollment'
 
     include
       zitiOverlay,
@@ -14,27 +14,41 @@ views {
 
   view zitiTrafficFlow {
     title 'OpenZiti - Traffic Flow'
-    description 'How client device traffic reaches cluster services through the overlay'
+    description 'How client device traffic reaches cluster services through tiered access'
 
     include
       zitiOverlay.laptop,
+      zitiOverlay.phone,
+      zitiOverlay.tablet,
       zitiOverlay.controller,
       zitiOverlay.supportRouter,
       zitiOverlay.kssRouter,
       zitiOverlay.kcsRouter,
-      zitiOverlay.supportWeb,
-      zitiOverlay.kssIngress,
-      zitiOverlay.kcsIngress,
+      zitiOverlay.supportAdmin,
+      zitiOverlay.supportAuth,
+      zitiOverlay.kssAdmin,
+      zitiOverlay.kssGeneral,
+      zitiOverlay.kssPublic,
+      zitiOverlay.kcsAdmin,
+      zitiOverlay.kcsGeneral,
+      zitiOverlay.kcsPublic,
       homelab.supportVM.nginx,
       homelab.kss.nginxIngress,
       homelab.kcs.gateway
 
     include
       zitiOverlay.laptop -> zitiOverlay.*,
+      zitiOverlay.phone -> zitiOverlay.*,
+      zitiOverlay.tablet -> zitiOverlay.*,
       zitiOverlay.controller -> zitiOverlay.*,
       zitiOverlay.* -> zitiOverlay.*,
-      zitiOverlay.supportWeb -> homelab.supportVM.nginx,
-      zitiOverlay.kssIngress -> homelab.kss.nginxIngress,
-      zitiOverlay.kcsIngress -> homelab.kcs.gateway
+      zitiOverlay.supportAdmin -> homelab.supportVM.nginx,
+      zitiOverlay.supportAuth -> homelab.supportVM.nginx,
+      zitiOverlay.kssAdmin -> homelab.kss.nginxIngress,
+      zitiOverlay.kssGeneral -> homelab.kss.nginxIngress,
+      zitiOverlay.kssPublic -> homelab.kss.nginxIngress,
+      zitiOverlay.kcsAdmin -> homelab.kcs.gateway,
+      zitiOverlay.kcsGeneral -> homelab.kcs.gateway,
+      zitiOverlay.kcsPublic -> homelab.kcs.gateway
   }
 }

@@ -23,6 +23,7 @@ views {
       homelab.kss.grafana,
       homelab.kss.loki,
       homelab.kss.alloy,
+      homelab.kss.beyla,
       homelab.kss.trivy,
       homelab.kss.headlamp,
       homelab.kss.portal,

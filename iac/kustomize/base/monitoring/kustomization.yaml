@@ -15,4 +15,5 @@ resources:
   - grafana-dashboard-loki.yaml
   - grafana-dashboard-gatekeeper.yaml
   - grafana-dashboard-beyla.yaml
+  - grafana-dashboard-tetragon.yaml
   - gatekeeper-metrics.yaml

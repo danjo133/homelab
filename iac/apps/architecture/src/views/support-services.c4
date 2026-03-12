@@ -32,6 +32,7 @@ views {
     include
       homelab.kss -> homelab.supportVM.*,
       homelab.kcs -> homelab.supportVM.*,
-      github -> homelab.supportVM.*
+      github -> homelab.supportVM,
+      homelab.supportVM.* -> homelab.supportVM.*
   }
 }

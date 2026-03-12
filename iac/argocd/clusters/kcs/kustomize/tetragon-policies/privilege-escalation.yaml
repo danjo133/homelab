@@ -1,0 +1,27 @@
+# Detect privilege escalation attempts in containers (observe-only)
+# Monitors execution of su, sudo, passwd binaries
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: privilege-escalation
+spec:
+  kprobes:
+    - call: "security_bprm_check"
+      syscall: false
+      args:
+        - index: 0
+          type: "linux_binprm"
+      selectors:
+        - matchBinaries:
+            - operator: "In"
+              values:
+                - "/bin/su"
+                - "/usr/bin/su"
+                - "/usr/bin/sudo"
+                - "/usr/bin/passwd"
+                - "/usr/bin/newgrp"
+          matchNamespaces:
+            - namespace: Pid
+              operator: NotIn
+              values:
+                - "host_ns"

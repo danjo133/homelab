@@ -32,6 +32,12 @@ model {
       description 'One-time: deploys Cilium CNI (kcs) + ArgoCD. Only components not managed by ArgoCD'
       technology 'Helmfile'
     }
+
+    gitlabCi = service 'GitLab CI/CD' {
+      #gitops
+      description 'Builds container images on push, runs tests, pushes to Harbor'
+      technology 'GitLab Runner, Docker'
+    }
   }
 
   // GitOps flow
@@ -42,6 +48,9 @@ model {
   gitopsFlow.appOfApps -> homelab.kcs 'deploys all Applications via sync waves'
   gitopsFlow.appSets -> gitopsFlow.gitlabRepo 'discovers repos in apps/* group'
   gitopsFlow.appSets -> homelab.supportVM.harbor 'image updater polls for new tags'
+
+  gitopsFlow.gitlabCi -> gitopsFlow.gitlabRepo 'triggered by push'
+  gitopsFlow.gitlabCi -> homelab.supportVM.harbor 'pushes container images'
 
   gitopsFlow.helmfileBootstrap -> homelab.kss 'one-time: ArgoCD'
   gitopsFlow.helmfileBootstrap -> homelab.kcs 'one-time: Cilium + ArgoCD'

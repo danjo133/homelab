@@ -73,6 +73,8 @@ model {
   homelab.kss -> letsencrypt 'cert-manager ACME via Cloudflare DNS-01'
   homelab.kcs -> letsencrypt 'cert-manager ACME via Cloudflare DNS-01'
 
+  github -> homelab.supportVM 'upstream repos mirrored to GitLab'
+
   homelab.unifi -> homelab.supportVM 'DHCP static lease, DNS'
   homelab.unifi -> homelab.kss 'DHCP static lease, DNS'
   homelab.unifi -> homelab.kcs 'DHCP static lease, DNS'

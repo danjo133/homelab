@@ -158,7 +158,7 @@ else
   import_resource "module.harbor_cluster.harbor_project.cluster" "/projects/${PROJECT_ID}"
 
   # Get robot account ID
-  ROBOT_FULL_NAME="robot\$${KSS_CLUSTER}+pull"
+  ROBOT_FULL_NAME="robot_${KSS_CLUSTER}+pull"
   ROBOT_ID=$(curl -sf "${HARBOR_URL}/api/v2.0/projects/${KSS_CLUSTER}/robots" -u "${HARBOR_USER}:${HARBOR_PASS}" \
     | jq -r ".[] | select(.name == \"${ROBOT_FULL_NAME}\") | .id")
 

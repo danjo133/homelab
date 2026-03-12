@@ -54,8 +54,12 @@
   # Minimal boot timeout
   boot.loader.timeout = lib.mkDefault 1;
 
-  # Time synchronization
-  services.timesyncd.enable = true;
+  # Timezone + NTP
+  time.timeZone = "Europe/Stockholm";
+  services.timesyncd = {
+    enable = true;
+    servers = [ "ntp.se" "time.cloudflare.com" ];
+  };
 
   # System state version - can be overridden per-VM if needed
   system.stateVersion = lib.mkDefault "25.11";

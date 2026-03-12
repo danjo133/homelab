@@ -219,7 +219,7 @@ resource "keycloak_custom_identity_provider_mapper" "google_to_app_users" {
   realm                    = keycloak_realm.broker.id
   name                     = "google-to-app-users"
   identity_provider_alias  = keycloak_oidc_identity_provider.google.alias
-  identity_provider_mapper = "hardcoded-group-idp-mapper"
+  identity_provider_mapper = "oidc-hardcoded-group-idp-mapper"
 
   extra_config = {
     syncMode = "INHERIT"
@@ -231,7 +231,7 @@ resource "keycloak_custom_identity_provider_mapper" "github_to_app_users" {
   realm                    = keycloak_realm.broker.id
   name                     = "github-to-app-users"
   identity_provider_alias  = keycloak_oidc_identity_provider.github.alias
-  identity_provider_mapper = "hardcoded-group-idp-mapper"
+  identity_provider_mapper = "oidc-hardcoded-group-idp-mapper"
 
   extra_config = {
     syncMode = "INHERIT"
@@ -243,7 +243,7 @@ resource "keycloak_custom_identity_provider_mapper" "microsoft_to_app_users" {
   realm                    = keycloak_realm.broker.id
   name                     = "microsoft-to-app-users"
   identity_provider_alias  = keycloak_oidc_identity_provider.microsoft.alias
-  identity_provider_mapper = "hardcoded-group-idp-mapper"
+  identity_provider_mapper = "oidc-hardcoded-group-idp-mapper"
 
   extra_config = {
     syncMode = "INHERIT"

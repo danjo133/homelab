@@ -88,6 +88,20 @@
     { domain = "*"; type = "hard"; item = "memlock"; value = "unlimited"; }
   ];
 
+  # Fix transient hostname — NixOS base box has hostname "nixos" which
+  # persists as the transient hostname after nixos-rebuild switch.
+  # Tools like Beyla use gethostname() for K8s node lookups and fail
+  # when the transient hostname doesn't match any K8s node name.
+  # Note: hostnamectl is blocked on NixOS, so use hostname(1) directly.
+  systemd.services.fix-transient-hostname = {
+    description = "Sync transient hostname with static hostname";
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.inetutils}/bin/hostname ${config.networking.hostName}";
+    };
+  };
+
   # Enable time sync
   services.timesyncd.enable = true;
 

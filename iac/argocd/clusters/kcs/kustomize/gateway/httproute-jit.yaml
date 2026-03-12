@@ -4,6 +4,12 @@ kind: HTTPRoute
 metadata:
   name: jit-elevation
   namespace: identity
+  annotations:
+    portal.example.com/name: "JIT Elevation"
+    portal.example.com/description: "Temporary privilege escalation requests"
+    portal.example.com/icon: "\U0001F6E1\uFE0F"
+    portal.example.com/category: "Identity"
+    portal.example.com/order: "30"
 spec:
   parentRefs:
     - name: main-gateway

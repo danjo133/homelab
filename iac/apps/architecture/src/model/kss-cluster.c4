@@ -118,6 +118,12 @@ model {
       technology 'Grafana Alloy'
     }
 
+    beyla = service 'Beyla' {
+      #monitoring
+      description 'eBPF auto-instrumentation: RED metrics for HTTP/gRPC without code changes'
+      technology 'Grafana Beyla'
+    }
+
     // Storage
     longhorn = operator 'Longhorn' {
       #storage
@@ -185,5 +191,6 @@ model {
     nginxIngress -> oauth2proxy 'auth_request subrequest'
     zitiRouterKss -> homelab.supportVM.zitiController 'fabric control plane'
     metallb -> nginxIngress 'assigns LoadBalancer IP'
+    beyla -> prometheus 'RED metrics (rate, errors, duration)'
   }
 }

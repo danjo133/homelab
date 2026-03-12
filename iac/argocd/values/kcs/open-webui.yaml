@@ -1,0 +1,6 @@
+ingress:
+  enabled: false  # Uses Istio Gateway API HTTPRoute
+
+sso:
+  oidc:
+    providerUrl: "https://auth.mesh-k8s.example.com/realms/broker/.well-known/openid-configuration"

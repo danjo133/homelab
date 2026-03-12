@@ -39,6 +39,7 @@ views {
       homelab.supportVM.keycloakUpstream,
       homelab.kcs.argocdKcs,
       homelab.kcs.grafanaKcs,
+      homelab.kcs.headlampKcs,
       homelab.kcs.cnpgKcs
 
     include

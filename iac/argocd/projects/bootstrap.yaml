@@ -59,6 +59,8 @@ spec:
     - server: https://kubernetes.default.svc
       namespace: ziti-system
     - server: https://kubernetes.default.svc
+      namespace: teleport
+    - server: https://kubernetes.default.svc
       namespace: kube-public
     # apps-discovery cross-namespace ExternalSecrets
     - server: https://kubernetes.default.svc

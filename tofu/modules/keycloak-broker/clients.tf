@@ -1,7 +1,7 @@
 # OIDC clients for the broker realm.
 #
-# 7 clients: kubernetes (public), oauth2-proxy, argocd, grafana,
-# jit-service, kiali, headlamp (all confidential).
+# 8 clients: kubernetes (public), oauth2-proxy, argocd, grafana,
+# jit-service, kiali, headlamp, open-webui (all confidential except kubernetes).
 #
 # Redirect URIs are derived from var.domain for per-cluster configuration.
 
@@ -81,7 +81,6 @@ resource "keycloak_openid_client" "oauth2_proxy" {
 
   valid_redirect_uris = [
     "https://oauth2-proxy.${var.domain}/oauth2/callback",
-    "https://*.${var.domain}/oauth2/callback",
   ]
   web_origins = ["+"]
 
@@ -283,6 +282,45 @@ resource "keycloak_openid_client" "headlamp" {
 resource "keycloak_openid_client_default_scopes" "headlamp" {
   realm_id  = keycloak_realm.broker.id
   client_id = keycloak_openid_client.headlamp.id
+
+  default_scopes = [
+    "acr",
+    "profile",
+    "email",
+    "roles",
+    keycloak_openid_client_scope.openid.name,
+    keycloak_openid_client_scope.groups.name,
+  ]
+}
+
+# ============================================================================
+# open-webui — confidential client for Open WebUI OIDC
+# ============================================================================
+
+resource "keycloak_openid_client" "open_webui" {
+  realm_id  = keycloak_realm.broker.id
+  client_id = "open-webui"
+  name      = "Open WebUI"
+  enabled   = true
+
+  access_type                  = "CONFIDENTIAL"
+  standard_flow_enabled        = true
+  direct_access_grants_enabled = false
+  service_accounts_enabled     = false
+
+  valid_redirect_uris = [
+    "https://chat.${var.domain}/oauth/oidc/callback",
+  ]
+  web_origins = [
+    "https://chat.${var.domain}",
+  ]
+
+  lifecycle { ignore_changes = [client_secret] }
+}
+
+resource "keycloak_openid_client_default_scopes" "open_webui" {
+  realm_id  = keycloak_realm.broker.id
+  client_id = keycloak_openid_client.open_webui.id
 
   default_scopes = [
     "acr",

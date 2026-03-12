@@ -49,9 +49,18 @@ spec:
             - ProcessExit
             - FileOpen
             - NetworkConnect
-        monitoring:
-          enabled: true
-          port: 2112
+          prometheus:
+            enabled: true
+            port: 2112
+            serviceMonitor:
+              enabled: true
+              scrapeInterval: 30s
+        tetragonOperator:
+          prometheus:
+            enabled: true
+            serviceMonitor:
+              enabled: true
+              scrapeInterval: 30s
         logLevel: info
         updateStrategy:
           type: RollingUpdate

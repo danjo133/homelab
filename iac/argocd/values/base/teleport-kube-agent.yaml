@@ -1,0 +1,23 @@
+# teleport-kube-agent — Teleport agent for K8s proxy + app access
+
+proxyAddr: "teleport.support.example.com:3080"
+roles: "kube,app"
+
+joinParams:
+  method: "token"
+  tokenName: ""  # Overridden per-cluster
+
+# Read token from K8s secret (populated by ExternalSecret from Vault)
+joinTokenSecret:
+  create: false
+  name: "teleport-join-token"
+
+labels:
+  env: homelab
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 256Mi

@@ -11,9 +11,20 @@ tolerations:
 resources:
   requests:
     cpu: 25m
-    memory: 64Mi
+    memory: 80Mi
   limits:
-    memory: 256Mi
+    memory: 1Gi
+
+# Override Instance ID hostname — uses K8s node name instead of pod name
+# Note: K8s node name lookup (fetchNodeName) uses os.Hostname() which is
+# fixed at the NixOS level via fix-transient-hostname systemd service
+envValueFrom:
+  BEYLA_HOSTNAME:
+    fieldRef:
+      fieldPath: spec.nodeName
+
+service:
+  enabled: true
 
 serviceMonitor:
   enabled: true
@@ -24,8 +35,8 @@ serviceMonitor:
 config:
   data:
     discovery:
-      services:
-        - k8s_namespace: .+
+      instrument:
+        - k8s_namespace: "*"
     routes:
       unmatched: heuristic
     prometheus_export:

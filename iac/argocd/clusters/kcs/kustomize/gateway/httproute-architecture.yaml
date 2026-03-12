@@ -4,6 +4,12 @@ kind: HTTPRoute
 metadata:
   name: architecture
   namespace: apps
+  annotations:
+    portal.example.com/name: "Architecture"
+    portal.example.com/description: "Infrastructure architecture diagrams"
+    portal.example.com/icon: "\U0001F3D7"
+    portal.example.com/category: "Platform"
+    portal.example.com/order: "5"
 spec:
   parentRefs:
     - name: main-gateway

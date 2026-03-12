@@ -4,6 +4,12 @@ kind: HTTPRoute
 metadata:
   name: hubble-ui
   namespace: kube-system
+  annotations:
+    portal.example.com/name: "Hubble"
+    portal.example.com/description: "Cilium network observability"
+    portal.example.com/icon: "\U0001F52D"
+    portal.example.com/category: "Monitoring"
+    portal.example.com/order: "20"
 spec:
   parentRefs:
     - name: main-gateway

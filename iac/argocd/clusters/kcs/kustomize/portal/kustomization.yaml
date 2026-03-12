@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - ../../../../../kustomize/base/portal
+  - support-services.yaml
 
 patches:
   - target:

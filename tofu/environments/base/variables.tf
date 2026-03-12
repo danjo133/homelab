@@ -98,6 +98,20 @@ variable "ziti_admin_password" {
   sensitive   = true
 }
 
+# --- Teleport ---
+
+variable "teleport_addr" {
+  description = "Teleport proxy address"
+  type        = string
+  default     = "teleport.support.example.com:3080"
+}
+
+variable "teleport_identity_file_path" {
+  description = "Path to Teleport identity file for terraform provider"
+  type        = string
+  sensitive   = true
+}
+
 # --- Module configuration ---
 
 variable "vault_namespaces" {

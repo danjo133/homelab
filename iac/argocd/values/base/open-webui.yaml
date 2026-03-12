@@ -1,0 +1,38 @@
+ollama:
+  enabled: false
+
+ollamaUrls: []
+
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 1Gi
+
+persistence:
+  enabled: true
+  size: 2Gi
+
+sso:
+  enabled: true
+  enableSignup: true
+  mergeAccountsByEmail: true
+  oidc:
+    clientId: "open-webui"
+    clientExistingSecret: "open-webui-oidc"
+    clientExistingSecretKey: "client-secret"
+    providerName: "Keycloak"
+    scopes: "openid email profile groups"
+    providerUrl: "PLACEHOLDER"  # Overridden per-cluster
+
+extraEnvVars:
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: open-webui-db-credentials
+        key: database-url
+  - name: ENABLE_LOGIN_FORM
+    value: "false"

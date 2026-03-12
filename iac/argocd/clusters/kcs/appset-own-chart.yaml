@@ -21,6 +21,9 @@ spec:
           - pathsExist:
               - chart/Chart.yaml
         cloneProtocol: ssh
+  ignoreApplicationDifferences:
+    - jsonPointers:
+        - /spec/source/helm/parameters
   template:
     metadata:
       name: "{{ .repository | normalize }}"
@@ -28,6 +31,7 @@ spec:
       annotations:
         argocd-image-updater.argoproj.io/image-list: "app=harbor.support.example.com/apps/{{ .repository | normalize }}"
         argocd-image-updater.argoproj.io/app.update-strategy: newest-build
+        argocd-image-updater.argoproj.io/app.allow-tags: "regexp:^[0-9a-f]{40}$"
         argocd-image-updater.argoproj.io/write-back-method: argocd
     spec:
       project: applications

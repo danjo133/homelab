@@ -1,5 +1,6 @@
-# AuthorizationPolicy for OAuth2-Proxy ext-authz on protected routes
-# Protects setup.mesh-k8s.example.com and hubble.mesh-k8s.example.com
+# AuthorizationPolicy for OAuth2-Proxy ext-authz
+# Protects ALL routes through the gateway by default.
+# Services with their own auth are excluded via notHosts.
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
@@ -16,8 +17,13 @@ spec:
   rules:
     - to:
         - operation:
-            hosts:
-              - setup.mesh-k8s.example.com
-              - hubble.mesh-k8s.example.com
-              - architecture.mesh-k8s.example.com
-              - portal.mesh-k8s.example.com
+            notHosts:
+              - argocd.mesh-k8s.example.com      # Own OIDC login
+              - auth.mesh-k8s.example.com         # Keycloak — is the IdP
+              - grafana.mesh-k8s.example.com      # Own OAuth login
+              - oauth2-proxy.mesh-k8s.example.com # Auth proxy itself
+              - k8s.mesh-k8s.example.com          # Headlamp — own OIDC login
+              - jit.mesh-k8s.example.com          # Token exchange API
+              - chat.mesh-k8s.example.com         # Open WebUI — own OIDC login
+            notPaths:
+              - /oauth2/*                     # Let passthrough route handle auth flow

@@ -23,6 +23,7 @@ views {
       homelab.* -> homelab.*,
       homelab.* -> cloudflare,
       homelab.* -> letsencrypt,
-      homelab.unifi -> homelab.*
+      homelab.unifi -> homelab.*,
+      github -> homelab.*
   }
 }

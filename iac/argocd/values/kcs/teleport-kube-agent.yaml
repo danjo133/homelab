@@ -1,0 +1,25 @@
+# kcs cluster teleport-kube-agent overrides
+
+kubeClusterName: "kcs"
+
+labels:
+  env: homelab
+  cluster: kcs
+
+apps:
+  - name: "grafana-kcs"
+    uri: "http://grafana.monitoring.svc.cluster.local:3000"
+    labels:
+      env: homelab
+      cluster: kcs
+  - name: "argocd-kcs"
+    uri: "https://argocd-server.argocd.svc.cluster.local:443"
+    insecure_skip_verify: true
+    labels:
+      env: homelab
+      cluster: kcs
+  - name: "headlamp-kcs"
+    uri: "http://headlamp.headlamp.svc.cluster.local:80"
+    labels:
+      env: homelab
+      cluster: kcs

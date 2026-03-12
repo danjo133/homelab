@@ -26,5 +26,13 @@ terraform {
       source  = "netfoundry/ziti"
       version = "~> 1.0"
     }
+    teleport = {
+      source  = "terraform.releases.teleport.dev/gravitational/teleport"
+      version = "~> 18.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 }

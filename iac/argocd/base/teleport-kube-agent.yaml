@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: teleport-kube-agent
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  sources:
+    - repoURL: https://github.com/example-user/homelab.git
+      targetRevision: main
+      ref: values
+    - repoURL: https://charts.releases.teleport.dev
+      chart: teleport-kube-agent
+      targetRevision: "18.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/teleport-kube-agent.yaml
+          - $values/iac/argocd/values/CLUSTER_NAME/teleport-kube-agent.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: teleport
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

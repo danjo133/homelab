@@ -19,6 +19,7 @@ resources:
   - spire.yaml
   - cnpg-operator.yaml
   - ziti-router.yaml
+  - teleport-kube-agent.yaml
   # Wave 1: Identity
   - keycloak-operator.yaml
   - oauth2-proxy.yaml
@@ -32,3 +33,5 @@ resources:
   - trivy.yaml
   # Wave 4: Applications
   - headlamp.yaml
+  - open-webui.yaml
+  - open-webui-config.yaml

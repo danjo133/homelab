@@ -137,6 +137,12 @@ model {
       technology 'Grafana Alloy'
     }
 
+    beylaKcs = service 'Beyla' {
+      #monitoring
+      description 'eBPF auto-instrumentation: RED metrics for HTTP/gRPC without code changes'
+      technology 'Grafana Beyla'
+    }
+
     // Storage & Security
     longhornKcs = operator 'Longhorn' {
       #storage
@@ -174,6 +180,16 @@ model {
       technology 'Python'
     }
 
+    portalKcs = app 'Portal' {
+      description 'Service discovery landing page via Gateway annotations'
+      technology 'Python'
+    }
+
+    architectureKcs = app 'Architecture' {
+      description 'Infrastructure architecture diagrams (this app)'
+      technology 'LikeC4, nginx'
+    }
+
     zitiRouterKcs = service 'OpenZiti Router' {
       #networking
       description 'Overlay router in ziti-system namespace'
@@ -203,5 +219,6 @@ model {
     zitiRouterKcs -> homelab.supportVM.zitiController 'fabric control plane'
     kiali -> istiod 'reads mesh config'
     kiali -> prometheusKcs 'reads metrics'
+    beylaKcs -> prometheusKcs 'RED metrics (rate, errors, duration)'
   }
 }

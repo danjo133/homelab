@@ -1,7 +1,8 @@
 # Teleport — unified access plane for SSH, K8s, web apps
 # Runs natively via NixOS services.teleport (auth + proxy + SSH)
 # Uses local auth (OIDC/SAML requires Teleport Enterprise)
-# Auto-creates admin user and stores join tokens in Vault
+# Auto-creates admin user on first boot
+# Join tokens managed by OpenTofu (tofu/modules/teleport-config)
 
 { config, pkgs, lib, ... }:
 
@@ -10,20 +11,16 @@ let
   acmeCertDir = "/var/lib/acme/support.example.com";
   certFile = "${acmeCertDir}/fullchain.pem";
   keyFile = "${acmeCertDir}/key.pem";
-  vaultAddr = "http://127.0.0.1:8200";
-  keysFile = "/var/lib/openbao/init-keys.json";
-  setupMarker = "${teleportDataDir}/.setup-complete-v2";
+  setupMarker = "${teleportDataDir}/.setup-complete-v3";
 
-  # Auto-setup: local admin user + join tokens in Vault
+  # Auto-setup: local admin user (join tokens managed by OpenTofu)
   teleportAutoSetup = pkgs.writeShellScript "teleport-auto-setup" ''
     set -eu
 
     export PATH="${lib.makeBinPath [
-      pkgs.teleport pkgs.curl pkgs.jq pkgs.coreutils pkgs.openssl pkgs.gnugrep
+      pkgs.teleport pkgs.coreutils pkgs.openssl pkgs.gnugrep
     ]}"
 
-    VAULT_ADDR="${vaultAddr}"
-    KEYS_FILE="${keysFile}"
     SETUP_MARKER="${setupMarker}"
     ADMIN_PASSWORD_FILE="/etc/teleport/admin_password"
 
@@ -48,7 +45,7 @@ let
     done
 
     # ========================================================================
-    # 1. Create local admin user
+    # Create local admin user
     # ========================================================================
     echo "Creating local admin user..."
 
@@ -67,37 +64,6 @@ let
       echo "    tctl users reset admin"
     else
       echo "  Admin user 'admin' already exists"
-    fi
-
-    # ========================================================================
-    # 2. Generate join token and store in Vault
-    # ========================================================================
-    echo "Generating join token for nodes/kube agents..."
-
-    JOIN_TOKEN=$(tctl tokens add --type=node,kube --ttl=8760h --format=json | jq -r '.token // .id')
-    if [ -z "$JOIN_TOKEN" ] || [ "$JOIN_TOKEN" = "null" ]; then
-      echo "WARNING: Failed to generate join token, skipping Vault storage"
-    else
-      echo "  Join token generated"
-
-      if [ -f "$KEYS_FILE" ]; then
-        ROOT_TOKEN=$(jq -r '.root_token' "$KEYS_FILE")
-
-        for VAULT_NS in kss kcs; do
-          curl -sf -X POST \
-            -H "X-Vault-Token: $ROOT_TOKEN" \
-            -H "X-Vault-Namespace: $VAULT_NS" \
-            -H "Content-Type: application/json" \
-            -d "$(jq -n \
-              --arg token "$JOIN_TOKEN" \
-              --arg proxy "teleport.support.example.com:3080" \
-              '{data: {"join-token": $token, "proxy-addr": $proxy}}')" \
-            "$VAULT_ADDR/v1/secret/data/teleport/agent"
-          echo "  Stored teleport/agent in $VAULT_NS"
-        done
-      else
-        echo "WARNING: Vault keys file not found, skipping Vault storage"
-      fi
     fi
 
     # Mark setup complete
@@ -161,12 +127,11 @@ in
     wants = [ "acme-support.example.com.service" ];
   };
 
-  # Auto-setup: local admin + Vault join tokens
+  # Auto-setup: local admin user
   systemd.services.teleport-auto-setup = {
-    description = "Teleport Auto-Setup (local admin, join tokens)";
-    after = [ "teleport.service" "openbao-auto-init.service" ];
+    description = "Teleport Auto-Setup (local admin)";
+    after = [ "teleport.service" ];
     requires = [ "teleport.service" ];
-    wants = [ "openbao-auto-init.service" ];
     wantedBy = [ "multi-user.target" ];
 
     serviceConfig = {

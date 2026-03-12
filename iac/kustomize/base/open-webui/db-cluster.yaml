@@ -1,0 +1,27 @@
+# CloudNativePG Cluster for Open WebUI
+# Credentials from open-webui-db-credentials ExternalSecret (Vault)
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: open-webui-db
+  namespace: open-webui
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
+
+  bootstrap:
+    initdb:
+      database: open-webui
+      owner: open-webui
+      secret:
+        name: open-webui-db-credentials
+
+  storage:
+    size: 2Gi
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi

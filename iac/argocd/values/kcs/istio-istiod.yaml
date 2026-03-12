@@ -32,6 +32,10 @@ meshConfig:
           - cookie
           - authorization
           - host
+          - x-forwarded-proto
+          - x-forwarded-host
+          - x-forwarded-uri
+          - x-auth-request-redirect
         headersToUpstreamOnAllow:
           - authorization
           - x-auth-request-user

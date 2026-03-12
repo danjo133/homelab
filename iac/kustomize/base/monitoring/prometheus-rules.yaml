@@ -90,3 +90,41 @@ spec:
           annotations:
             summary: "Target {{ $labels.job }}/{{ $labels.instance }} is down"
             description: "Prometheus target has been down for more than 5 minutes."
+
+    - name: tetragon-alerts
+      rules:
+        - alert: TetragonPrivilegeEscalation
+          expr: sum(rate(tetragon_policy_events_total{policy="privilege-escalation"}[5m])) > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Privilege escalation attempt detected"
+            description: "Tetragon detected execution of su/sudo/passwd in a container."
+
+        - alert: TetragonKernelModuleLoad
+          expr: sum(rate(tetragon_policy_events_total{policy="kernel-module-loading"}[5m])) > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Kernel module loading detected"
+            description: "Tetragon detected kernel module loading, which may indicate rootkit installation."
+
+        - alert: TetragonSensitiveFileAccessSpike
+          expr: sum(rate(tetragon_policy_events_total{policy="sensitive-file-access"}[5m])) > 0.5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Spike in sensitive file access events"
+            description: "Sustained rate of {{ $value | printf \"%.1f\" }}/sec sensitive file access events over 5 minutes."
+
+        - alert: TetragonNoPoliciesLoaded
+          expr: (count(tetragon_tracingpolicy_loaded{state="loaded"}) or vector(0)) == 0 and count(tetragon_build_info) > 0
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Tetragon has no loaded tracing policies"
+            description: "No tracing policies loaded for 10+ minutes. Runtime security monitoring is inactive."

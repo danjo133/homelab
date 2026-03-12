@@ -34,3 +34,9 @@ provider "ziti" {
   password = var.ziti_admin_password
   host     = var.ziti_api_url
 }
+
+# Teleport auth server
+provider "teleport" {
+  addr               = var.teleport_addr
+  identity_file_path = var.teleport_identity_file_path
+}

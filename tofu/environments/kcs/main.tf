@@ -117,3 +117,13 @@ resource "vault_kv_secret_v2" "keycloak_headlamp_client" {
     "client-secret" = module.keycloak_broker.headlamp_client_secret
   })
 }
+
+resource "vault_kv_secret_v2" "keycloak_open_webui_client" {
+  mount = module.vault_cluster.kv_mount_path
+  name  = "keycloak/open-webui-client"
+
+  data_json = jsonencode({
+    "client-id"     = "open-webui"
+    "client-secret" = module.keycloak_broker.open_webui_client_secret
+  })
+}

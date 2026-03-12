@@ -1,7 +1,7 @@
 model {
 
   zitiOverlay = system 'OpenZiti Overlay Network' {
-    description 'Zero-trust network overlay for accessing services without VPN'
+    description 'Zero-trust network overlay with tiered role-based access'
 
     controller = service 'Ziti Controller' {
       #networking
@@ -27,49 +27,106 @@ model {
       technology 'OpenZiti Router (Helm)'
     }
 
-    supportWeb = service 'support-web service' {
-      description 'Intercept: *.support.example.com:443 -> support router -> nginx'
+    // Support VM services (tiered)
+    supportAdmin = service 'support-admin' {
+      #security
+      description 'Admin-only: vault, harbor, minio, gitlab, zac'
     }
 
-    kssIngress = service 'kss-ingress service' {
-      description 'Intercept: *.simple-k8s.example.com:443 -> kss router -> nginx ingress LB'
+    supportAuth = service 'support-auth' {
+      description 'Admin + demo: keycloak, idp authentication'
     }
 
-    kcsIngress = service 'kcs-ingress service' {
-      description 'Intercept: *.mesh-k8s.example.com:443 -> kcs router -> Istio gateway LB'
+    // KSS cluster services (tiered)
+    kssAdmin = service 'kss-admin' {
+      #security
+      description 'Admin-only: argocd, headlamp, longhorn, spire-oidc'
     }
 
+    kssGeneral = service 'kss-general' {
+      description 'Admin + demo: grafana, jit, setup, architecture'
+    }
+
+    kssPublic = service 'kss-public' {
+      description 'All users: portal, auth, oauth2-proxy'
+    }
+
+    // KCS cluster services (tiered)
+    kcsAdmin = service 'kcs-admin' {
+      #security
+      description 'Admin-only: argocd, headlamp, longhorn, kiali, hubble'
+    }
+
+    kcsGeneral = service 'kcs-general' {
+      description 'Admin + demo: grafana, jit, setup, architecture'
+    }
+
+    kcsPublic = service 'kcs-public' {
+      description 'All users: portal, auth, oauth2-proxy'
+    }
+
+    // Client devices with role attributes
     laptop = device 'Laptop' {
-      description 'Ziti Desktop Edge tunneler. Enrolled via JWT from Vault'
+      description 'Ziti Desktop Edge. Role: admin — access to all services'
     }
 
     phone = device 'Phone' {
-      description 'Ziti Mobile Edge tunneler'
+      description 'Ziti Mobile Edge. Role: demo — auth + general + public'
     }
 
     tablet = device 'Tablet' {
-      description 'Ziti Mobile Edge tunneler'
+      description 'Ziti Mobile Edge. Role: user — public services only'
     }
   }
 
-  // Overlay relationships
+  // Controller -> router fabric control
   zitiOverlay.controller -> zitiOverlay.supportRouter 'fabric control'
   zitiOverlay.controller -> zitiOverlay.kssRouter 'fabric control'
   zitiOverlay.controller -> zitiOverlay.kcsRouter 'fabric control'
 
-  zitiOverlay.supportRouter -> zitiOverlay.supportWeb 'hosts service'
-  zitiOverlay.kssRouter -> zitiOverlay.kssIngress 'hosts service'
-  zitiOverlay.kcsRouter -> zitiOverlay.kcsIngress 'hosts service'
+  // Router -> service hosting (bind policies)
+  zitiOverlay.supportRouter -> zitiOverlay.supportAdmin 'hosts service'
+  zitiOverlay.supportRouter -> zitiOverlay.supportAuth 'hosts service'
+  zitiOverlay.kssRouter -> zitiOverlay.kssAdmin 'hosts service'
+  zitiOverlay.kssRouter -> zitiOverlay.kssGeneral 'hosts service'
+  zitiOverlay.kssRouter -> zitiOverlay.kssPublic 'hosts service'
+  zitiOverlay.kcsRouter -> zitiOverlay.kcsAdmin 'hosts service'
+  zitiOverlay.kcsRouter -> zitiOverlay.kcsGeneral 'hosts service'
+  zitiOverlay.kcsRouter -> zitiOverlay.kcsPublic 'hosts service'
 
-  zitiOverlay.supportWeb -> homelab.supportVM.nginx 'tunnels to 127.0.0.1:443'
-  zitiOverlay.kssIngress -> homelab.kss.nginxIngress 'tunnels to 10.69.50.192:443'
-  zitiOverlay.kcsIngress -> homelab.kcs.gateway 'tunnels to 10.69.50.209:443'
+  // Service -> target infrastructure (tunnels)
+  zitiOverlay.supportAdmin -> homelab.supportVM.nginx 'tunnels to 127.0.0.1:443'
+  zitiOverlay.supportAuth -> homelab.supportVM.nginx 'tunnels to 127.0.0.1:443'
+  zitiOverlay.kssAdmin -> homelab.kss.nginxIngress 'tunnels to 10.69.50.192:443'
+  zitiOverlay.kssGeneral -> homelab.kss.nginxIngress 'tunnels to 10.69.50.192:443'
+  zitiOverlay.kssPublic -> homelab.kss.nginxIngress 'tunnels to 10.69.50.192:443'
+  zitiOverlay.kcsAdmin -> homelab.kcs.gateway 'tunnels to 10.69.50.209:443'
+  zitiOverlay.kcsGeneral -> homelab.kcs.gateway 'tunnels to 10.69.50.209:443'
+  zitiOverlay.kcsPublic -> homelab.kcs.gateway 'tunnels to 10.69.50.209:443'
 
+  // Device enrollment
   zitiOverlay.laptop -> zitiOverlay.controller 'enrolled via JWT, dials services'
   zitiOverlay.phone -> zitiOverlay.controller 'enrolled via JWT, dials services'
   zitiOverlay.tablet -> zitiOverlay.controller 'enrolled via JWT, dials services'
 
-  zitiOverlay.laptop -> zitiOverlay.supportWeb 'dials'
-  zitiOverlay.laptop -> zitiOverlay.kssIngress 'dials'
-  zitiOverlay.laptop -> zitiOverlay.kcsIngress 'dials'
+  // Laptop (admin) -> all services
+  zitiOverlay.laptop -> zitiOverlay.supportAdmin 'dials'
+  zitiOverlay.laptop -> zitiOverlay.supportAuth 'dials'
+  zitiOverlay.laptop -> zitiOverlay.kssAdmin 'dials'
+  zitiOverlay.laptop -> zitiOverlay.kssGeneral 'dials'
+  zitiOverlay.laptop -> zitiOverlay.kssPublic 'dials'
+  zitiOverlay.laptop -> zitiOverlay.kcsAdmin 'dials'
+  zitiOverlay.laptop -> zitiOverlay.kcsGeneral 'dials'
+  zitiOverlay.laptop -> zitiOverlay.kcsPublic 'dials'
+
+  // Phone (demo) -> auth + general + public
+  zitiOverlay.phone -> zitiOverlay.supportAuth 'dials'
+  zitiOverlay.phone -> zitiOverlay.kssGeneral 'dials'
+  zitiOverlay.phone -> zitiOverlay.kssPublic 'dials'
+  zitiOverlay.phone -> zitiOverlay.kcsGeneral 'dials'
+  zitiOverlay.phone -> zitiOverlay.kcsPublic 'dials'
+
+  // Tablet (user) -> public only
+  zitiOverlay.tablet -> zitiOverlay.kssPublic 'dials'
+  zitiOverlay.tablet -> zitiOverlay.kcsPublic 'dials'
 }

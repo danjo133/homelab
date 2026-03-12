@@ -4,6 +4,12 @@ kind: HTTPRoute
 metadata:
   name: grafana
   namespace: monitoring
+  annotations:
+    portal.example.com/name: "Grafana"
+    portal.example.com/description: "Dashboards and observability"
+    portal.example.com/icon: "\U0001F4CA"
+    portal.example.com/category: "Monitoring"
+    portal.example.com/order: "10"
 spec:
   parentRefs:
     - name: main-gateway

@@ -6,10 +6,12 @@ resources:
   - reference-grant.yaml
   - http-redirect.yaml
   - ext-authz-policy.yaml
+  - envoyfilter-auth-redirect.yaml
   - httproute-argocd.yaml
   - httproute-keycloak.yaml
   - httproute-grafana.yaml
   - httproute-oauth2-proxy.yaml
+  - httproute-oauth2-proxy-passthrough.yaml
   - httproute-jit.yaml
   - httproute-setup.yaml
   - httproute-headlamp.yaml
@@ -17,3 +19,5 @@ resources:
   - httproute-kiali.yaml
   - httproute-architecture.yaml
   - httproute-portal.yaml
+  - httproute-longhorn.yaml
+  - httproute-open-webui.yaml
