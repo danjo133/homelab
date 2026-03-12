@@ -63,6 +63,16 @@ in
       sslCertificate = lib.mkForce null;
       sslCertificateKey = lib.mkForce null;
     };
+    "gitlab.support.example.com" = {
+      useACMEHost = domain;
+      sslCertificate = lib.mkForce null;
+      sslCertificateKey = lib.mkForce null;
+    };
+    "teleport.support.example.com" = {
+      useACMEHost = domain;
+      sslCertificate = lib.mkForce null;
+      sslCertificateKey = lib.mkForce null;
+    };
   };
 
   # Disable self-signed cert generation when using ACME

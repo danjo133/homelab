@@ -1,5 +1,6 @@
 # Next Steps
 
+## Notes!
 Everything must be IAC. It should be possible to follow the basic stages to create a new cluster from scratch, so dependencies and timings need to be correct.
 
 ## Identity
@@ -75,9 +76,9 @@ Everything must be IAC. It should be possible to follow the basic stages to crea
 ## Future / Experimentation
 
 - [ ] **Renovate** — evaluate operator vs GitLab job vs ArgoCD for dependency updates
-- [ ] **Teleport**
+- [x] **Teleport**
 - [ ] **OpenZITI**
-- [ ] **Lock down master** - Workloads should run on worker nodes, not on master
+- [x] **Lock down master** - Workloads should run on worker nodes, not on master
 - [ ] **Install Wazuh**
 - [ ] **Fix shared credentials where it matters**
 - [ ] **Fix spire** - iac/helmfile/values/spire.yaml.gotmpl — trustDomain: simple-k8s.example.com, clusterName: kss, and OIDC ingress hosts all hardcoded
@@ -90,7 +91,11 @@ Everything must be IAC. It should be possible to follow the basic stages to crea
 - [ ] **Cluster stability** - Check resource usage if there is anything that needs to be tweaked for cluster stability
 - [ ] **Ambient Mesh** - What workloads belong here?
 - [ ] **Best practices to get most of these into argocd** 
-
+- [ ] **Harbor pull should use least privilege robot account, not admin account**
+- [ ] **Configure teleport**
+- [ ] **Configure gitlab**
+- [ ] **Upgrade everything**
+- [ ] **Crossplane**
 
  For the user model you described:
   - alice (full admin): platform-admins, web-admins, k8s-admins

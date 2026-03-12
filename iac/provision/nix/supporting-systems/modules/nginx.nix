@@ -160,6 +160,35 @@ in
         '';
       };
     };
+
+    # Teleport — redirect to port 3080 (Teleport handles its own TLS)
+    virtualHosts."teleport.support.example.com" = {
+      forceSSL = true;
+      sslCertificate = lib.mkDefault certFile;
+      sslCertificateKey = lib.mkDefault keyFile;
+      locations."/".return = "301 https://teleport.support.example.com:3080$request_uri";
+    };
+
+    # GitLab CE
+    virtualHosts."gitlab.support.example.com" = {
+      forceSSL = true;
+      sslCertificate = lib.mkDefault certFile;
+      sslCertificateKey = lib.mkDefault keyFile;
+      locations."/" = {
+        proxyPass = "http://127.0.0.1:8929";
+        proxyWebsockets = true;
+        extraConfig = ''
+          # Large repo pushes
+          client_max_body_size 0;
+          proxy_request_buffering off;
+
+          # GitLab sends large OIDC headers
+          proxy_buffer_size 128k;
+          proxy_buffers 4 256k;
+          proxy_busy_buffers_size 256k;
+        '';
+      };
+    };
   };
 
   # Ensure certificate directory exists

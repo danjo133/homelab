@@ -17,6 +17,8 @@
     ./modules/nfs.nix
     ./modules/harbor.nix
     ./modules/keycloak.nix
+    ./modules/teleport.nix
+    ./modules/gitlab.nix
 
     # OPTIONAL: Uncomment for Let's Encrypt certificates
     # Requires: sops-nix setup with Cloudflare API token

@@ -9,7 +9,7 @@ Kubernetes homelab infrastructure-as-code: RKE2 clusters on NixOS VMs, managed b
 ## Current Status
 
 **Working:**
-- Support VM (Vault, Harbor, MinIO, NFS, Nginx) — fully operational
+- Support VM (Vault, Harbor, MinIO, NFS, Nginx, Teleport, GitLab) — fully operational
 - kss cluster (1 master + 3 workers, Canal CNI, MetalLB L2)
 - Keycloak broker with upstream IdP federation, ArgoCD OIDC, cert-manager, external-secrets
 - Monitoring (Prometheus, Grafana, Loki)
@@ -140,6 +140,8 @@ Code is edited on `workstation` (local workstation) via sshfs mount at `~/mnt/ho
 | Storage | Longhorn, MinIO, NFS |
 | Monitoring | Prometheus, Grafana, Loki |
 | Identity | Keycloak (broker + upstream IdP) |
+| Access | Teleport (SSH, K8s proxy, web access) |
+| Git | GitLab CE (repos, CI/CD) |
 
 ## Directory Structure
 
@@ -209,8 +211,10 @@ archive/                          # Old documentation (pending review/deletion)
 | MinIO Console | 9001 | `https://minio-console.support.example.com` | Web UI |
 | Harbor | 8080 | `https://harbor.support.example.com` | Container registry with Trivy |
 | NFS | 2049 | N/A (direct) | Exports: `/export/kubernetes-rwx`, `/export/backups` |
+| Teleport | 3080 | `https://teleport.support.example.com:3080` | SSH/K8s/web access plane, own TLS (not behind nginx) |
+| GitLab CE | 8929 | `https://gitlab.support.example.com` | Git hosting, behind nginx, Git SSH on port 2222 |
 
-**Credentials** (on support VM): Vault at `/var/lib/vault/init-keys.json`, MinIO at `/etc/minio/credentials`, Harbor at `/etc/harbor/admin_password`.
+**Credentials** (on support VM): Vault at `/var/lib/vault/init-keys.json`, MinIO at `/etc/minio/credentials`, Harbor at `/etc/harbor/admin_password`, GitLab at `/etc/gitlab/admin_password`.
 
 ## Important Implementation Details
 

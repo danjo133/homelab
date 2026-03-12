@@ -13,7 +13,7 @@ Unifi Router (DNS, DHCP, firewall)
 Arch Linux Host (Vagrant, libvirt/KVM)
   |
   +-- Supporting Systems VM (NixOS)
-  |     Vault, Harbor, MinIO, NFS, Nginx
+  |     Vault, Harbor, MinIO, NFS, Nginx, Teleport, GitLab
   |
   +-- Kubernetes Cluster: kss (NixOS VMs, RKE2)
         1x Master + 3x Workers
@@ -44,6 +44,8 @@ VMs use fixed MACs for Unifi DHCP static leases. DNS via Unifi.
 | Storage | Longhorn, MinIO, NFS |
 | Monitoring | Prometheus, Grafana, Loki |
 | Identity | Keycloak (broker + upstream IdP federation) |
+| Access | Teleport (SSH, K8s proxy, web access) |
+| Git | GitLab CE (repos, CI/CD) |
 | Auth Proxy | OAuth2-Proxy (nginx auth_request SSO) |
 | Policy | OPA Gatekeeper (admission control) |
 | Workload Identity | SPIRE/SPIFFE |
@@ -410,7 +412,7 @@ iptables -I FORWARD -o br-k8s -j ACCEPT
 ## Current Status
 
 **Working:**
-- Support VM (Vault, Harbor, MinIO, NFS, Nginx)
+- Support VM (Vault, Harbor, MinIO, NFS, Nginx, Teleport, GitLab)
 - kss cluster (1 master + 3 workers, Canal CNI, MetalLB L2)
 - kcs cluster (1 master + 3 workers, Cilium CNI + BGP, Istio Ambient mesh)
 - Keycloak broker with upstream IdP federation
@@ -466,8 +468,10 @@ archive/                         # Old docs (for review/deletion)
 | MinIO Console | `https://minio-console.support.example.com` | Web UI |
 | Harbor | `https://harbor.support.example.com` | Registry + Trivy |
 | NFS | `10.69.50.10:2049` | `/export/kubernetes-rwx`, `/export/backups` |
+| Teleport | `https://teleport.support.example.com:3080` | SSH/K8s/web access (own TLS, port 3080) |
+| GitLab CE | `https://gitlab.support.example.com` | Git hosting, SSH on port 2222 |
 
-Credentials on support VM: Vault at `/var/lib/vault/init-keys.json`, MinIO at `/etc/minio/credentials`, Harbor at `/etc/harbor/admin_password`.
+Credentials on support VM: Vault at `/var/lib/vault/init-keys.json`, MinIO at `/etc/minio/credentials`, Harbor at `/etc/harbor/admin_password`, GitLab at `/etc/gitlab/admin_password`.
 
 ## Identity Services
 

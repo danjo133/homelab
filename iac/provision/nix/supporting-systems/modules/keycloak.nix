@@ -12,7 +12,7 @@ let
   keycloakAdminPassFile = config.sops.secrets.keycloak_admin_password.path;
   vaultAddr = "http://127.0.0.1:8200";
   keysFile = "/var/lib/openbao/init-keys.json";
-  setupMarker = "/var/lib/keycloak/.setup-complete";
+  setupMarker = "/var/lib/keycloak/.setup-complete-v3";
 
   # Auto-setup script: creates upstream realm, test users, broker-client
   keycloakAutoSetup = pkgs.writeShellScript "keycloak-auto-setup" ''
@@ -249,7 +249,111 @@ let
     fi
 
     # ========================================================================
-    # 6. Pre-generate broker realm client secrets
+    # 6. Create OIDC client 'teleport' for Teleport access plane
+    # ========================================================================
+    echo "Creating teleport OIDC client..."
+
+    EXISTING_TELEPORT=$(kc_api GET "/upstream/clients?clientId=teleport" 2>/dev/null || echo "[]")
+    if echo "$EXISTING_TELEPORT" | jq -e '.[0].id' >/dev/null 2>&1; then
+      echo "  Client 'teleport' already exists"
+      TELEPORT_CLIENT_UUID=$(echo "$EXISTING_TELEPORT" | jq -r '.[0].id')
+    else
+      TELEPORT_SECRET=$(openssl rand -hex 32)
+
+      kc_api POST "/upstream/clients" -d "{
+        \"clientId\": \"teleport\",
+        \"name\": \"Teleport Access Plane\",
+        \"enabled\": true,
+        \"protocol\": \"openid-connect\",
+        \"publicClient\": false,
+        \"secret\": \"$TELEPORT_SECRET\",
+        \"standardFlowEnabled\": true,
+        \"directAccessGrantsEnabled\": false,
+        \"serviceAccountsEnabled\": false,
+        \"redirectUris\": [
+          \"https://teleport.support.example.com:3080/v1/webapi/oidc/callback\"
+        ],
+        \"webOrigins\": [\"+\"],
+        \"defaultClientScopes\": [\"openid\", \"profile\", \"email\", \"roles\"]
+      }"
+      echo "  Client 'teleport' created"
+
+      TELEPORT_CLIENT_UUID=$(kc_api GET "/upstream/clients?clientId=teleport" | jq -r '.[0].id')
+    fi
+
+    # Get the teleport client secret
+    TELEPORT_CLIENT_SECRET=$(kc_api GET "/upstream/clients/$TELEPORT_CLIENT_UUID/client-secret" | jq -r '.value')
+
+    # Add realm-roles mapper to include roles in ID token
+    EXISTING_MAPPERS=$(kc_api GET "/upstream/clients/$TELEPORT_CLIENT_UUID/protocol-mappers/models" 2>/dev/null || echo "[]")
+    if ! echo "$EXISTING_MAPPERS" | jq -e '.[] | select(.name == "realm-roles")' >/dev/null 2>&1; then
+      kc_api POST "/upstream/clients/$TELEPORT_CLIENT_UUID/protocol-mappers/models" -d '{
+        "name": "realm-roles",
+        "protocol": "openid-connect",
+        "protocolMapper": "oidc-usermodel-realm-role-mapper",
+        "consentRequired": false,
+        "config": {
+          "multivalued": "true",
+          "id.token.claim": "true",
+          "access.token.claim": "true",
+          "claim.name": "realm_access.roles",
+          "jsonType.label": "String",
+          "userinfo.token.claim": "true"
+        }
+      }'
+      echo "  realm-roles mapper added to teleport client"
+    fi
+
+    # Write teleport OIDC secret to file (read by teleport-auto-setup)
+    mkdir -p /etc/teleport
+    echo -n "$TELEPORT_CLIENT_SECRET" > /etc/teleport/oidc-client-secret
+    chmod 600 /etc/teleport/oidc-client-secret
+    echo "  Teleport OIDC secret written to /etc/teleport/oidc-client-secret"
+
+    # ========================================================================
+    # 7. Create OIDC client 'gitlab' for GitLab CE
+    # ========================================================================
+    echo "Creating gitlab OIDC client..."
+
+    EXISTING_GITLAB=$(kc_api GET "/upstream/clients?clientId=gitlab" 2>/dev/null || echo "[]")
+    if echo "$EXISTING_GITLAB" | jq -e '.[0].id' >/dev/null 2>&1; then
+      echo "  Client 'gitlab' already exists"
+      GITLAB_CLIENT_UUID=$(echo "$EXISTING_GITLAB" | jq -r '.[0].id')
+    else
+      GITLAB_SECRET=$(openssl rand -hex 32)
+
+      kc_api POST "/upstream/clients" -d "{
+        \"clientId\": \"gitlab\",
+        \"name\": \"GitLab CE\",
+        \"enabled\": true,
+        \"protocol\": \"openid-connect\",
+        \"publicClient\": false,
+        \"secret\": \"$GITLAB_SECRET\",
+        \"standardFlowEnabled\": true,
+        \"directAccessGrantsEnabled\": false,
+        \"serviceAccountsEnabled\": false,
+        \"redirectUris\": [
+          \"https://gitlab.support.example.com/users/auth/openid_connect/callback\"
+        ],
+        \"webOrigins\": [\"+\"],
+        \"defaultClientScopes\": [\"openid\", \"profile\", \"email\"]
+      }"
+      echo "  Client 'gitlab' created"
+
+      GITLAB_CLIENT_UUID=$(kc_api GET "/upstream/clients?clientId=gitlab" | jq -r '.[0].id')
+    fi
+
+    # Get the gitlab client secret
+    GITLAB_CLIENT_SECRET=$(kc_api GET "/upstream/clients/$GITLAB_CLIENT_UUID/client-secret" | jq -r '.value')
+
+    # Write gitlab OIDC secret to file (read by gitlab-setup)
+    mkdir -p /etc/gitlab
+    echo -n "$GITLAB_CLIENT_SECRET" > /etc/gitlab/oidc-client-secret
+    chmod 600 /etc/gitlab/oidc-client-secret
+    echo "  GitLab OIDC secret written to /etc/gitlab/oidc-client-secret"
+
+    # ========================================================================
+    # 8. Pre-generate broker realm client secrets
     # ========================================================================
     # These are stored in Vault and injected into the broker Keycloak pod
     # as env vars, then referenced via ''${VAR} substitution in the realm import.
@@ -282,6 +386,8 @@ let
       openssl rand -hex 32
     }
 
+    # Note: teleport and gitlab secrets are generated in sections 6/7 above
+    # and stored in Vault in section 9 alongside these broker secrets
     ARGOCD_CLIENT_SECRET=$(get_or_generate_secret "keycloak/argocd-client")
     OAUTH2_PROXY_CLIENT_SECRET=$(get_or_generate_secret "keycloak/oauth2-proxy-client")
     GRAFANA_CLIENT_SECRET=$(get_or_generate_secret "keycloak/grafana-client")
@@ -290,7 +396,7 @@ let
     HEADLAMP_CLIENT_SECRET=$(get_or_generate_secret "keycloak/headlamp-client")
 
     # ========================================================================
-    # 7. Store secrets in Vault (per-namespace)
+    # 9. Store secrets in Vault (per-namespace)
     # ========================================================================
     echo "Storing secrets in Vault (all namespaces)..."
 
@@ -383,6 +489,24 @@ let
           -d "$(jq -n --arg secret "$HEADLAMP_CLIENT_SECRET" '{data: {"client-secret": $secret}}')" \
           "$VAULT_ADDR/v1/secret/data/keycloak/headlamp-client"
         echo "  Stored keycloak/headlamp-client in $VAULT_NS"
+
+        # Teleport client secret
+        curl -sf -X POST \
+          -H "X-Vault-Token: $VAULT_TOKEN" \
+          -H "X-Vault-Namespace: $VAULT_NS" \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n --arg secret "$TELEPORT_CLIENT_SECRET" '{data: {"client-secret": $secret}}')" \
+          "$VAULT_ADDR/v1/secret/data/keycloak/teleport-client"
+        echo "  Stored keycloak/teleport-client in $VAULT_NS"
+
+        # GitLab client secret
+        curl -sf -X POST \
+          -H "X-Vault-Token: $VAULT_TOKEN" \
+          -H "X-Vault-Namespace: $VAULT_NS" \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n --arg secret "$GITLAB_CLIENT_SECRET" '{data: {"client-secret": $secret}}')" \
+          "$VAULT_ADDR/v1/secret/data/keycloak/gitlab-client"
+        echo "  Stored keycloak/gitlab-client in $VAULT_NS"
       done
     fi
 
