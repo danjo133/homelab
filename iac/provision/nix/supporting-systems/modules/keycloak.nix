@@ -6,6 +6,7 @@
 { config, pkgs, lib, ... }:
 
 let
+  deployConfig = import ../generated-config.nix;
   keycloakPort = 8180;
   keycloakMgmtPort = 9990;
   keycloakAdminUser = "admin";
@@ -113,7 +114,7 @@ in
     };
 
     settings = {
-      hostname = "idp.support.example.com";
+      hostname = "idp.${deployConfig.domain}";
       http-enabled = true;
       http-host = "127.0.0.1";
       http-port = keycloakPort;

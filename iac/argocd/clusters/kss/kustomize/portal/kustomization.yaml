@@ -15,17 +15,20 @@ patches:
         value: "kss"
       - op: replace
         path: /data/CLUSTER_DOMAIN
-        value: "simple-k8s.example.com"
+        value: "kss.example.com"
+      - op: replace
+        path: /data/ANNOTATION_PREFIX
+        value: "portal.example.com/"
   - target:
       kind: Ingress
       name: portal
     patch: |
       - op: replace
         path: /spec/tls/0/hosts/0
-        value: portal.simple-k8s.example.com
+        value: portal.kss.example.com
       - op: replace
         path: /spec/rules/0/host
-        value: portal.simple-k8s.example.com
+        value: portal.kss.example.com
       - op: replace
         path: /metadata/annotations/nginx.ingress.kubernetes.io~1auth-signin
-        value: "https://oauth2-proxy.simple-k8s.example.com/oauth2/start?rd=$scheme://$host$escaped_request_uri"
+        value: "https://oauth2-proxy.kss.example.com/oauth2/start?rd=$scheme://$host$escaped_request_uri"

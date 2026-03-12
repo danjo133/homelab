@@ -12,6 +12,7 @@
 { config, pkgs, lib, ... }:
 
 let
+  deployConfig = import ../generated-config.nix;
   zitiDir = "/var/lib/ziti";
   controllerDir = "${zitiDir}/controller";
   routerDir = "${zitiDir}/router";
@@ -63,7 +64,7 @@ services:
     volumes:
       - $CONTROLLER_DIR/data:/ziti-controller
     environment:
-      ZITI_CTRL_ADVERTISED_ADDRESS: z.example.com
+      ZITI_CTRL_ADVERTISED_ADDRESS: ${deployConfig.zitiDomain}
       ZITI_CTRL_ADVERTISED_PORT: "2029"
       ZITI_PWD: "$ADMIN_PASSWORD"
       ZITI_BOOTSTRAP: "true"
@@ -89,7 +90,7 @@ services:
       ziti-controller:
         condition: service_healthy
     environment:
-      ZAC_CONTROLLER_URLS: "https://z.example.com:2029"
+      ZAC_CONTROLLER_URLS: "https://${deployConfig.zitiDomain}:2029"
     ports:
       - "1408:1408"
     restart: unless-stopped
@@ -115,10 +116,10 @@ services:
     volumes:
       - $ROUTER_DIR/data:/ziti-router
     environment:
-      ZITI_CTRL_ADVERTISED_ADDRESS: z.example.com
+      ZITI_CTRL_ADVERTISED_ADDRESS: ${deployConfig.zitiDomain}
       ZITI_CTRL_ADVERTISED_PORT: "2029"
       ZITI_ENROLL_TOKEN: "''${ENROLLMENT_JWT:-}"
-      ZITI_ROUTER_ADVERTISED_ADDRESS: z.example.com
+      ZITI_ROUTER_ADVERTISED_ADDRESS: ${deployConfig.zitiDomain}
       ZITI_ROUTER_PORT: "2045"
       ZITI_ROUTER_MODE: host
       ZITI_BOOTSTRAP: "true"
@@ -155,7 +156,7 @@ ROUTEREOF
       yq -i '.web = [
         {
           "name": "management-internal",
-          "bindPoints": [{"interface": "0.0.0.0:2029", "address": "z.example.com:2029"}],
+          "bindPoints": [{"interface": "0.0.0.0:2029", "address": "${deployConfig.zitiDomain}:2029"}],
           "apis": [
             {"binding": "edge-management"},
             {"binding": "fabric"},
@@ -164,7 +165,7 @@ ROUTEREOF
         },
         {
           "name": "client-external",
-          "bindPoints": [{"interface": "0.0.0.0:2034", "address": "z.example.com:2034"}],
+          "bindPoints": [{"interface": "0.0.0.0:2034", "address": "${deployConfig.zitiDomain}:2034"}],
           "apis": [
             {"binding": "edge-client"},
             {"binding": "health-checks"}
@@ -173,7 +174,7 @@ ROUTEREOF
       ]' "$CONFIG"
 
       # Set edge.api.address to client API (this goes into enrollment JWTs)
-      yq -i '.edge.api.address = "z.example.com:2034"' "$CONFIG"
+      yq -i '.edge.api.address = "${deployConfig.zitiDomain}:2034"' "$CONFIG"
 
       echo "  Split API config applied (mgmt:2029, client:2034)"
     }
@@ -218,8 +219,8 @@ ROUTEREOF
         echo "  Patching router config (edge:2045, link listener:2046)..."
         docker stop ziti-router 2>/dev/null || true
         yq -i '(.listeners[] | select(.binding == "edge") | .address) = "tls:0.0.0.0:2045"' "$ROUTER_DIR/data/config.yml"
-        yq -i '(.listeners[] | select(.binding == "edge") | .options.advertise) = "z.example.com:2045"' "$ROUTER_DIR/data/config.yml"
-        yq -i '.link.listeners = [{"binding": "transport", "bind": "tls:0.0.0.0:2046", "advertise": "tls:z.example.com:2046"}]' "$ROUTER_DIR/data/config.yml"
+        yq -i '(.listeners[] | select(.binding == "edge") | .options.advertise) = "${deployConfig.zitiDomain}:2045"' "$ROUTER_DIR/data/config.yml"
+        yq -i '.link.listeners = [{"binding": "transport", "bind": "tls:0.0.0.0:2046", "advertise": "tls:${deployConfig.zitiDomain}:2046"}]' "$ROUTER_DIR/data/config.yml"
         yq -i '.link.dialers = [{"binding": "transport"}]' "$ROUTER_DIR/data/config.yml"
       fi
       cd "$ROUTER_DIR"
@@ -366,8 +367,8 @@ ROUTEREOF
         echo "  Config generated, patching (edge:2045, link listener:2046)..."
         docker stop ziti-router 2>/dev/null || true
         ${pkgs.yq-go}/bin/yq -i '(.listeners[] | select(.binding == "edge") | .address) = "tls:0.0.0.0:2045"' "$ROUTER_DIR/data/config.yml"
-        ${pkgs.yq-go}/bin/yq -i '(.listeners[] | select(.binding == "edge") | .options.advertise) = "z.example.com:2045"' "$ROUTER_DIR/data/config.yml"
-        ${pkgs.yq-go}/bin/yq -i '.link.listeners = [{"binding": "transport", "bind": "tls:0.0.0.0:2046", "advertise": "tls:z.example.com:2046"}]' "$ROUTER_DIR/data/config.yml"
+        ${pkgs.yq-go}/bin/yq -i '(.listeners[] | select(.binding == "edge") | .options.advertise) = "${deployConfig.zitiDomain}:2045"' "$ROUTER_DIR/data/config.yml"
+        ${pkgs.yq-go}/bin/yq -i '.link.listeners = [{"binding": "transport", "bind": "tls:0.0.0.0:2046", "advertise": "tls:${deployConfig.zitiDomain}:2046"}]' "$ROUTER_DIR/data/config.yml"
         ${pkgs.yq-go}/bin/yq -i '.link.dialers = [{"binding": "transport"}]' "$ROUTER_DIR/data/config.yml"
         docker start ziti-router
         break
@@ -393,8 +394,8 @@ ROUTEREOF
 
     echo ""
     echo "==> OpenZiti installation complete!"
-    echo "    Controller mgmt: https://z.example.com:2029"
-    echo "    Controller client: https://z.example.com:2034"
+    echo "    Controller mgmt: https://${deployConfig.zitiDomain}:2029"
+    echo "    Controller client: https://${deployConfig.zitiDomain}:2034"
     echo "    Username: admin"
     echo "    Password: $ADMIN_PASSWORD"
   '';

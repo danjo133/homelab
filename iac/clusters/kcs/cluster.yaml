@@ -1,5 +1,5 @@
 name: kcs
-domain: mesh-k8s.example.com
+domain: "kcs.example.com"
 
 master:
   ip: "10.69.50.50"
@@ -47,7 +47,7 @@ bgp:
 # OIDC authentication via broker Keycloak
 oidc:
   enabled: true
-  issuer_url: "https://auth.mesh-k8s.example.com/realms/broker"
+  issuer_url: "https://auth.kcs.example.com/realms/broker"
   client_id: kubernetes
 
 # Identity system configuration

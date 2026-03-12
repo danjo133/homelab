@@ -42,7 +42,7 @@ spec:
         - repoURL: "{{ .url }}"
           targetRevision: "{{ .branch }}"
           ref: appvalues
-        - repoURL: https://github.com/example-user/homelab.git
+        - repoURL: ssh://git@gitlab.support.example.com:2222/infra/homelab.git
           targetRevision: main
           path: iac/argocd/charts/generic-app
           helm:
@@ -52,7 +52,7 @@ spec:
               - name: image.repository
                 value: "apps/{{ .repository | normalize }}"
               - name: clusterDomain
-                value: simple-k8s.example.com
+                value: kss.example.com
       destination:
         server: https://kubernetes.default.svc
         namespace: apps

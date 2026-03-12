@@ -7,7 +7,7 @@
 #
 # Prerequisites:
 #   - Support VM running with all services healthy
-#   - SSH access to support VM via hypervisor
+#   - SSH access to support VM via iter
 #
 # Usage: just support-generate-env
 #        # or: ./stages/2_support/generate-env.sh
@@ -89,8 +89,8 @@ info "Checking for GitLab admin PAT..."
 GL_ADMIN_PASS=$(ssh_vm "$SUPPORT_VM_IP" 'sudo cat /etc/gitlab/admin_password')
 
 # Create a PAT via GitLab OAuth flow. Write a temp script to the shared
-# filesystem (~/mnt/homelab on workstation = ~/dev/homelab on hypervisor) and execute it
-# on hypervisor, avoiding all shell escaping issues with nested SSH/curl.
+# filesystem (~/mnt/kss on foundation = ~/dev/kss on iter) and execute it
+# on iter, avoiding all shell escaping issues with nested SSH/curl.
 EXPIRY=$(date -d "+365 days" +%Y-%m-%d)
 GITLAB_PAT_SCRIPT="${PROJECT_ROOT}/.tmp-gitlab-pat.sh"
 cat > "${GITLAB_PAT_SCRIPT}" << 'GLEOF'
@@ -169,19 +169,19 @@ TF_VAR_vault_token=${VAULT_TOKEN}
 TF_VAR_teleport_identity_file_path=${TELEPORT_IDENTITY_PATH}
 
 # Keycloak upstream admin (on support VM)
-TF_VAR_keycloak_admin_password="${KC_PASSWORD}"  # from: ssh hypervisor "ssh -i ~/.vagrant.d/ecdsa_private_key vagrant@10.69.50.10 'sudo cat /run/secrets/keycloak_admin_password'"
+TF_VAR_keycloak_admin_password="${KC_PASSWORD}"  # from: ssh iter "ssh -i ~/.vagrant.d/ecdsa_private_key vagrant@10.69.50.10 'sudo cat /run/secrets/keycloak_admin_password'"
 TF_VAR_broker_admin_password=$(openssl rand -hex 16)
 
 # MinIO (provider + S3 backend)
-TF_VAR_minio_access_key="${MINIO_ACCESS_KEY}"  # from: ssh hypervisor "ssh -i ~/.vagrant.d/ecdsa_private_key vagrant@10.69.50.10 'sudo grep MINIO_ROOT_USER /etc/minio/credentials'" | cut -d= -f2
-TF_VAR_minio_secret_key="${MINIO_SECRET_KEY}"  # from: ssh hypervisor "ssh -i ~/.vagrant.d/ecdsa_private_key vagrant@10.69.50.10 'sudo grep MINIO_ROOT_PASSWORD /etc/minio/credentials'" | cut -d= -f2
+TF_VAR_minio_access_key="${MINIO_ACCESS_KEY}"  # from: ssh iter "ssh -i ~/.vagrant.d/ecdsa_private_key vagrant@10.69.50.10 'sudo grep MINIO_ROOT_USER /etc/minio/credentials'" | cut -d= -f2
+TF_VAR_minio_secret_key="${MINIO_SECRET_KEY}"  # from: ssh iter "ssh -i ~/.vagrant.d/ecdsa_private_key vagrant@10.69.50.10 'sudo grep MINIO_ROOT_PASSWORD /etc/minio/credentials'" | cut -d= -f2
 
 # S3 backend auth (same MinIO creds, needed by tofu init)
 AWS_ACCESS_KEY_ID="${MINIO_ACCESS_KEY}"      # same as TF_VAR_minio_access_key
 AWS_SECRET_ACCESS_KEY="${MINIO_SECRET_KEY}"  # same as TF_VAR_minio_secret_key
 
 # Harbor admin
-TF_VAR_harbor_admin_password="${HARBOR_PASSWORD}"  # from: ssh hypervisor "ssh -i ~/.vagrant.d/ecdsa_private_key vagrant@10.69.50.10 'sudo cat /etc/harbor/admin_password'"
+TF_VAR_harbor_admin_password="${HARBOR_PASSWORD}"  # from: ssh iter "ssh -i ~/.vagrant.d/ecdsa_private_key vagrant@10.69.50.10 'sudo cat /etc/harbor/admin_password'"
 
 TF_VAR_gitlab_token="${GITLAB_TOKEN}"
 TF_VAR_gitlab_argocd_password="$(openssl rand -base64 16)"

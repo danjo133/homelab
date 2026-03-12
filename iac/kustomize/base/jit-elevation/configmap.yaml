@@ -4,7 +4,7 @@ metadata:
   name: jit-config
   namespace: identity
 data:
-  KEYCLOAK_URL: "https://auth.simple-k8s.example.com"
+  KEYCLOAK_URL: "https://auth.kss.example.com"
   KEYCLOAK_REALM: "broker"
   CLIENT_ID: "jit-service"
   # Groups eligible for elevation

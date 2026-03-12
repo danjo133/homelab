@@ -12,8 +12,8 @@
 # It is idempotent — safe to re-run.
 #
 # Requires:
-#   - KEYCLOAK_URL env var (e.g. https://auth.simple-k8s.example.com)
-#   - CLUSTER_DOMAIN env var (e.g. simple-k8s.example.com) — optional, for redirect URI fixes
+#   - KEYCLOAK_URL env var (e.g. https://auth.kss.example.com)
+#   - CLUSTER_DOMAIN env var (e.g. kss.example.com) — optional, for redirect URI fixes
 #   - kubectl access to the keycloak namespace
 
 set -euo pipefail

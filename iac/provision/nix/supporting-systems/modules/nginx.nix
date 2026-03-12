@@ -7,11 +7,12 @@
 { config, pkgs, lib, ... }:
 
 let
+  deployConfig = import ../generated-config.nix;
   # Certificate paths (self-signed by default, overridden by acme.nix)
   certDir = "/etc/nginx/ssl";
   certFile = "${certDir}/wildcard.crt";
   keyFile = "${certDir}/wildcard.key";
-  domain = "support.example.com";
+  domain = deployConfig.domain;
 
   # Script to generate self-signed wildcard certificate
   generateCerts = pkgs.writeShellScript "generate-nginx-certs" ''
@@ -72,7 +73,7 @@ in
     };
 
     # Vault UI and API
-    virtualHosts."vault.support.example.com" = {
+    virtualHosts."vault.${domain}" = {
       forceSSL = true;
       sslCertificate = lib.mkDefault certFile;
       sslCertificateKey = lib.mkDefault keyFile;
@@ -86,7 +87,7 @@ in
     };
 
     # MinIO API
-    virtualHosts."minio.support.example.com" = {
+    virtualHosts."minio.${domain}" = {
       forceSSL = true;
       sslCertificate = lib.mkDefault certFile;
       sslCertificateKey = lib.mkDefault keyFile;
@@ -105,7 +106,7 @@ in
     };
 
     # MinIO Console
-    virtualHosts."minio-console.support.example.com" = {
+    virtualHosts."minio-console.${domain}" = {
       forceSSL = true;
       sslCertificate = lib.mkDefault certFile;
       sslCertificateKey = lib.mkDefault keyFile;
@@ -116,7 +117,7 @@ in
     };
 
     # Keycloak IdP
-    virtualHosts."idp.support.example.com" = {
+    virtualHosts."idp.${domain}" = {
       forceSSL = true;
       sslCertificate = lib.mkDefault certFile;
       sslCertificateKey = lib.mkDefault keyFile;
@@ -138,7 +139,7 @@ in
     };
 
     # Harbor Registry
-    virtualHosts."harbor.support.example.com" = {
+    virtualHosts."harbor.${domain}" = {
       forceSSL = true;
       sslCertificate = lib.mkDefault certFile;
       sslCertificateKey = lib.mkDefault keyFile;
@@ -162,15 +163,15 @@ in
     };
 
     # Teleport — redirect to port 3080 (Teleport handles its own TLS)
-    virtualHosts."teleport.support.example.com" = {
+    virtualHosts."teleport.${domain}" = {
       forceSSL = true;
       sslCertificate = lib.mkDefault certFile;
       sslCertificateKey = lib.mkDefault keyFile;
-      locations."/".return = "301 https://teleport.support.example.com:3080$request_uri";
+      locations."/".return = "301 https://teleport.${domain}:3080$request_uri";
     };
 
     # Ziti Admin Console (ZAC)
-    virtualHosts."zac.support.example.com" = {
+    virtualHosts."zac.${domain}" = {
       forceSSL = true;
       sslCertificate = lib.mkDefault certFile;
       sslCertificateKey = lib.mkDefault keyFile;
@@ -181,7 +182,7 @@ in
     };
 
     # GitLab CE
-    virtualHosts."gitlab.support.example.com" = {
+    virtualHosts."gitlab.${domain}" = {
       forceSSL = true;
       sslCertificate = lib.mkDefault certFile;
       sslCertificateKey = lib.mkDefault keyFile;

@@ -12,7 +12,8 @@
 { config, pkgs, lib, ... }:
 
 let
-  domain = "support.example.com";
+  deployConfig = import ../generated-config.nix;
+  domain = deployConfig.domain;
   wildcardDomain = "*.${domain}";
 in
 {
@@ -20,7 +21,7 @@ in
   security.acme = {
     acceptTerms = true;
     defaults = {
-      email = "admin@example.com";
+      email = deployConfig.adminEmail;
       dnsProvider = "cloudflare";
       # Use sops-managed secret for Cloudflare credentials
       credentialsFile = config.sops.secrets.cloudflare_api_token.path;
@@ -28,7 +29,7 @@ in
       dnsResolver = "1.1.1.1:53";
     };
 
-    # Wildcard certificate for *.example.com
+    # Wildcard certificate
     certs."${domain}" = {
       domain = domain;
       extraDomainNames = [ wildcardDomain ];
@@ -38,42 +39,42 @@ in
 
   # Override nginx virtual hosts to use ACME certs instead of self-signed
   services.nginx.virtualHosts = {
-    "vault.support.example.com" = {
+    "vault.${domain}" = {
       useACMEHost = domain;
       sslCertificate = lib.mkForce null;
       sslCertificateKey = lib.mkForce null;
     };
-    "minio.support.example.com" = {
+    "minio.${domain}" = {
       useACMEHost = domain;
       sslCertificate = lib.mkForce null;
       sslCertificateKey = lib.mkForce null;
     };
-    "minio-console.support.example.com" = {
+    "minio-console.${domain}" = {
       useACMEHost = domain;
       sslCertificate = lib.mkForce null;
       sslCertificateKey = lib.mkForce null;
     };
-    "harbor.support.example.com" = {
+    "harbor.${domain}" = {
       useACMEHost = domain;
       sslCertificate = lib.mkForce null;
       sslCertificateKey = lib.mkForce null;
     };
-    "idp.support.example.com" = {
+    "idp.${domain}" = {
       useACMEHost = domain;
       sslCertificate = lib.mkForce null;
       sslCertificateKey = lib.mkForce null;
     };
-    "gitlab.support.example.com" = {
+    "gitlab.${domain}" = {
       useACMEHost = domain;
       sslCertificate = lib.mkForce null;
       sslCertificateKey = lib.mkForce null;
     };
-    "teleport.support.example.com" = {
+    "teleport.${domain}" = {
       useACMEHost = domain;
       sslCertificate = lib.mkForce null;
       sslCertificateKey = lib.mkForce null;
     };
-    "zac.support.example.com" = {
+    "zac.${domain}" = {
       useACMEHost = domain;
       sslCertificate = lib.mkForce null;
       sslCertificateKey = lib.mkForce null;

@@ -1,0 +1,38 @@
+# Personal deployment configuration
+# Copy this file to config.yaml and fill in your values.
+# config.yaml is gitignored — only this example file is tracked.
+#
+# After editing config.yaml, run:
+#   just generate-config
+#   just generate
+
+# --- Domain Configuration ---
+domains:
+  root: example.com                  # Cloudflare-managed root domain
+  base: lab.example.com              # Parent domain for all subdomains
+  support_prefix: support            # Support VM subdomain prefix → support.lab.example.com
+  ziti: ziti.example.com             # OpenZiti controller domain
+
+# --- Infrastructure Hosts ---
+hosts:
+  hypervisor: hypervisor             # Remote host running VMs (SSH alias)
+  remote_project_dir: ~/dev/homelab  # Project path on hypervisor
+
+# --- Support VM ---
+support:
+  ip: 10.69.50.10                    # Support VM IP address
+  teleport_cluster_name: homelab     # Teleport cluster name
+
+# --- Identity ---
+identity:
+  admin_email: admin@example.com     # ACME/Let's Encrypt contact email
+
+# --- Network ---
+network:
+  nfs_allowed_network: "10.69.50.0/24"    # CIDR for NFS exports (VM VLAN)
+  ollama_url: "http://10.69.10.10:11434"  # Ollama LLM endpoint (VLAN 10)
+
+# --- Git ---
+git:
+  project_name: homelab              # GitLab project name
+  github_org: my-github-org          # GitHub org for mirroring

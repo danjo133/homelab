@@ -5,6 +5,7 @@
 { config, pkgs, lib, ... }:
 
 let
+  deployConfig = import ../generated-config.nix;
   runnerDir = "/var/lib/gitlab-runner";
   configFile = "/etc/gitlab-runner/config.toml";
 
@@ -32,7 +33,7 @@ let
     # Wait for GitLab API
     echo "Waiting for GitLab API..."
     for i in $(seq 1 120); do
-      if curl -sf -H "X-Forwarded-Proto: https" -H "Host: gitlab.support.example.com" "$GITLAB_URL/users/sign_in" >/dev/null 2>&1; then
+      if curl -sf -H "X-Forwarded-Proto: https" -H "Host: gitlab.${deployConfig.domain}" "$GITLAB_URL/users/sign_in" >/dev/null 2>&1; then
         echo "GitLab API is ready"
         break
       fi
@@ -91,7 +92,7 @@ check_interval = 5
   token = "$RUNNER_TOKEN"
   executor = "docker"
   [runners.docker]
-    image = "harbor.support.example.com/docker.io/library/alpine:latest"
+    image = "harbor.${deployConfig.domain}/docker.io/library/alpine:latest"
     privileged = false
     disable_entrypoint_overwrite = false
     oom_kill_disable = false

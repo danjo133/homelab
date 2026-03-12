@@ -7,7 +7,7 @@ sources:
   - ingress
 
 domainFilters:
-  - example.com
+  - test.io
 
 txtPrefix: "externaldns-"
 

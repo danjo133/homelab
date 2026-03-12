@@ -137,18 +137,18 @@ else
 fi
 
 # Create a role for issuing certificates
-if vault read pki_int/roles/overkill > /dev/null 2>&1; then
+if vault read pki_int/roles/mylab > /dev/null 2>&1; then
     echo "==> Certificate issuing role already exists"
 else
     echo "==> Creating certificate issuing role..."
 
-    vault write pki_int/roles/overkill \
+    vault write pki_int/roles/mylab \
         allowed_domains="support.example.com,example.com" \
         allow_subdomains=true \
         allow_bare_domains=true \
         max_ttl="${CERT_TTL}"
 
-    echo "==> Role 'overkill' created"
+    echo "==> Role 'mylab' created"
 fi
 
 # Clean up temp files
@@ -158,7 +158,7 @@ echo ""
 echo "==> Vault bootstrap complete!"
 echo ""
 echo "    To issue a certificate:"
-echo "    vault write pki_int/issue/overkill common_name=myservice.support.example.com"
+echo "    vault write pki_int/issue/mylab common_name=myservice.support.example.com"
 echo ""
 echo "    To revoke the root token and create admin policies, run:"
 echo "    vault token revoke -self"

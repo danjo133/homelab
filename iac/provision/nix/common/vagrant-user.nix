@@ -7,7 +7,7 @@
 # - Basic shell configuration
 #
 # The SSH public key must match the private key at ~/.vagrant.d/ecdsa_private_key
-# on the Vagrant host (hypervisor).
+# on the Vagrant host (iter).
 
 { config, pkgs, lib, ... }:
 

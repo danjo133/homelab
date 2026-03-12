@@ -16,7 +16,7 @@ spec:
       namespace: istio-ingress
       sectionName: https
   hostnames:
-    - setup.mesh-k8s.example.com
+    - setup.kcs.example.com
   rules:
     - backendRefs:
         - name: cluster-setup

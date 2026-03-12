@@ -5,6 +5,7 @@
 { config, pkgs, lib, ... }:
 
 let
+  deployConfig = import ../generated-config.nix;
   gitlabDir = "/var/lib/gitlab";
   gitlabImage = "gitlab/gitlab-ce:18.9.0-ce.0";
 
@@ -41,6 +42,8 @@ let
     MINIO_CREDS="/etc/minio/credentials"
     VAULT_ADDR="${vaultAddr}"
     KEYS_FILE="${keysFile}"
+    DEPLOY_DOMAIN="${deployConfig.domain}"
+    SUPPORT_IP="${deployConfig.supportIp}"
 
     echo "==> GitLab Auto-Setup"
 
@@ -52,7 +55,7 @@ services:
     image: $1
     container_name: gitlab
     restart: always
-    hostname: gitlab.support.example.com
+    hostname: gitlab.$DEPLOY_DOMAIN
     ports:
       - "8929:8929"
       - "2222:22"
@@ -86,10 +89,10 @@ COMPOSEEOF
     generate_gitlab_rb() {
       local CONFIG_FILE="$GITLAB_DIR/config/gitlab.rb"
 
-      cat > "$CONFIG_FILE" << 'GITLABEOF'
+      cat > "$CONFIG_FILE" << GITLABEOF
 # GitLab Omnibus Configuration — Auto-generated
 
-external_url 'https://gitlab.support.example.com'
+external_url 'https://gitlab.$DEPLOY_DOMAIN'
 
 # Nginx: listen on HTTP only, external nginx handles TLS
 nginx['listen_port'] = 8929
@@ -150,7 +153,7 @@ gitlab_rails['omniauth_providers'] = [
       name: 'openid_connect',
       scope: ['openid', 'profile', 'email'],
       response_type: 'code',
-      issuer: 'https://idp.support.example.com/realms/upstream',
+      issuer: 'https://idp.$DEPLOY_DOMAIN/realms/upstream',
       client_auth_method: 'query',
       discovery: true,
       uid_field: 'preferred_username',
@@ -158,7 +161,7 @@ gitlab_rails['omniauth_providers'] = [
       client_options: {
         identifier: 'gitlab',
         secret: '$OIDC_SECRET',
-        redirect_uri: 'https://gitlab.support.example.com/users/auth/openid_connect/callback'
+        redirect_uri: 'https://gitlab.$DEPLOY_DOMAIN/users/auth/openid_connect/callback'
       }
     }
   }
@@ -178,7 +181,7 @@ gitlab_rails['object_store']['connection'] = {
   'aws_access_key_id' => '$MINIO_ROOT_USER',
   'aws_secret_access_key' => '$MINIO_ROOT_PASSWORD',
   'region' => 'us-east-1',
-  'endpoint' => 'http://10.69.50.10:9000',
+  'endpoint' => 'http://$SUPPORT_IP:9000',
   'path_style' => true
 }
 gitlab_rails['object_store']['objects']['artifacts'] = { 'bucket' => 'gitlab-artifacts' }
@@ -368,10 +371,10 @@ MINIOEOF
 
     echo ""
     echo "==> GitLab installation complete!"
-    echo "    URL: https://gitlab.support.example.com"
+    echo "    URL: https://gitlab.$DEPLOY_DOMAIN"
     echo "    Username: root"
     echo "    Password: $ADMIN_PASSWORD"
-    echo "    SSH: ssh -p 2222 git@gitlab.support.example.com"
+    echo "    SSH: ssh -p 2222 git@gitlab.$DEPLOY_DOMAIN"
   '';
 in
 {

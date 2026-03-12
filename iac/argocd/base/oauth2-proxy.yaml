@@ -8,7 +8,7 @@ metadata:
 spec:
   project: identity
   sources:
-    - repoURL: https://github.com/example-user/homelab.git
+    - repoURL: ssh://git@gitlab.support.example.com:2222/infra/homelab.git
       targetRevision: main
       ref: values
     - repoURL: https://oauth2-proxy.github.io/manifests

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # kubectl-jit — Request JIT privilege elevation via Keycloak Token Exchange
 #
-# Usage: kubectl jit --reason "debugging pod crash" [--duration 300] [--cluster-domain simple-k8s.example.com]
+# Usage: kubectl jit --reason "debugging pod crash" [--duration 300] [--cluster-domain kss.example.com]
 #
 # Prerequisites:
 #   - kubectl krew install oidc-login
@@ -33,7 +33,7 @@ Options:
 Examples:
   kubectl jit --reason "debugging pod crash"
   kubectl jit --reason "investigating OOM" --duration 60
-  kubectl jit --reason "deploying hotfix" --cluster-domain mesh-k8s.example.com
+  kubectl jit --reason "deploying hotfix" --cluster-domain kcs.example.com
 EOF
     exit 1
 }
@@ -69,7 +69,7 @@ if [[ -z "$CLUSTER_DOMAIN" ]]; then
         echo "Error: No current kubectl context. Set KUBECONFIG or use --cluster-domain"
         exit 1
     fi
-    # Context name format: <cluster>-oidc (e.g., kss-oidc → simple-k8s.example.com)
+    # Context name format: <cluster>-oidc (e.g., kss-oidc → kss.example.com)
     CLUSTER_SHORT="${CONTEXT%-oidc}"
     if [[ "$CLUSTER_SHORT" == "$CONTEXT" ]]; then
         echo "Error: Context '$CONTEXT' doesn't match <cluster>-oidc pattern."

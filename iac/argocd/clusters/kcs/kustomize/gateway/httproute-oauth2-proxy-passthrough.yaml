@@ -13,7 +13,7 @@ spec:
       namespace: istio-ingress
       sectionName: https
   hostnames:
-    - "*.mesh-k8s.example.com"
+    - "*.support.example.com"
   rules:
     - matches:
         - path:

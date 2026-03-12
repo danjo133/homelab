@@ -16,7 +16,7 @@ spec:
       namespace: istio-ingress
       sectionName: https
   hostnames:
-    - kiali.mesh-k8s.example.com
+    - kiali.kcs.example.com
   rules:
     - backendRefs:
         - name: kiali

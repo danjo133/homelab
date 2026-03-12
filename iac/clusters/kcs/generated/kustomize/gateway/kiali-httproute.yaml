@@ -10,7 +10,7 @@ spec:
     - name: main-gateway
       namespace: istio-ingress
   hostnames:
-    - "kiali.mesh-k8s.example.com"
+    - "kiali.kcs.example.com"
   rules:
     - matches:
         - path:

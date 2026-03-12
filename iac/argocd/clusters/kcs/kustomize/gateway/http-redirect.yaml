@@ -10,7 +10,7 @@ spec:
       namespace: istio-ingress
       sectionName: http
   hostnames:
-    - "*.mesh-k8s.example.com"
+    - "*.support.example.com"
   rules:
     - filters:
         - type: RequestRedirect

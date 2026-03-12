@@ -11,10 +11,10 @@ patches:
     patch: |
       - op: replace
         path: /spec/tls/0/hosts/0
-        value: world.simple-k8s.example.com
+        value: world.kss.example.com
       - op: replace
         path: /spec/rules/0/host
-        value: world.simple-k8s.example.com
+        value: world.kss.example.com
       - op: replace
         path: /metadata/annotations/nginx.ingress.kubernetes.io~1auth-signin
-        value: "https://oauth2-proxy.simple-k8s.example.com/oauth2/start?rd=$scheme://$host$escaped_request_uri"
+        value: "https://oauth2-proxy.kss.example.com/oauth2/start?rd=$scheme://$host$escaped_request_uri"

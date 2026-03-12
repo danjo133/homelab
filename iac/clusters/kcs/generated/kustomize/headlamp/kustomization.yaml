@@ -14,4 +14,4 @@ patches:
     patch: |
       - op: replace
         path: /spec/target/template/data/issuerURL
-        value: "https://auth.mesh-k8s.example.com/realms/broker"
+        value: "https://auth.kcs.example.com/realms/broker"

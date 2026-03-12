@@ -123,7 +123,7 @@ resource "vault_kv_secret_v2" "argocd_ssh_key" {
 
   data_json = jsonencode({
     sshPrivateKey = tls_private_key.argocd.private_key_openssh
-    url           = "https://github.com/example-user/homelab.git"
+    url           = "ssh://git@gitlab.support.example.com:2222/infra/homelab.git"
     type          = "git"
   })
 }

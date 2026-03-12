@@ -7,8 +7,9 @@
 { config, pkgs, lib, ... }:
 
 let
+  deployConfig = import ../generated-config.nix;
   teleportDataDir = "/var/lib/teleport";
-  acmeCertDir = "/var/lib/acme/support.example.com";
+  acmeCertDir = "/var/lib/acme/${deployConfig.domain}";
   certFile = "${acmeCertDir}/fullchain.pem";
   keyFile = "${acmeCertDir}/key.pem";
   setupMarker = "${teleportDataDir}/.setup-complete-v3";
@@ -86,7 +87,7 @@ in
 
       auth_service = {
         enabled = true;
-        cluster_name = "overkill";
+        cluster_name = deployConfig.teleportClusterName;
         listen_addr = "0.0.0.0:3025";
         authentication = {
           type = "local";
@@ -97,10 +98,10 @@ in
       proxy_service = {
         enabled = true;
         web_listen_addr = "0.0.0.0:3080";
-        public_addr = "teleport.support.example.com:3080";
-        ssh_public_addr = "teleport.support.example.com:3023";
-        tunnel_public_addr = "teleport.support.example.com:3024";
-        kube_public_addr = "teleport.support.example.com:3026";
+        public_addr = "teleport.${deployConfig.domain}:3080";
+        ssh_public_addr = "teleport.${deployConfig.domain}:3023";
+        tunnel_public_addr = "teleport.${deployConfig.domain}:3024";
+        kube_public_addr = "teleport.${deployConfig.domain}:3026";
         kube_listen_addr = "0.0.0.0:3026";
         https_keypairs = [
           {
@@ -123,8 +124,8 @@ in
 
   # Ensure Teleport starts after certs are available
   systemd.services.teleport = {
-    after = [ "acme-support.example.com.service" "network-online.target" ];
-    wants = [ "acme-support.example.com.service" ];
+    after = [ "acme-${deployConfig.domain}.service" "network-online.target" ];
+    wants = [ "acme-${deployConfig.domain}.service" ];
   };
 
   # Auto-setup: local admin user

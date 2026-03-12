@@ -55,8 +55,16 @@ VAULT_AUTH_MOUNT=$(yq -r '.vault.auth_mount' "$CLUSTER_YAML")
 VAULT_NAMESPACE=$(yq -r '.vault.namespace // ""' "$CLUSTER_YAML")
 BGP_ASN=$(yq -r '.bgp.asn' "$CLUSTER_YAML")
 
-# Shared support services domain (Vault, Harbor, MinIO are on the shared support VM)
-SUPPORT_DOMAIN="support.example.com"
+# Shared support services domain — read from config.yaml
+CONFIG_FILE="$PROJECT_ROOT/config.yaml"
+if [ -f "$CONFIG_FILE" ]; then
+    _support_prefix=$(yq -r '.domains.support_prefix' "$CONFIG_FILE")
+    _base_domain=$(yq -r '.domains.base' "$CONFIG_FILE")
+    SUPPORT_DOMAIN="${_support_prefix}.${_base_domain}"
+else
+    echo "WARNING: config.yaml not found, using example.com defaults"
+    SUPPORT_DOMAIN="support.lab.example.com"
+fi
 
 # Read optional OIDC config (needed by nix/cluster.nix and helmfile-values.yaml)
 OIDC_ENABLED=$(yq -r '.oidc.enabled // "false"' "$CLUSTER_YAML")
@@ -66,7 +74,7 @@ OIDC_CLIENT_ID=$(yq -r '.oidc.client_id // "kubernetes"' "$CLUSTER_YAML")
 # Read worker info
 WORKER_COUNT=$(yq '.workers | length' "$CLUSTER_YAML")
 
-# Derive domain slug for resource naming (e.g., mesh-k8s.example.com → mesh-k8s.example.com)
+# Derive domain slug for resource naming (e.g., kcs.example.com → kcs-example-com)
 DOMAIN_SLUG=$(echo "$DOMAIN" | tr '.' '-')
 
 # Create output directories
@@ -163,7 +171,7 @@ NIXEOF
 if [ "$OIDC_ENABLED" = "true" ]; then
     cat >> "$GEN_DIR/nix/cluster.nix" << NIXEOF
 
-  kss.cluster.oidc = {
+  kss.example.com = {
     enabled = true;
     issuerUrl = "$OIDC_ISSUER_URL";
     clientId = "$OIDC_CLIENT_ID";

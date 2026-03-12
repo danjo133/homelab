@@ -2,7 +2,7 @@
 # Cluster: kcs
 
 CLUSTER_NAME := kcs
-CLUSTER_DOMAIN := mesh-k8s.example.com
+CLUSTER_DOMAIN := kcs.example.com
 CLUSTER_MASTER_IP := 10.69.50.50
 CLUSTER_MASTER_MAC := 52:54:00:69:50:50
 CLUSTER_MASTER_MEMORY := 10240

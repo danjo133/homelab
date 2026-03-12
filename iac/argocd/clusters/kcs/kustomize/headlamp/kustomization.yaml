@@ -12,4 +12,4 @@ patches:
     patch: |
       - op: replace
         path: /spec/target/template/data/OIDC_ISSUER_URL
-        value: "https://auth.mesh-k8s.example.com/realms/broker"
+        value: "https://auth.kcs.example.com/realms/broker"

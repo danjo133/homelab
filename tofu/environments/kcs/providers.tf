@@ -19,5 +19,5 @@ provider "keycloak" {
   client_id = "admin-cli"
   username  = var.broker_admin_user
   password  = var.broker_admin_password
-  url       = "https://auth.mesh-k8s.example.com"
+  url       = "https://auth.kcs.example.com"
 }

@@ -72,7 +72,7 @@ module "keycloak_broker" {
   source = "../../modules/keycloak-broker"
 
   cluster_name = "kcs"
-  domain       = "mesh-k8s.example.com"
+  domain       = "kcs.example.com"
 
   upstream_client_secret  = data.vault_kv_secret_v2.broker_client.data["client-secret"]
   google_client_id        = data.vault_kv_secret_v2.google_client.data["client-id"]

@@ -5,6 +5,7 @@
 { config, pkgs, lib, ... }:
 
 let
+  deployConfig = import ../generated-config.nix;
   vaultAddr = "http://127.0.0.1:8200";
   keysFile = "/var/lib/openbao/init-keys.json";
   configDir = "/etc/github-mirror";
@@ -31,7 +32,7 @@ let
     if [ -f "$ORG_FILE" ]; then
       GITHUB_ORG=$(cat "$ORG_FILE")
     else
-      GITHUB_ORG="DanjoClaudePlayground"
+      GITHUB_ORG="${deployConfig.githubOrg}"
     fi
 
     echo "==> GitHub Mirror Sync (org: $GITHUB_ORG)"
@@ -50,7 +51,7 @@ let
 
       # Wait for GitLab API
       for i in $(seq 1 60); do
-        if curl -sf -H "X-Forwarded-Proto: https" -H "Host: gitlab.support.example.com" "$GITLAB_URL/users/sign_in" >/dev/null 2>&1; then
+        if curl -sf -H "X-Forwarded-Proto: https" -H "Host: gitlab.${deployConfig.domain}" "$GITLAB_URL/users/sign_in" >/dev/null 2>&1; then
           break
         fi
         if [ "$i" -eq 60 ]; then
@@ -191,7 +192,7 @@ let
     # --- Store GitLab SSH host keys in Vault ---
     echo "==> Scanning GitLab SSH host keys..."
     SSH_HOST_KEYS=$(ssh-keyscan -p 2222 -t ed25519,ecdsa-sha2-nistp256,rsa 127.0.0.1 2>/dev/null \
-      | sed 's/^\[127\.0\.0\.1\]:2222/[gitlab.support.example.com]:2222/')
+      | sed 's/^\[127\.0\.0\.1\]:2222/[gitlab.${deployConfig.domain}]:2222/')
 
     if [ -n "$SSH_HOST_KEYS" ] && [ -f "$KEYS_FILE" ]; then
       ROOT_TOKEN=$(jq -r '.root_token' "$KEYS_FILE")

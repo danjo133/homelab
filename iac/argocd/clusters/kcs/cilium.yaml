@@ -8,7 +8,7 @@ metadata:
 spec:
   project: bootstrap
   sources:
-    - repoURL: https://github.com/example-user/homelab.git
+    - repoURL: ssh://git@gitlab.support.example.com:2222/infra/homelab.git
       targetRevision: main
       ref: values
     - repoURL: https://helm.cilium.io
@@ -19,7 +19,7 @@ spec:
           - $values/iac/argocd/values/kcs/cilium.yaml
         parameters:
           - name: k8sServiceHost
-            value: kcs-master.mesh-k8s.example.com
+            value: kcs-master.kcs.example.com
   destination:
     server: https://kubernetes.default.svc
     namespace: kube-system

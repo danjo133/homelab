@@ -16,7 +16,7 @@ spec:
       namespace: istio-ingress
       sectionName: https
   hostnames:
-    - architecture.mesh-k8s.example.com
+    - architecture.kcs.example.com
   rules:
     - backendRefs:
         - name: architecture

@@ -23,8 +23,8 @@ if [ -z "${VAULT_TOKEN:-}" ]; then
     exit 1
 fi
 
-SPIRE_OIDC_URL="${SPIRE_OIDC_URL:-https://spire-oidc.simple-k8s.example.com}"
-TRUST_DOMAIN="${TRUST_DOMAIN:-simple-k8s.example.com}"
+SPIRE_OIDC_URL="${SPIRE_OIDC_URL:-https://spire-oidc.kss.example.com}"
+TRUST_DOMAIN="${TRUST_DOMAIN:-kss.example.com}"
 
 # Vault namespace header (set by caller for per-cluster namespace isolation)
 VAULT_NAMESPACE="${VAULT_NAMESPACE:-}"
@@ -83,7 +83,7 @@ curl -sk -X PUT \
     $VAULT_NS_HEADER \
     -H "Content-Type: application/json" \
     -d '{
-        "policy": "# Allow SPIFFE workloads to read secrets scoped to their namespace\npath \"secret/data/workloads/*\" {\n  capabilities = [\"read\"]\n}\n\n# Allow PKI certificate issuance\npath \"pki_int/issue/overkill\" {\n  capabilities = [\"create\", \"update\"]\n}"
+        "policy": "# Allow SPIFFE workloads to read secrets scoped to their namespace\npath \"secret/data/workloads/*\" {\n  capabilities = [\"read\"]\n}\n\n# Allow PKI certificate issuance\npath \"pki_int/issue/mylab\" {\n  capabilities = [\"create\", \"update\"]\n}"
     }' \
     "$VAULT_ADDR/v1/sys/policies/acl/spiffe-workload" >/dev/null
 

@@ -17,5 +17,5 @@ spec:
     - to:
         - operation:
             hosts:
-              - "setup.mesh-k8s.example.com"
-              - "hubble.mesh-k8s.example.com"
+              - "setup.kcs.example.com"
+              - "hubble.kcs.example.com"

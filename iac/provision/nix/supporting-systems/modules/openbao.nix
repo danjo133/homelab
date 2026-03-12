@@ -6,6 +6,7 @@
 { config, pkgs, lib, ... }:
 
 let
+  deployConfig = import ../generated-config.nix;
   # Data directory (managed by systemd StateDirectory via the NixOS module)
   openbaoDataDir = "/var/lib/openbao";
 
@@ -95,7 +96,7 @@ in
       storage.file.path = "${openbaoDataDir}/data";
 
       # API address for clients
-      api_addr = "https://vault.support.example.com";
+      api_addr = "https://vault.${deployConfig.domain}";
 
       # Cluster address
       cluster_addr = "https://support.local:8201";

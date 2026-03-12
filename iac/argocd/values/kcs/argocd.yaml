@@ -1,15 +1,15 @@
 # ArgoCD — kcs cluster overrides
 server:
   ingress:
-    hostname: argocd.mesh-k8s.example.com
+    hostname: argocd.kcs.example.com
     enabled: false  # Uses Gateway API HTTPRoute
 
 configs:
   cm:
-    url: "https://argocd.mesh-k8s.example.com"
+    url: "https://argocd.kcs.example.com"
     oidc.config: |
       name: Keycloak
-      issuer: https://auth.mesh-k8s.example.com/realms/broker
+      issuer: https://auth.kcs.example.com/realms/broker
       clientID: argocd
       clientSecret: $argocd-oidc-secret:client-secret
       requestedScopes:

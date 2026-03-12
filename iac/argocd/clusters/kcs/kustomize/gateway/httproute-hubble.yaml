@@ -16,7 +16,7 @@ spec:
       namespace: istio-ingress
       sectionName: https
   hostnames:
-    - hubble.mesh-k8s.example.com
+    - hubble.kcs.example.com
   rules:
     - backendRefs:
         - name: hubble-ui

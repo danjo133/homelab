@@ -15,4 +15,4 @@ spec:
   to:
     - group: ""
       kind: Secret
-      name: wildcard-overkill-tls
+      name: wildcard-mylab-example-com-tls

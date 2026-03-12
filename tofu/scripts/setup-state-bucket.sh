@@ -4,7 +4,7 @@
 # Prerequisites:
 #   - MinIO running on support VM
 #   - mcli (minio-client on Arch) installed
-#   - SSH access to support VM via hypervisor
+#   - SSH access to support VM via iter
 #
 # Usage: ./tofu/scripts/setup-state-bucket.sh
 

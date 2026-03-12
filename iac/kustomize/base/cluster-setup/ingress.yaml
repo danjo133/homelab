@@ -17,10 +17,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - setup.simple-k8s.example.com
+        - setup.kss.example.com
       secretName: cluster-setup-tls
   rules:
-    - host: setup.simple-k8s.example.com
+    - host: setup.kss.example.com
       http:
         paths:
           - path: /

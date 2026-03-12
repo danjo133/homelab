@@ -19,10 +19,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - auth.simple-k8s.example.com
+        - auth.kss.example.com
       secretName: broker-keycloak-tls
   rules:
-    - host: auth.simple-k8s.example.com
+    - host: auth.kss.example.com
       http:
         paths:
           - path: /

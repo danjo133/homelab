@@ -51,7 +51,12 @@ tofu/environments/*/terraform.tfvars
 .env.*
 .env.local
 config.local.yaml
+config.yaml
 secrets.yaml
+
+# Generated config (from generate-config.sh)
+stages/lib/config-local.sh
+iac/provision/nix/supporting-systems/generated-config.nix
 # Exception: sops-encrypted secrets are safe to track
 !iac/provision/nix/supporting-systems/secrets/secrets.yaml
 

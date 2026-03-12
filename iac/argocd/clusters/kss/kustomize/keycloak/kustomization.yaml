@@ -11,14 +11,14 @@ patches:
     patch: |
       - op: replace
         path: /spec/hostname/hostname
-        value: auth.simple-k8s.example.com
+        value: auth.kss.example.com
   - target:
       kind: Ingress
       name: broker-keycloak
     patch: |
       - op: replace
         path: /spec/tls/0/hosts/0
-        value: auth.simple-k8s.example.com
+        value: auth.kss.example.com
       - op: replace
         path: /spec/rules/0/host
-        value: auth.simple-k8s.example.com
+        value: auth.kss.example.com

@@ -17,13 +17,13 @@ patches:
         value: "kcs"
       - op: replace
         path: /data/CLUSTER_DOMAIN
-        value: "mesh-k8s.example.com"
+        value: "kcs.example.com"
       - op: replace
         path: /data/KEYCLOAK_URL
-        value: "https://auth.mesh-k8s.example.com"
+        value: "https://auth.kcs.example.com"
       - op: replace
         path: /data/API_SERVER
-        value: "https://kcs-master.mesh-k8s.example.com:6443"
+        value: "https://kcs-master.kcs.example.com:6443"
   - patch: |
       apiVersion: networking.k8s.io/v1
       kind: Ingress

@@ -23,7 +23,7 @@ resource "vault_policy" "spiffe_workload" {
       capabilities = ["read"]
     }
     # Allow PKI certificate issuance
-    path "pki_int/issue/overkill" {
+    path "pki_int/issue/mylab" {
       capabilities = ["create", "update"]
     }
   EOT

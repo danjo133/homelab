@@ -14,7 +14,7 @@ metadata:
 spec:
   project: applications
   sources:
-    - repoURL: https://github.com/example-user/homelab.git
+    - repoURL: ssh://git@gitlab.support.example.com:2222/infra/homelab.git
       targetRevision: main
       ref: values
     - repoURL: https://helm.openwebui.com/

@@ -13,9 +13,17 @@ help:
 status:
     ./stages/0_global/status.sh
 
+# Generate local config from config.yaml (run first after cloning)
+generate-config:
+    ./scripts/generate-config.sh
+
 # Generate cluster configs from cluster.yaml
 generate:
     ./stages/0_global/generate.sh
+
+# Generate everything: config.yaml → all files, then cluster overlays for all clusters
+generate-all:
+    ./scripts/generate-all.sh
 
 # Clean everything
 clean:

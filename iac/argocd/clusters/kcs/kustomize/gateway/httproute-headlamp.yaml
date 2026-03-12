@@ -16,7 +16,7 @@ spec:
       namespace: istio-ingress
       sectionName: https
   hostnames:
-    - headlamp.mesh-k8s.example.com
+    - headlamp.kcs.example.com
   rules:
     - backendRefs:
         - name: headlamp

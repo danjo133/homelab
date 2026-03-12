@@ -23,13 +23,13 @@ model {
   homelab = system 'KSS Homelab' {
     description 'Kubernetes homelab infrastructure on Arch Linux / libvirt / NixOS'
 
-    workstation = host 'workstation' {
-      description 'Local workstation (Arch Linux). Code editing via sshfs mount at ~/mnt/homelab'
+    foundation = host 'foundation' {
+      description 'Local workstation (Arch Linux). Code editing via sshfs mount at ~/mnt/kss'
       technology 'Arch Linux'
     }
 
-    hypervisor = host 'hypervisor' {
-      description 'Hypervisor host. Runs Vagrant + libvirt/KVM. Project at ~/dev/homelab'
+    iter = host 'iter' {
+      description 'Hypervisor host. Runs Vagrant + libvirt/KVM. Project at ~/dev/kss'
       technology 'Arch Linux, libvirt/KVM'
     }
 
@@ -55,11 +55,11 @@ model {
   }
 
   // Top-level relationships
-  admin -> homelab.workstation 'edits code, runs just commands'
-  homelab.workstation -> homelab.hypervisor 'sshfs mount, SSH commands'
-  homelab.hypervisor -> homelab.supportVM 'vagrant up, SSH'
-  homelab.hypervisor -> homelab.kss 'vagrant up, SSH, kubectl'
-  homelab.hypervisor -> homelab.kcs 'vagrant up, SSH, kubectl'
+  admin -> homelab.foundation 'edits code, runs just commands'
+  homelab.foundation -> homelab.iter 'sshfs mount, SSH commands'
+  homelab.iter -> homelab.supportVM 'vagrant up, SSH'
+  homelab.iter -> homelab.kss 'vagrant up, SSH, kubectl'
+  homelab.iter -> homelab.kcs 'vagrant up, SSH, kubectl'
 
   user -> homelab.kss 'HTTPS via browser'
   user -> homelab.kcs 'HTTPS via browser'

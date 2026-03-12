@@ -13,7 +13,7 @@
 
     domain = lib.mkOption {
       type = lib.types.str;
-      default = "support.example.com";
+      default = "example.com";
       description = "DNS domain for the cluster";
     };
 
@@ -29,13 +29,13 @@
 
     vaultAddr = lib.mkOption {
       type = lib.types.str;
-      default = "https://vault.support.example.com";
+      default = "https://vault.example.com";
       description = "Vault server address";
     };
 
     harborAddr = lib.mkOption {
       type = lib.types.str;
-      default = "harbor.support.example.com";
+      default = "harbor.example.com";
       description = "Harbor registry hostname";
     };
 
@@ -61,7 +61,7 @@
       issuerUrl = lib.mkOption {
         type = lib.types.str;
         default = "";
-        description = "OIDC issuer URL (e.g. https://auth.simple-k8s.example.com/realms/broker)";
+        description = "OIDC issuer URL (e.g. https://auth.kss.example.com/realms/broker)";
       };
 
       clientId = lib.mkOption {

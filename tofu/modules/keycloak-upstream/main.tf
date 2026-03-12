@@ -3,7 +3,7 @@
 # Manages:
 #   - upstream realm
 #   - admin + user realm roles
-#   - 4 test users (alice, bob, carol, admin) with role mappings
+#   - 4 test users (alice, bob, carol, dave) with role mappings
 #   - 3 OIDC clients: broker-client, teleport, gitlab
 #   - realm-roles protocol mapper on the teleport client
 
@@ -54,7 +54,7 @@ resource "keycloak_role" "user" {
 # ============================================================================
 
 locals {
-  users = ["alice", "bob", "carol", "admin"]
+  users = ["alice", "bob", "carol", "dave"]
 }
 
 resource "random_password" "user" {
@@ -135,26 +135,26 @@ resource "keycloak_user_roles" "carol" {
   exhaustive = false
 }
 
-resource "keycloak_user" "admin" {
+resource "keycloak_user" "dave" {
   realm_id       = keycloak_realm.upstream.id
-  username       = "admin"
-  email          = "admin@example.com"
+  username       = "dave"
+  email          = "dave@example.com"
   first_name     = "Admin"
   last_name      = "User"
   enabled        = true
   email_verified = true
 
   initial_password {
-    value     = random_password.user["admin"].result
+    value     = random_password.user["dave"].result
     temporary = false
   }
 
   lifecycle { ignore_changes = [initial_password] }
 }
 
-resource "keycloak_user_roles" "admin" {
+resource "keycloak_user_roles" "dave" {
   realm_id   = keycloak_realm.upstream.id
-  user_id    = keycloak_user.admin.id
+  user_id    = keycloak_user.dave.id
   role_ids   = [keycloak_role.admin.id]
   exhaustive = false
 }
@@ -177,8 +177,8 @@ resource "keycloak_openid_client" "broker_client" {
   use_refresh_tokens           = false
 
   valid_redirect_uris = [
-    "https://auth.simple-k8s.example.com/realms/broker/broker/upstream/endpoint",
-    "https://auth.mesh-k8s.example.com/realms/broker/broker/upstream/endpoint",
+    "https://auth.kcs.example.com/realms/broker/broker/upstream/endpoint",
+    "https://auth.kss.example.com/realms/broker/broker/upstream/endpoint",
   ]
   web_origins = ["+"]
 

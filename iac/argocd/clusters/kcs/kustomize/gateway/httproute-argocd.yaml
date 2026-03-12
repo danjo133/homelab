@@ -16,7 +16,7 @@ spec:
       namespace: istio-ingress
       sectionName: https
   hostnames:
-    - argocd.mesh-k8s.example.com
+    - argocd.kcs.example.com
   rules:
     - backendRefs:
         - name: argocd-server

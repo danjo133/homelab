@@ -1,6 +1,6 @@
 # Demo app for kcs cluster (Istio Ambient mesh)
 # Apply: KUBECONFIG=~/.kube/config-kcs kubectl apply -f iac/demo/kcs-demo.yaml
-# Test:  curl -H "Host: demo.mesh-k8s.example.com" http://10.69.50.209
+# Test:  curl -H "Host: demo.kcs.example.com" http://10.69.50.209
 ---
 apiVersion: v1
 kind: Namespace
@@ -71,7 +71,7 @@ spec:
     - name: main-gateway
       namespace: istio-ingress
   hostnames:
-    - "demo.mesh-k8s.example.com"
+    - "demo.kcs.example.com"
   rules:
     - matches:
         - path:

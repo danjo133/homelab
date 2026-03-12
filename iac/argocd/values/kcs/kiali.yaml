@@ -3,7 +3,7 @@ auth:
   strategy: openid
   openid:
     client_id: kiali
-    issuer_uri: "https://auth.mesh-k8s.example.com/realms/broker"
+    issuer_uri: "https://auth.kcs.example.com/realms/broker"
     scopes:
       - openid
       - profile
@@ -18,7 +18,7 @@ external_services:
   grafana:
     enabled: true
     in_cluster_url: "http://kube-prometheus-stack-grafana.monitoring:80"
-    url: "https://grafana.mesh-k8s.example.com"
+    url: "https://grafana.kcs.example.com"
   tracing:
     enabled: false
 
@@ -33,7 +33,7 @@ deployment:
 
 server:
   port: 20001
-  web_fqdn: kiali.mesh-k8s.example.com
+  web_fqdn: kiali.kcs.example.com
   web_port: "443"
   web_root: /
   web_schema: https

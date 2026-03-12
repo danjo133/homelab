@@ -16,7 +16,7 @@ spec:
       namespace: istio-ingress
       sectionName: https
   hostnames:
-    - jit.mesh-k8s.example.com
+    - jit.kcs.example.com
   rules:
     - backendRefs:
         - name: jit-elevation

@@ -1,9 +1,9 @@
 # Auto-generated from cluster.yaml — do not edit
 # Cluster: kss
 clusterName: kss
-clusterDomain: simple-k8s.example.com
-domainSlug: simple-k8s.example.com
-k8sServiceHost: kss-master.simple-k8s.example.com
+clusterDomain: kss.example.com
+domainSlug: kss-example-com
+k8sServiceHost: kss-master.kss.example.com
 lbPoolCidr: "10.69.50.192/28"
 vaultAuthMount: kubernetes
 vaultNamespace: kss
@@ -11,5 +11,5 @@ bgpAsn: 64514
 
 # OIDC configuration
 oidcEnabled: true
-oidcIssuerUrl: "https://auth.simple-k8s.example.com/realms/broker"
+oidcIssuerUrl: "https://auth.kss.example.com/realms/broker"
 oidcClientId: "kubernetes"

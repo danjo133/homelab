@@ -10,7 +10,7 @@ spec:
       namespace: istio-ingress
       sectionName: https
   hostnames:
-    - oauth2-proxy.mesh-k8s.example.com
+    - oauth2-proxy.kcs.example.com
   rules:
     - matches:
         - path:

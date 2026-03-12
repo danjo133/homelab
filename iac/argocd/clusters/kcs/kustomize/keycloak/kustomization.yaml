@@ -12,7 +12,7 @@ patches:
     patch: |
       - op: replace
         path: /spec/hostname/hostname
-        value: auth.mesh-k8s.example.com
+        value: auth.kcs.example.com
 
   # DELETE the Ingress resource (kcs uses HTTPRoute from gateway/)
   - target:

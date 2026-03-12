@@ -83,7 +83,7 @@ storage:
 
 # --- Platform-injected (set by ApplicationSet, don't touch) ---
 
-clusterDomain: ""          # e.g., simple-k8s.example.com
+clusterDomain: ""          # e.g., kss.example.com
 ingressMode: nginx         # nginx (KSS) or gateway (KCS)
 gateway:                   # Gateway API settings (KCS)
   name: main-gateway

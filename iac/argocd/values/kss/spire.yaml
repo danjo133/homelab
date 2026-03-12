@@ -1,7 +1,7 @@
 # SPIRE — kss cluster overrides
 global:
   spire:
-    trustDomain: simple-k8s.example.com
+    trustDomain: kss.example.com
     clusterName: kss
 
 spire-server:
@@ -10,10 +10,10 @@ spire-server:
       enabled: true
       className: nginx
       hosts:
-        - spire-oidc.simple-k8s.example.com
+        - spire-oidc.kss.example.com
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
       tls:
         - secretName: spire-oidc-tls
           hosts:
-            - spire-oidc.simple-k8s.example.com
+            - spire-oidc.kss.example.com

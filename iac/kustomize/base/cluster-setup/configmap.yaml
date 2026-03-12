@@ -5,7 +5,7 @@ metadata:
   namespace: identity
 data:
   CLUSTER_NAME: "kss"
-  CLUSTER_DOMAIN: "simple-k8s.example.com"
-  KEYCLOAK_URL: "https://auth.simple-k8s.example.com"
-  API_SERVER: "https://kss-master.simple-k8s.example.com:6443"
+  CLUSTER_DOMAIN: "kss.example.com"
+  KEYCLOAK_URL: "https://auth.kss.example.com"
+  API_SERVER: "https://kss-master.kss.example.com:6443"
   LOG_LEVEL: "info"

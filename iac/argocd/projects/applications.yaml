@@ -6,7 +6,7 @@ metadata:
 spec:
   description: End-user applications (waves 4, 5)
   sourceRepos:
-    - https://github.com/example-user/homelab.git
+    - ssh://git@gitlab.support.example.com:2222/infra/homelab.git
     - ssh://git@gitlab.support.example.com:2222/apps/*
     - https://kubernetes-sigs.github.io/headlamp/
     - https://kiali.org/helm-charts

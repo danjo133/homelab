@@ -11,7 +11,7 @@ All files created, kustomize validates cleanly for both clusters, Docker build p
 - `nginx.conf` — SPA routing, `/health` endpoint, static asset caching on port 8080
 - `build-push.sh` — Harbor build+push (exact copy of portal pattern)
 - `src/specification.c4` — Element kinds: person, external, system, host, vm, cluster, node, ns, service, operator, app, database, network, device, group, role, wave. Tags: security, identity, monitoring, storage, networking, gitops
-- `src/model/landscape.c4` — Top-level: homelab system with workstation, hypervisor, unifi, supportVM, kss, kcs. External: cloudflare, letsencrypt, github. Persons: admin, user
+- `src/model/landscape.c4` — Top-level: homelab system with foundation, iter, unifi, supportVM, kss, kcs. External: cloudflare, letsencrypt, github. Persons: admin, user
 - `src/model/support-vm.c4` — Extends homelab.supportVM with: nginx, vault, harbor, minio, nfs, keycloakUpstream, teleport, gitlab, gitlabRunner, githubMirror, zitiController, zitiRouter, zitiZac
 - `src/model/kss-cluster.c4` — Extends homelab.kss with: kssMaster, kssWorkers, canal, metallb, nginxIngress, externalDns, certManager, externalSecrets, argocd, imageUpdater, keycloakBroker, oauth2proxy, gatekeeper, spire, cnpg, prometheus, grafana, loki, alloy, longhorn, trivy, headlamp, portal, architecture, jitElevation, clusterSetup, zitiRouterKss
 - `src/model/kcs-cluster.c4` — Extends homelab.kcs with: kcsMaster, kcsWorkers, cilium, tetragon, istiod, istioCni, ztunnel, gateway, plus *Kcs-suffixed equivalents of kss services, plus kiali
@@ -53,7 +53,7 @@ All files created, kustomize validates cleanly for both clusters, Docker build p
 - `iac/argocd/clusters/kss/kustomization.yaml` — Added `- architecture.yaml` after portal.yaml
 - `iac/argocd/clusters/kcs/kustomization.yaml` — Added `- architecture.yaml` after headlamp-config.yaml
 - `iac/argocd/clusters/kcs/kustomize/gateway/kustomization.yaml` — Added `- httproute-architecture.yaml`
-- `iac/argocd/clusters/kcs/kustomize/gateway/ext-authz-policy.yaml` — Added `architecture.mesh-k8s.example.com` to hosts
+- `iac/argocd/clusters/kcs/kustomize/gateway/ext-authz-policy.yaml` — Added `architecture.kcs.example.com` to hosts
 
 ## What Needs Testing
 

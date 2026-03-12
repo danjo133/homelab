@@ -16,7 +16,7 @@ spec:
       namespace: istio-ingress
       sectionName: https
   hostnames:
-    - chat.mesh-k8s.example.com
+    - chat.kcs.example.com
   rules:
     - backendRefs:
         - name: open-webui

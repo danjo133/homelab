@@ -1,7 +1,7 @@
 # SPIRE — kcs cluster overrides
 global:
   spire:
-    trustDomain: mesh-k8s.example.com
+    trustDomain: kcs.example.com
     clusterName: kcs
 
 spire-server:

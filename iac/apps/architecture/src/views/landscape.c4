@@ -6,8 +6,8 @@ views {
 
     include
       homelab,
-      homelab.workstation,
-      homelab.hypervisor,
+      homelab.foundation,
+      homelab.iter,
       homelab.unifi,
       homelab.supportVM,
       homelab.kss,

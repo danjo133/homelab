@@ -5,6 +5,7 @@
 { config, pkgs, lib, ... }:
 
 let
+  deployConfig = import ../generated-config.nix;
   # Data and configuration directories
   vaultDataDir = "/var/lib/vault";
   vaultConfigDir = "/etc/vault.d";
@@ -84,13 +85,13 @@ let
 
         # Generate root CA
         vault write -field=certificate pki/root/generate/internal \
-          common_name="Overkill Root CA" \
+          common_name="${deployConfig.supportPrefix} Root CA" \
           ttl=87600h > /dev/null
 
         # Configure URLs
         vault write pki/config/urls \
-          issuing_certificates="https://vault.support.example.com/v1/pki/ca" \
-          crl_distribution_points="https://vault.support.example.com/v1/pki/crl"
+          issuing_certificates="https://vault.${deployConfig.domain}/v1/pki/ca" \
+          crl_distribution_points="https://vault.${deployConfig.domain}/v1/pki/crl"
 
         echo "Root CA created"
       fi
@@ -102,7 +103,7 @@ let
 
         # Generate and sign intermediate
         vault write -format=json pki_int/intermediate/generate/internal \
-          common_name="Overkill Intermediate CA" \
+          common_name="${deployConfig.supportPrefix} Intermediate CA" \
           | jq -r '.data.csr' > /tmp/intermediate.csr
 
         vault write -format=json pki/root/sign-intermediate \
@@ -119,13 +120,13 @@ let
       fi
 
       # Create certificate issuing role
-      if ! vault read pki_int/roles/overkill >/dev/null 2>&1; then
-        vault write pki_int/roles/overkill \
-          allowed_domains="support.example.com,example.com" \
+      if ! vault read pki_int/roles/${deployConfig.supportPrefix} >/dev/null 2>&1; then
+        vault write pki_int/roles/${deployConfig.supportPrefix} \
+          allowed_domains="${deployConfig.domain},${deployConfig.baseDomain}" \
           allow_subdomains=true \
           allow_bare_domains=true \
           max_ttl=8760h
-        echo "Certificate role 'overkill' created"
+        echo "Certificate role '${deployConfig.supportPrefix}' created"
       fi
 
       touch "$PKI_MARKER"
@@ -213,7 +214,7 @@ in
       }
 
       # API address for clients
-      api_addr = "https://vault.support.example.com"
+      api_addr = "https://vault.${deployConfig.domain}"
 
       # Cluster address (for HA, not used with file backend)
       cluster_addr = "https://support.local:8201"

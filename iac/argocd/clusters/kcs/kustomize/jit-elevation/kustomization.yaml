@@ -12,7 +12,7 @@ patches:
     patch: |
       - op: replace
         path: /data/KEYCLOAK_URL
-        value: "https://auth.mesh-k8s.example.com"
+        value: "https://auth.kcs.example.com"
 
   # DELETE the Ingress (kcs uses HTTPRoute from gateway/)
   - target:

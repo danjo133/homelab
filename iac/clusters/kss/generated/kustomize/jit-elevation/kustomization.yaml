@@ -14,14 +14,14 @@ patches:
     patch: |
       - op: replace
         path: /data/KEYCLOAK_URL
-        value: "https://auth.simple-k8s.example.com"
+        value: "https://auth.kss.example.com"
   - target:
       kind: Ingress
       name: jit-elevation
     patch: |
       - op: replace
         path: /spec/tls/0/hosts/0
-        value: jit.simple-k8s.example.com
+        value: jit.kss.example.com
       - op: replace
         path: /spec/rules/0/host
-        value: jit.simple-k8s.example.com
+        value: jit.kss.example.com

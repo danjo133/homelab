@@ -6,7 +6,7 @@ image:
 
 # Controller connection
 ctrl:
-  endpoint: "z.example.com:2029"
+  endpoint: "z.test.io:2029"
 
 # Enrollment JWT from K8s secret (created by ExternalSecret from Vault)
 enrollmentJwt: ""

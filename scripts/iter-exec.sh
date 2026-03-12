@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Execute commands on hypervisor (the machine running Vagrant/libvirt)
-# Usage: ./hypervisor-exec.sh "command to run"
+# Execute commands on iter (the machine running Vagrant/libvirt)
+# Usage: ./iter-exec.sh "command to run"
 #
 # The kss project is at:
-#   - hypervisor (remote): ~/dev/homelab
-#   - workstation (local): ~/mnt/homelab (sshfs mount)
+#   - iter (remote): ~/dev/kss
+#   - foundation (local): ~/mnt/kss (sshfs mount)
 
 set -euo pipefail
 
-REMOTE_HOST="hypervisor"
-REMOTE_PROJECT_DIR="\$HOME/dev/kss"
+REMOTE_HOST="iter"
+REMOTE_PROJECT_DIR="~/dev/homelab"
 
 if [ $# -eq 0 ]; then
     echo "Usage: $0 <command>"

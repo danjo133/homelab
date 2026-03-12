@@ -16,7 +16,7 @@ spec:
       namespace: istio-ingress
       sectionName: https
   hostnames:
-    - longhorn.mesh-k8s.example.com
+    - longhorn.kcs.example.com
   rules:
     - backendRefs:
         - name: longhorn-frontend

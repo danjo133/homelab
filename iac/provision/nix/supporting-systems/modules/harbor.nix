@@ -5,6 +5,7 @@
 { config, pkgs, lib, ... }:
 
 let
+  deployConfig = import ../generated-config.nix;
   harborDir = "/opt/harbor";
   harborDataDir = "/var/lib/harbor";
   harborVersion = "v2.14.2";
@@ -24,6 +25,8 @@ let
     HARBOR_ADMIN_PASSWORD_FILE="/etc/harbor/admin_password"
     MINIO_CREDS="/etc/minio/credentials"
     SETUP_MARKER="${harborDir}/.setup-complete"
+    DEPLOY_DOMAIN="${deployConfig.domain}"
+    SUPPORT_IP="${deployConfig.supportIp}"
 
     echo "==> Harbor Auto-Setup"
 
@@ -88,7 +91,7 @@ let
     # Base configuration
     cat > "$HARBOR_DIR/harbor.yml" << HARBOREOF
 # Harbor Configuration - Auto-generated
-hostname: harbor.support.example.com
+hostname: harbor.$DEPLOY_DOMAIN
 
 # HTTP only - Nginx handles TLS termination
 http:
@@ -136,7 +139,7 @@ _version: 2.14.2
 
 secret_key: $SECRET_KEY
 
-external_url: https://harbor.support.example.com
+external_url: https://harbor.$DEPLOY_DOMAIN
 
 # Use underscore prefix for robot accounts to avoid $ escaping issues
 # across shells, CI variables, Go templates, and container tooling
@@ -169,7 +172,7 @@ storage_service:
     secretkey: $MINIO_ROOT_PASSWORD
     region: us-east-1
     bucket: harbor
-    regionendpoint: http://10.69.50.10:9000
+    regionendpoint: http://$SUPPORT_IP:9000
     secure: false
     v4auth: true
     chunksize: 5242880
@@ -197,7 +200,7 @@ MINIOEOF
 
     echo ""
     echo "==> Harbor installation complete!"
-    echo "    URL: https://harbor.support.example.com"
+    echo "    URL: https://harbor.$DEPLOY_DOMAIN"
     echo "    Username: admin"
     echo "    Password: $HARBOR_ADMIN_PASSWORD"
   '';

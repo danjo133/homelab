@@ -143,10 +143,10 @@ module "ziti_config" {
     # ── KSS cluster ───────────────────────────────────────────────────────────
     kss-admin = {
       intercept_addresses = [
-        "argocd.simple-k8s.example.com",
-        "headlamp.simple-k8s.example.com",
-        "longhorn.simple-k8s.example.com",
-        "spire-oidc.simple-k8s.example.com",
+        "argocd.kss.example.com",
+        "headlamp.kss.example.com",
+        "longhorn.kss.example.com",
+        "spire-oidc.kss.example.com",
       ]
       intercept_port = 443
       host_address   = "10.69.50.192"
@@ -155,11 +155,11 @@ module "ziti_config" {
     }
     kss-general = {
       intercept_addresses = [
-        "grafana.simple-k8s.example.com",
-        "jit.simple-k8s.example.com",
-        "setup.simple-k8s.example.com",
-        "architecture.simple-k8s.example.com",
-        "chat.simple-k8s.example.com",
+        "grafana.kss.example.com",
+        "jit.kss.example.com",
+        "setup.kss.example.com",
+        "architecture.kss.example.com",
+        "chat.kss.example.com",
       ]
       intercept_port = 443
       host_address   = "10.69.50.192"
@@ -168,10 +168,11 @@ module "ziti_config" {
     }
     kss-public = {
       intercept_addresses = [
-        "portal.simple-k8s.example.com",
-        "auth.simple-k8s.example.com",
-        "oauth2-proxy.simple-k8s.example.com",
-        "sl.simple-k8s.example.com",
+        "portal.kss.example.com",
+        "auth.kss.example.com",
+        "oauth2-proxy.kss.example.com",
+        "sl.kss.example.com",
+        "londonvisit.kss.example.com",
       ]
       intercept_port = 443
       host_address   = "10.69.50.192"
@@ -182,11 +183,11 @@ module "ziti_config" {
     # ── KCS cluster ───────────────────────────────────────────────────────────
     kcs-admin = {
       intercept_addresses = [
-        "argocd.mesh-k8s.example.com",
-        "headlamp.mesh-k8s.example.com",
-        "longhorn.mesh-k8s.example.com",
-        "kiali.mesh-k8s.example.com",
-        "hubble.mesh-k8s.example.com",
+        "argocd.kcs.example.com",
+        "headlamp.kcs.example.com",
+        "longhorn.kcs.example.com",
+        "kiali.kcs.example.com",
+        "hubble.kcs.example.com",
       ]
       intercept_port = 443
       host_address   = "10.69.50.209"
@@ -195,11 +196,11 @@ module "ziti_config" {
     }
     kcs-general = {
       intercept_addresses = [
-        "grafana.mesh-k8s.example.com",
-        "jit.mesh-k8s.example.com",
-        "setup.mesh-k8s.example.com",
-        "architecture.mesh-k8s.example.com",
-        "chat.mesh-k8s.example.com",
+        "grafana.kcs.example.com",
+        "jit.kcs.example.com",
+        "setup.kcs.example.com",
+        "architecture.kcs.example.com",
+        "chat.kcs.example.com",
       ]
       intercept_port = 443
       host_address   = "10.69.50.209"
@@ -208,10 +209,11 @@ module "ziti_config" {
     }
     kcs-public = {
       intercept_addresses = [
-        "portal.mesh-k8s.example.com",
-        "auth.mesh-k8s.example.com",
-        "oauth2-proxy.mesh-k8s.example.com",
-        "sl.mesh-k8s.example.com",
+        "portal.kcs.example.com",
+        "auth.kcs.example.com",
+        "oauth2-proxy.kcs.example.com",
+        "sl.kcs.example.com",
+        "londonvisit.kcs.example.com",
       ]
       intercept_port = 443
       host_address   = "10.69.50.209"
@@ -224,6 +226,8 @@ module "ziti_config" {
     alice-laptop = { role_attributes = ["admin"] }
     bob-phone  = { role_attributes = ["demo"] }
     dave-tablet = { role_attributes = ["user"] }
+    stefan      = { role_attributes = ["user"] }
+    arash       = { role_attributes = ["user"] }
   }
 
   depends_on = [module.vault_base]

@@ -1,6 +1,6 @@
 # Demo app for kss cluster (nginx-ingress)
 # Apply: KUBECONFIG=~/.kube/config-kss kubectl apply -f iac/demo/kss-demo.yaml
-# Test:  curl -H "Host: demo.simple-k8s.example.com" http://10.69.50.192
+# Test:  curl -H "Host: demo.kss.example.com" http://10.69.50.192
 ---
 apiVersion: v1
 kind: Namespace
@@ -67,7 +67,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: demo.simple-k8s.example.com
+    - host: demo.kss.example.com
       http:
         paths:
           - path: /

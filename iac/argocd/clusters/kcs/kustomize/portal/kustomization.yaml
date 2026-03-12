@@ -15,7 +15,10 @@ patches:
         value: "kcs"
       - op: replace
         path: /data/CLUSTER_DOMAIN
-        value: "mesh-k8s.example.com"
+        value: "kcs.example.com"
+      - op: replace
+        path: /data/ANNOTATION_PREFIX
+        value: "portal.example.com/"
   # Delete Ingress on kcs (uses Gateway API HTTPRoute instead)
   - patch: |
       apiVersion: networking.k8s.io/v1

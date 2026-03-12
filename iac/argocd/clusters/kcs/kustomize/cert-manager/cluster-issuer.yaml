@@ -6,7 +6,7 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: letsencrypt@example.com
+    email: letsencrypt@test.io
     privateKeySecretRef:
       name: letsencrypt-prod-account-key
     solvers:
@@ -17,7 +17,7 @@ spec:
               key: api-token
         selector:
           dnsZones:
-            - example.com
+            - test.io
 
 ---
 # Staging issuer for testing (higher rate limits)
@@ -28,7 +28,7 @@ metadata:
 spec:
   acme:
     server: https://acme-staging-v02.api.letsencrypt.org/directory
-    email: letsencrypt@example.com
+    email: letsencrypt@test.io
     privateKeySecretRef:
       name: letsencrypt-staging-account-key
     solvers:
@@ -39,4 +39,4 @@ spec:
               key: api-token
         selector:
           dnsZones:
-            - example.com
+            - test.io

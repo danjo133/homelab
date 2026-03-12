@@ -1,14 +1,14 @@
 # ArgoCD — kss cluster overrides
 server:
   ingress:
-    hostname: argocd.simple-k8s.example.com
+    hostname: argocd.kss.example.com
 
 configs:
   cm:
-    url: "https://argocd.simple-k8s.example.com"
+    url: "https://argocd.kss.example.com"
     oidc.config: |
       name: Keycloak
-      issuer: https://auth.simple-k8s.example.com/realms/broker
+      issuer: https://auth.kss.example.com/realms/broker
       clientID: argocd
       clientSecret: $argocd-oidc-secret:client-secret
       requestedScopes:

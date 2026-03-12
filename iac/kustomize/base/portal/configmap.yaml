@@ -6,4 +6,5 @@ metadata:
 data:
   CLUSTER_NAME: "CLUSTER_NAME"
   CLUSTER_DOMAIN: "CLUSTER_DOMAIN"
+  ANNOTATION_PREFIX: "portal.example.com/"
   LOG_LEVEL: "info"

@@ -12,4 +12,4 @@ spec:
   to:
     - group: ""
       kind: Secret
-      name: wildcard-kcs-example-com-tls
+      name: wildcard-kcs-example-com

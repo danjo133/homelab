@@ -3,4 +3,4 @@ ingress:
 
 sso:
   oidc:
-    providerUrl: "https://auth.mesh-k8s.example.com/realms/broker/.well-known/openid-configuration"
+    providerUrl: "https://auth.kcs.example.com/realms/broker/.well-known/openid-configuration"

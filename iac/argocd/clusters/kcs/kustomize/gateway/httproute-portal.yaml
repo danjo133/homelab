@@ -16,7 +16,7 @@ spec:
       namespace: istio-ingress
       sectionName: https
   hostnames:
-    - portal.mesh-k8s.example.com
+    - portal.kcs.example.com
   rules:
     - backendRefs:
         - name: portal

@@ -14,10 +14,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - jit.simple-k8s.example.com
+        - jit.kss.example.com
       secretName: jit-elevation-tls
   rules:
-    - host: jit.simple-k8s.example.com
+    - host: jit.kss.example.com
       http:
         paths:
           - path: /

@@ -1,6 +1,6 @@
 # ClusterIssuer for Let's Encrypt with Cloudflare DNS-01 challenge
 #
-# This issuer can create certificates for any domain in example.com
+# This issuer can create certificates for any domain in test.io
 # using DNS-01 challenge via Cloudflare API.
 #
 # Prerequisites:
@@ -21,7 +21,7 @@ spec:
     # Production Let's Encrypt server
     server: https://acme-v02.api.letsencrypt.org/directory
     # Email for certificate expiration notifications
-    email: letsencrypt@example.com
+    email: letsencrypt@test.io
     # Secret to store the ACME account private key
     privateKeySecretRef:
       name: letsencrypt-prod-account-key
@@ -32,10 +32,10 @@ spec:
             apiTokenSecretRef:
               name: cloudflare-api-token
               key: api-token
-        # Only use this solver for example.com domain
+        # Only use this solver for test.io domain
         selector:
           dnsZones:
-            - example.com
+            - test.io
 
 ---
 # Staging issuer for testing (higher rate limits)
@@ -46,7 +46,7 @@ metadata:
 spec:
   acme:
     server: https://acme-staging-v02.api.letsencrypt.org/directory
-    email: letsencrypt@example.com
+    email: letsencrypt@test.io
     privateKeySecretRef:
       name: letsencrypt-staging-account-key
     solvers:
@@ -57,4 +57,4 @@ spec:
               key: api-token
         selector:
           dnsZones:
-            - example.com
+            - test.io

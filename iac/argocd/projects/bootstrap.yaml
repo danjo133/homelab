@@ -6,7 +6,7 @@ metadata:
 spec:
   description: Core infrastructure (waves -5 to -1)
   sourceRepos:
-    - https://github.com/example-user/homelab.git
+    - ssh://git@gitlab.support.example.com:2222/infra/homelab.git
     - https://charts.jetstack.io
     - https://charts.external-secrets.io
     - https://kubernetes-sigs.github.io/external-dns

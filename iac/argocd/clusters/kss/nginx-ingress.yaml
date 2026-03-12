@@ -8,7 +8,7 @@ metadata:
 spec:
   project: bootstrap
   sources:
-    - repoURL: https://github.com/example-user/homelab.git
+    - repoURL: ssh://git@gitlab.support.example.com:2222/infra/homelab.git
       targetRevision: main
       ref: values
     - repoURL: https://kubernetes.github.io/ingress-nginx
@@ -19,7 +19,7 @@ spec:
           - $values/iac/argocd/values/base/nginx-ingress.yaml
         parameters:
           - name: controller.extraArgs.default-ssl-certificate
-            value: cert-manager/wildcard-kss-example-com-tls
+            value: cert-manager/wildcard-kss-example-com
   destination:
     server: https://kubernetes.default.svc
     namespace: ingress-nginx

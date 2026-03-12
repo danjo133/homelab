@@ -16,7 +16,7 @@ spec:
       namespace: istio-ingress
       sectionName: https
   hostnames:
-    - world.mesh-k8s.example.com
+    - world.kcs.example.com
   rules:
     - backendRefs:
         - name: globalpulse

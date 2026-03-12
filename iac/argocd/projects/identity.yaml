@@ -6,7 +6,7 @@ metadata:
 spec:
   description: Identity and access management (wave 1)
   sourceRepos:
-    - https://github.com/example-user/homelab.git
+    - ssh://git@gitlab.support.example.com:2222/infra/homelab.git
     - https://oauth2-proxy.github.io/manifests
   destinations:
     - server: https://kubernetes.default.svc

@@ -16,7 +16,7 @@ model {
     }
 
     brK8s = network 'br-k8s Bridge' {
-      description 'Bridge on hypervisor host connecting VMs to VLAN 50 via enp8s0.50'
+      description 'Bridge on iter host connecting VMs to VLAN 50 via enp8s0.50'
     }
 
     kssLbPool = network 'kss LB Pool' {
@@ -30,9 +30,9 @@ model {
 
   // Network connectivity
   networkInfra.vlan10 -> networkInfra.vlan50 'allowed via Unifi firewall'
-  homelab.hypervisor -> networkInfra.brK8s 'hosts bridge interface'
+  homelab.iter -> networkInfra.brK8s 'hosts bridge interface'
   networkInfra.brK8s -> networkInfra.vlan50 'VLAN tagged traffic via enp8s0.50'
-  networkInfra.libvirtNat -> homelab.hypervisor 'Vagrant SSH only (ens6)'
+  networkInfra.libvirtNat -> homelab.iter 'Vagrant SSH only (ens6)'
   networkInfra.vlan50 -> homelab.supportVM 'ens7: 10.69.50.10'
   networkInfra.vlan50 -> homelab.kss 'ens7: 10.69.50.20-33'
   networkInfra.vlan50 -> homelab.kcs 'ens7: 10.69.50.50-63'

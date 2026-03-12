@@ -85,7 +85,7 @@ model {
     // Identity
     keycloakBrokerKcs = service 'Keycloak (Broker)' {
       #identity
-      description 'Per-cluster IdP broker. auth.mesh-k8s.example.com'
+      description 'Per-cluster IdP broker. auth.kcs.example.com'
       technology 'Keycloak, CloudNativePG'
     }
 
@@ -103,7 +103,7 @@ model {
 
     spireKcs = operator 'SPIRE' {
       #identity
-      description 'SPIFFE workload identity. Trust domain: mesh-k8s.example.com'
+      description 'SPIFFE workload identity. Trust domain: kcs.example.com'
       technology 'SPIRE'
     }
 

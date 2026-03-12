@@ -4,7 +4,7 @@ variable "cluster_name" {
 }
 
 variable "domain" {
-  description = "Cluster domain (e.g. simple-k8s.example.com)"
+  description = "Cluster domain (e.g. kss.example.com)"
   type        = string
 }
 

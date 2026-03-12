@@ -105,7 +105,7 @@ REALM_ID="upstream"
 ALICE_ID=$(kc_api "/upstream/users?username=alice&exact=true" | jq -r '.[0].id')
 BOB_ID=$(kc_api "/upstream/users?username=bob&exact=true" | jq -r '.[0].id')
 CAROL_ID=$(kc_api "/upstream/users?username=carol&exact=true" | jq -r '.[0].id')
-DAVE_ID=$(kc_api "/upstream/users?username=admin&exact=true" | jq -r '.[0].id')
+DAVE_ID=$(kc_api "/upstream/users?username=dave&exact=true" | jq -r '.[0].id')
 
 # Get role UUIDs
 ADMIN_ROLE_ID=$(kc_api "/upstream/roles/admin" | jq -r '.id')
@@ -121,7 +121,7 @@ TELEPORT_ROLES_MAPPER_ID=$(kc_api "/upstream/clients/$TELEPORT_CLIENT_UUID/proto
   | jq -r '.[] | select(.name == "realm-roles") | .id')
 
 info "Keycloak UUIDs resolved:"
-echo "  alice=$ALICE_ID bob=$BOB_ID carol=$CAROL_ID admin=$DAVE_ID"
+echo "  alice=$ALICE_ID bob=$BOB_ID carol=$CAROL_ID dave=$DAVE_ID"
 echo "  admin_role=$ADMIN_ROLE_ID user_role=$USER_ROLE_ID"
 echo "  broker=$BROKER_CLIENT_UUID teleport=$TELEPORT_CLIENT_UUID gitlab=$GITLAB_CLIENT_UUID"
 echo "  teleport_roles_mapper=$TELEPORT_ROLES_MAPPER_ID"
@@ -135,12 +135,12 @@ import_resource "module.keycloak_upstream.keycloak_role.user" "$REALM_ID/$USER_R
 import_resource "module.keycloak_upstream.keycloak_user.alice" "$REALM_ID/$ALICE_ID"
 import_resource "module.keycloak_upstream.keycloak_user.bob" "$REALM_ID/$BOB_ID"
 import_resource "module.keycloak_upstream.keycloak_user.carol" "$REALM_ID/$CAROL_ID"
-import_resource "module.keycloak_upstream.keycloak_user.admin" "$REALM_ID/$DAVE_ID"
+import_resource "module.keycloak_upstream.keycloak_user.dave" "$REALM_ID/$DAVE_ID"
 
 import_resource "module.keycloak_upstream.keycloak_user_roles.alice" "$REALM_ID/$ALICE_ID"
 import_resource "module.keycloak_upstream.keycloak_user_roles.bob" "$REALM_ID/$BOB_ID"
 import_resource "module.keycloak_upstream.keycloak_user_roles.carol" "$REALM_ID/$CAROL_ID"
-import_resource "module.keycloak_upstream.keycloak_user_roles.admin" "$REALM_ID/$DAVE_ID"
+import_resource "module.keycloak_upstream.keycloak_user_roles.dave" "$REALM_ID/$DAVE_ID"
 
 import_resource "module.keycloak_upstream.keycloak_openid_client.broker_client" "$REALM_ID/$BROKER_CLIENT_UUID"
 import_resource "module.keycloak_upstream.keycloak_openid_client.teleport" "$REALM_ID/$TELEPORT_CLIENT_UUID"

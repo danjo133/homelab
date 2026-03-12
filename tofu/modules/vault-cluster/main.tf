@@ -21,7 +21,7 @@ resource "vault_mount" "pki_int" {
 # Certificate issuing role
 resource "vault_pki_secret_backend_role" "overkill" {
   backend = vault_mount.pki_int.path
-  name    = "overkill"
+  name    = "mylab"
 
   allowed_domains    = ["support.example.com", "example.com"]
   allow_subdomains   = true

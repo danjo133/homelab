@@ -1,7 +1,7 @@
 # --- Developer-facing values (set in deploy/values.yaml) ---
 
 # Short name for the service — becomes <name>.<clusterDomain>
-# Example: "sl" → sl.simple-k8s.example.com
+# Example: "sl" → sl.kss.example.com
 name: ""
 
 # Container port the app listens on
@@ -59,7 +59,7 @@ probes:
 # --- Platform-injected values (set by ApplicationSet) ---
 
 # Cluster domain, injected by ApplicationSet helm parameter
-# e.g., simple-k8s.example.com
+# e.g., kss.example.com
 clusterDomain: ""
 
 # Ingress mode: "nginx" (KSS) or "gateway" (KCS)

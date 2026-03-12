@@ -3,6 +3,7 @@
 { config, pkgs, lib, ... }:
 
 let
+  deployConfig = import ../generated-config.nix;
   minioDataDir = "/var/lib/minio/data";
   minioConfigDir = "/etc/minio";
   credentialsFile = "/etc/minio/credentials";
@@ -21,9 +22,9 @@ in
   # Additional MinIO configuration via environment
   systemd.services.minio.environment = {
     # Use path-style URLs
-    MINIO_DOMAIN = "minio.support.example.com";
+    MINIO_DOMAIN = "minio.${deployConfig.domain}";
     # Browser redirect
-    MINIO_BROWSER_REDIRECT_URL = "https://minio-console.support.example.com";
+    MINIO_BROWSER_REDIRECT_URL = "https://minio-console.${deployConfig.domain}";
   };
 
   # Ensure directories exist with correct ownership

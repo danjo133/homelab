@@ -6,7 +6,7 @@ metadata:
 spec:
   description: Platform operators and monitoring (waves 0, 2, 3)
   sourceRepos:
-    - https://github.com/example-user/homelab.git
+    - ssh://git@gitlab.support.example.com:2222/infra/homelab.git
     - https://argoproj.github.io/argo-helm
     - https://charts.longhorn.io
     - https://open-policy-agent.github.io/gatekeeper/charts

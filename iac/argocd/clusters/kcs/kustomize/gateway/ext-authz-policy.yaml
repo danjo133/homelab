@@ -18,12 +18,12 @@ spec:
     - to:
         - operation:
             notHosts:
-              - argocd.mesh-k8s.example.com      # Own OIDC login
-              - auth.mesh-k8s.example.com         # Keycloak — is the IdP
-              - grafana.mesh-k8s.example.com      # Own OAuth login
-              - oauth2-proxy.mesh-k8s.example.com # Auth proxy itself
-              - headlamp.mesh-k8s.example.com     # Headlamp — own OIDC login
-              - jit.mesh-k8s.example.com          # Token exchange API
-              - chat.mesh-k8s.example.com         # Open WebUI — own OIDC login
+              - argocd.kcs.example.com      # Own OIDC login
+              - auth.kcs.example.com         # Keycloak — is the IdP
+              - grafana.kcs.example.com      # Own OAuth login
+              - oauth2-proxy.kcs.example.com # Auth proxy itself
+              - headlamp.kcs.example.com     # Headlamp — own OIDC login
+              - jit.kcs.example.com          # Token exchange API
+              - chat.kcs.example.com         # Open WebUI — own OIDC login
             notPaths:
               - /oauth2/*                     # Let passthrough route handle auth flow

@@ -3,14 +3,16 @@
 { config, pkgs, lib, ... }:
 
 let
+  deployConfig = import ../generated-config.nix;
+
   # Export paths
   nfsExportDir = "/export";
   k8sRwxDir = "${nfsExportDir}/kubernetes-rwx";
   backupsDir = "${nfsExportDir}/backups";
   longhornDir = "${nfsExportDir}/longhorn";
 
-  # Allowed network - VLAN 50 CIDR
-  allowedNetwork = "10.69.50.0/24";
+  # Allowed network - VLAN 50 CIDR (derived from support IP)
+  allowedNetwork = deployConfig.nfsAllowedNetwork;
 in
 {
   # Enable NFS server
