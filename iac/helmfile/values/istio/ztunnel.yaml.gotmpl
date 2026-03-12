@@ -1,0 +1,16 @@
+# Ztunnel Values — Ambient Mode L4 Proxy
+# Per-node proxy that handles mTLS and L4 traffic for Ambient mesh pods.
+#
+# Runs as a DaemonSet on every node.
+
+# Resource requests/limits appropriate for homelab
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+# Tolerate all taints so ztunnel runs on every node (including masters)
+tolerations:
+  - operator: Exists

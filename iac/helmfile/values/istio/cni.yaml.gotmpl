@@ -1,0 +1,18 @@
+# Istio CNI Values — Ambient Mode
+# Required for Ambient mesh: sets up ztunnel traffic redirection rules
+#
+# Runs as a DaemonSet on every node to configure networking for ztunnel.
+
+profile: ambient
+
+# Resource requests/limits appropriate for homelab
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+
+# Tolerate all taints so CNI runs on every node (including masters)
+tolerations:
+  - operator: Exists

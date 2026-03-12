@@ -1,0 +1,59 @@
+# Longhorn Distributed Block Storage
+# Chart: longhorn/longhorn from charts.longhorn.io
+#
+# Provides HA persistent volumes across worker nodes.
+# Replaces local-path as the default StorageClass.
+
+defaultSettings:
+  # 2 replicas across 3 workers — availability without wasting space
+  defaultReplicaCount: 2
+  # Backup target: NFS on support VM
+  backupTarget: "nfs://10.69.50.10:/export/longhorn"
+  # Create default disk on nodes automatically
+  createDefaultDiskLabeledNodes: false
+  # Storage over-provisioning (homelab: allow 200%)
+  storageOverProvisioningPercentage: 200
+  storageMinimalAvailablePercentage: 15
+  # Guaranteed instance manager CPU
+  guaranteedInstanceManagerCPU: 5
+
+persistence:
+  # Make Longhorn the default StorageClass
+  defaultClass: true
+  defaultClassReplicaCount: 2
+
+# Ingress for Longhorn UI
+ingress:
+  enabled: true
+  ingressClassName: nginx
+  host: longhorn.{{ .Values.clusterDomain }}
+  tls: true
+  tlsSecret: wildcard-{{ .Values.domainSlug }}-tls
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+
+# Resource requests
+longhornManager:
+  tolerations:
+    - operator: Exists
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+
+longhornDriver:
+  tolerations:
+    - operator: Exists
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+# Prometheus ServiceMonitor
+metrics:
+  serviceMonitor:
+    enabled: true

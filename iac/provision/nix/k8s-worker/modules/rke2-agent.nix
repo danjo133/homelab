@@ -102,7 +102,7 @@ let
   masterFqdn = "${masterHostname}.${clusterDomain}";
 
   # Script to configure agent with token from shared file
-  configureAgent = pkgs.writeShellScript "rke2-agent-configure" ''
+  configureAgent = pkgs.writeShellScript "rke2-agent-configure" (''
     set -eu
 
     export PATH="${lib.makeBinPath [ pkgs.coreutils pkgs.gawk pkgs.dnsutils ]}"
@@ -197,7 +197,7 @@ EOF
 
     touch "$TOKEN_MARKER"
     echo "Agent configuration complete"
-  '';
+  '');
 in
 {
   # RKE2 installation service

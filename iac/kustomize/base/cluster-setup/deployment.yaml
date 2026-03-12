@@ -1,0 +1,51 @@
+# Cluster Setup Service
+# Self-service OIDC token info and kubeconfig download
+# Image source: iac/apps/cluster-setup/
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-setup
+  namespace: identity
+  labels:
+    app: cluster-setup
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cluster-setup
+  template:
+    metadata:
+      labels:
+        app: cluster-setup
+    spec:
+      serviceAccountName: default
+      imagePullSecrets:
+        - name: harbor-pull-secret
+      containers:
+        - name: cluster-setup
+          image: harbor.support.example.com/kss/cluster-setup:latest
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: cluster-setup-config
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10

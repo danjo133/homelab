@@ -1,0 +1,152 @@
+# !! KNOWN BROKEN — Cilium Gateway API does not work for external traffic !!
+# BPF TPROXY binds Envoy to 127.0.0.1; external traffic never reaches it
+# (cilium#32356, #35559). Use profile-istio-bgp.yaml with Istio Ambient instead.
+# This profile is kept for reference and future Cilium Gateway API fixes.
+
+# Cilium Gateway API + BGP Profile
+# Full-featured Cilium with kube-proxy replacement, BGP, and Gateway API
+#
+# Use this profile for:
+# - Production deployments with external connectivity
+# - LoadBalancer services advertised via BGP
+# - Ingress via Gateway API (Envoy)
+#
+# Prerequisites:
+# - Gateway API CRDs must be installed BEFORE Cilium (v1.2.0+)
+# - RKE2 must have disable-kube-proxy: true in config
+# - BGP peer (router) must be configured to accept connections
+# - CiliumLoadBalancerIPPool CRD must be applied after Cilium
+# - CiliumBGPClusterConfig CRD must be applied after Cilium
+#
+# Usage in helmfile:
+#   values:
+#     - ./values/cilium/common.yaml
+#     - ./values/cilium/profile-gateway-bgp.yaml
+
+# =============================================================================
+# Kubernetes API Server (REQUIRED for kube-proxy replacement)
+# =============================================================================
+# k8sServiceHost is set per-cluster via helmfile --state-values-file
+k8sServicePort: 6443
+
+# =============================================================================
+# Set MTU and Devices
+# =============================================================================
+# Native routing: full 1500 MTU (no tunnel overhead)
+MTU: 1500
+# Device list format required for Cilium 1.18
+devices:
+  - ens7
+
+# =============================================================================
+# Kube-Proxy Replacement
+# =============================================================================
+
+# Replace kube-proxy entirely (requires RKE2 disable-kube-proxy: true)
+kubeProxyReplacement: true
+
+# =============================================================================
+# BGP Control Plane
+# =============================================================================
+
+bgpControlPlane:
+  enabled: true
+
+# =============================================================================
+# Gateway API (Envoy-based ingress)
+# =============================================================================
+
+gatewayAPI:
+  enabled: true
+  gatewayClass:
+    create: "true"
+  # hostNetwork: Envoy binds directly to host ports 80/443, bypassing BPF L7LB
+  # TPROXY which has a return-path bug for external traffic (Cilium #32356, #35559).
+  # Requires rke2-ingress-nginx to be disabled (port conflict on 80/443).
+  hostNetwork:
+    enabled: true
+
+# Envoy: use embedded mode (NOT external DaemonSet) so that per-gateway
+# hostNetwork Envoy pods are created, binding directly to 0.0.0.0:80/443.
+# The external DaemonSet (envoy.enabled: true) uses BPF TPROXY on 127.0.0.1
+# which is broken for external traffic (Cilium #32356, #35559).
+envoy:
+  enabled: false
+
+# =============================================================================
+# Routing Mode: Native
+# =============================================================================
+# Native routing for direct pod-to-pod traffic between nodes.
+# All nodes are on the same L2 network (10.69.50.0/24), so
+# autoDirectNodeRoutes installs kernel routes for remote pod CIDRs.
+#
+# Tunnel mode (VXLAN) has a well-documented BPF TPROXY return-path bug
+# that breaks Gateway API for external traffic (Cilium #32356, #35559).
+
+routingMode: native
+
+# All nodes share L2 — auto-install routes for remote pod CIDRs
+autoDirectNodeRoutes: true
+
+# Pod CIDR — traffic within this range is NOT masqueraded
+ipv4NativeRoutingCIDR: "10.42.0.0/16"
+
+endpointRoutes:
+  enabled: false
+
+# =============================================================================
+# Encryption: WireGuard
+# =============================================================================
+# Encrypt node-to-node pod traffic using WireGuard
+# Note: This also fixes host-to-pod cross-node traffic issues (GitHub #32592)
+
+encryption:
+  enabled: false
+  # type: wireguard
+  # NOTE: WireGuard encryption breaks Gateway API envoy→backend connectivity.
+  # The envoy's outbound connections to pod IPs fail through the WireGuard tunnel.
+  # Re-enable once Cilium fixes this interaction.
+
+# =============================================================================
+# LoadBalancer
+# =============================================================================
+
+# LoadBalancer IP allocation enabled
+# Actual IP pool defined via CiliumLoadBalancerIPPool CRD
+loadBalancer:
+  # Use SNAT mode (simpler, works with any network)
+  # Alternative: "dsr" for Direct Server Return (requires L2 adjacency)
+  mode: snat
+
+# L2 announcements enabled alongside BGP
+l2announcements:
+  enabled: true
+
+# =============================================================================
+# Masquerading
+# =============================================================================
+
+# Enable masquerading for pod-to-external traffic
+enableIPv4Masquerade: true
+
+# Use eBPF-based masquerade (more efficient with kube-proxy replacement)
+bpf:
+  masquerade: true
+  # BPF host routing (false = BPF handles full datapath, no iptables fallback)
+  hostLegacyRouting: false
+
+# =============================================================================
+# Hubble Metrics Enhancement
+# =============================================================================
+
+# Override common.yaml to add HTTP metrics for Gateway API observability
+hubble:
+  metrics:
+    enabled:
+      - dns
+      - drop
+      - tcp
+      - flow
+      - port-distribution
+      - icmp
+      - httpV2:exemplars=true;labelsContext=source_ip,source_namespace,source_workload,destination_ip,destination_namespace,destination_workload,traffic_direction

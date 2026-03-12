@@ -198,6 +198,10 @@ in
         - "audit-log-maxbackup=10"
         - "audit-log-maxsize=100"${oidcApiServerArgs}
 
+      # Taint control-plane node to keep workloads on workers
+      node-taint:
+        - "node-role.kubernetes.io/control-plane=true:NoSchedule"
+
       # etcd settings
       etcd-expose-metrics: true
     '';

@@ -10,3 +10,8 @@ resources:
   - grafana-admin-secret.yaml
   - grafana-oidc-secret.yaml
   - loki-minio-secret.yaml
+  - prometheus-rules.yaml
+  - grafana-dashboard-trivy.yaml
+  - grafana-dashboard-loki.yaml
+  - grafana-dashboard-gatekeeper.yaml
+  - gatekeeper-metrics.yaml

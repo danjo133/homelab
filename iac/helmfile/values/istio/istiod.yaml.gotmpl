@@ -1,0 +1,113 @@
+# Istio Control Plane (istiod) Values — Ambient Mode
+# Configures istiod for Ambient mesh (no sidecars)
+#
+# Key features:
+# - Ambient mode: ztunnel handles L4 mTLS, waypoint proxies handle L7
+# - No sidecar injection — mesh enrollment via namespace label
+# - Gateway API for ingress routing
+
+# =============================================================================
+# Ambient Profile
+# =============================================================================
+
+profile: ambient
+
+# =============================================================================
+# Scaling Configuration
+# =============================================================================
+
+# Disable autoscaling for homelab (single replica is sufficient)
+autoscaleEnabled: false
+replicaCount: 1
+
+# Resource requests/limits appropriate for homelab
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+
+# =============================================================================
+# Mesh Configuration
+# =============================================================================
+
+meshConfig:
+  # Access logging for debugging and observability
+  accessLogFile: /dev/stdout
+
+  # Enable tracing (compatible with Jaeger/Zipkin when deployed)
+  enableTracing: true
+
+  # Enable Prometheus metrics merge
+  enablePrometheusMerge: true
+
+  # Default proxy configuration
+  defaultConfig:
+    # Enable DNS capture for better service discovery
+    proxyMetadata:
+      ISTIO_META_DNS_CAPTURE: "true"
+      ISTIO_META_DNS_AUTO_ALLOCATE: "true"
+
+    # Tracing sample rate (1% for production, increase for debugging)
+    tracing:
+      sampling: 1.0
+
+  # Outbound traffic policy: ALLOW_ANY lets pods reach external services
+  outboundTrafficPolicy:
+    mode: ALLOW_ANY
+
+  # Extension providers for ext_authz (OAuth2-Proxy SSO for protected services)
+  extensionProviders:
+    - name: oauth2-proxy
+      envoyExtAuthzHttp:
+        service: oauth2-proxy.oauth2-proxy.svc.cluster.local
+        port: 80
+        includeRequestHeadersInCheck:
+          - cookie
+          - authorization
+          - host
+        headersToUpstreamOnAllow:
+          - authorization
+          - x-auth-request-user
+          - x-auth-request-email
+          - x-auth-request-groups
+          - x-auth-request-access-token
+        headersToDownstreamOnDeny:
+          - set-cookie
+          - location
+
+# =============================================================================
+# Global Settings
+# =============================================================================
+
+global:
+  # Use istio-system as the namespace
+  istioNamespace: istio-system
+
+  # Logging level
+  logging:
+    level: "default:info"
+
+# =============================================================================
+# Telemetry
+# =============================================================================
+
+telemetry:
+  enabled: true
+  v2:
+    # Enable Prometheus metrics
+    prometheus:
+      enabled: true
+
+# =============================================================================
+# Environment Variables
+# =============================================================================
+
+env:
+  # Enable status updates for Gateway API resources
+  PILOT_ENABLE_STATUS: "true"
+  # Enable Gateway API support
+  PILOT_ENABLE_GATEWAY_API: "true"
+  PILOT_ENABLE_GATEWAY_API_STATUS: "true"
+  PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER: "true"

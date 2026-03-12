@@ -6,3 +6,16 @@ kind: Kustomization
 
 resources:
   - ../../../../../kustomize/base/monitoring
+
+patches:
+  # Per-cluster Vault path for Loki MinIO credentials
+  - target:
+      kind: ExternalSecret
+      name: loki-minio-secret
+    patch: |
+      - op: replace
+        path: /spec/data/0/remoteRef/key
+        value: minio/loki-kss
+      - op: replace
+        path: /spec/data/1/remoteRef/key
+        value: minio/loki-kss

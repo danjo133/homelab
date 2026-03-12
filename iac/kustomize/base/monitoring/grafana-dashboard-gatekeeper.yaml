@@ -1,0 +1,356 @@
+# Grafana dashboard: OPA Gatekeeper policy status
+# Auto-loaded by Grafana sidecar via label grafana_dashboard: "1"
+# Uses Prometheus for overview stats + Loki for per-resource violation details
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-gatekeeper
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  gatekeeper.json: |
+    {
+      "annotations": { "list": [] },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "links": [],
+      "panels": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "fixed", "fixedColor": "blue" },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "blue", "value": null }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+          "id": 1,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "horizontal",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "textMode": "auto"
+          },
+          "title": "Active Constraints",
+          "type": "stat",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(gatekeeper_constraints{status=\"active\"})",
+              "legendFormat": "Constraints"
+            }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "fixed", "fixedColor": "orange" },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "orange", "value": 1 }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+          "id": 2,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "horizontal",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "textMode": "auto"
+          },
+          "title": "Warn Violations",
+          "type": "stat",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(gatekeeper_violations{enforcement_action=\"warn\"}) or vector(0)",
+              "legendFormat": "Warn"
+            }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "fixed", "fixedColor": "red" },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 1 }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+          "id": 3,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "horizontal",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "textMode": "auto"
+          },
+          "title": "Deny Violations",
+          "type": "stat",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(gatekeeper_violations{enforcement_action=\"deny\"}) or vector(0)",
+              "legendFormat": "Deny"
+            }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "fixed", "fixedColor": "purple" },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "purple", "value": null }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+          "id": 4,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "horizontal",
+            "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+            "textMode": "auto"
+          },
+          "title": "Constraint Templates",
+          "type": "stat",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum(gatekeeper_constraint_templates)",
+              "legendFormat": "Templates"
+            }
+          ]
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": { "axisCenteredZero": false, "drawStyle": "line", "fillOpacity": 20, "pointSize": 5, "spanNulls": true }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 7, "w": 24, "x": 0, "y": 4 },
+          "id": 5,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+          "title": "Violations Over Time",
+          "type": "timeseries",
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "sum by (enforcement_action) (gatekeeper_violations)",
+              "legendFormat": "{{ enforcement_action }}"
+            }
+          ]
+        },
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": { "axisCenteredZero": false, "drawStyle": "bars", "fillOpacity": 70, "stacking": { "mode": "normal" } }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 7, "w": 12, "x": 0, "y": 11 },
+          "id": 6,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+          "title": "Violations by Constraint",
+          "type": "timeseries",
+          "targets": [
+            {
+              "datasource": { "type": "loki", "uid": "loki" },
+              "expr": "sum by (constraint_name) (count_over_time({namespace=\"gatekeeper-system\", container=\"manager\"} | json | event_type=\"violation_audited\" [$__interval]))",
+              "legendFormat": "{{ constraint_name }}"
+            }
+          ]
+        },
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": { "axisCenteredZero": false, "drawStyle": "bars", "fillOpacity": 70, "stacking": { "mode": "normal" } }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 7, "w": 12, "x": 12, "y": 11 },
+          "id": 7,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+          "title": "Violations by Namespace",
+          "type": "timeseries",
+          "targets": [
+            {
+              "datasource": { "type": "loki", "uid": "loki" },
+              "expr": "sum by (resource_namespace) (count_over_time({namespace=\"gatekeeper-system\", container=\"manager\"} | json | event_type=\"violation_audited\" [$__interval]))",
+              "legendFormat": "{{ resource_namespace }}"
+            }
+          ]
+        },
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "fieldConfig": {
+            "defaults": {
+              "custom": { "filterable": true, "align": "auto" }
+            },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "Action" }, "properties": [{ "id": "custom.width", "value": 60 }] },
+              { "matcher": { "id": "byName", "options": "Kind" }, "properties": [{ "id": "custom.width", "value": 80 }] }
+            ]
+          },
+          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 18 },
+          "id": 8,
+          "options": {
+            "footer": { "enablePagination": true, "countRows": true },
+            "showHeader": true,
+            "sortBy": [{ "desc": false, "displayName": "Namespace" }]
+          },
+          "title": "Violation Details",
+          "description": "Per-resource violations from Gatekeeper audit logs",
+          "type": "table",
+          "targets": [
+            {
+              "datasource": { "type": "loki", "uid": "loki" },
+              "expr": "{namespace=\"gatekeeper-system\", container=\"manager\"} | json | event_type=\"violation_audited\" | line_format \"{{ .constraint_kind }} {{ .constraint_name }} {{ .constraint_action }} {{ .resource_namespace }} {{ .resource_kind }} {{ .resource_name }} {{ .msg }}\"",
+              "legendFormat": ""
+            }
+          ],
+          "transformations": [
+            {
+              "id": "extractFields",
+              "options": {
+                "source": "labels",
+                "format": "auto",
+                "replace": false
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "id": true,
+                  "tsNs": true,
+                  "labels": true,
+                  "Line": true,
+                  "ts": true,
+                  "logger": true,
+                  "level": true,
+                  "process": true,
+                  "audit_id": true,
+                  "details": true,
+                  "event_type": true,
+                  "constraint_group": true,
+                  "constraint_api_version": true,
+                  "constraint_namespace": true,
+                  "constraint_enforcement_actions": true,
+                  "constraint_annotations": true,
+                  "resource_group": true,
+                  "resource_api_version": true,
+                  "resource_labels": true,
+                  "Time": true
+                },
+                "indexByName": {
+                  "resource_namespace": 0,
+                  "resource_kind": 1,
+                  "resource_name": 2,
+                  "constraint_kind": 3,
+                  "constraint_name": 4,
+                  "constraint_action": 5,
+                  "msg": 6
+                },
+                "renameByName": {
+                  "constraint_kind": "Constraint Kind",
+                  "constraint_name": "Constraint",
+                  "constraint_action": "Action",
+                  "resource_namespace": "Namespace",
+                  "resource_kind": "Kind",
+                  "resource_name": "Resource",
+                  "msg": "Message"
+                }
+              }
+            },
+            {
+              "id": "groupBy",
+              "options": {
+                "fields": {
+                  "Namespace": { "aggregations": [], "operation": "groupby" },
+                  "Kind": { "aggregations": [], "operation": "groupby" },
+                  "Resource": { "aggregations": [], "operation": "groupby" },
+                  "Constraint Kind": { "aggregations": [], "operation": "groupby" },
+                  "Constraint": { "aggregations": [], "operation": "groupby" },
+                  "Action": { "aggregations": [], "operation": "groupby" },
+                  "Message": { "aggregations": [], "operation": "groupby" }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "gridPos": { "h": 10, "w": 24, "x": 0, "y": 30 },
+          "id": 9,
+          "options": {
+            "dedupStrategy": "exact",
+            "enableLogDetails": true,
+            "prettifyLogMessage": false,
+            "showCommonLabels": false,
+            "showLabels": false,
+            "showTime": true,
+            "sortOrder": "Descending",
+            "wrapLogMessage": true
+          },
+          "title": "Audit Logs",
+          "type": "logs",
+          "targets": [
+            {
+              "datasource": { "type": "loki", "uid": "loki" },
+              "expr": "{namespace=\"gatekeeper-system\", container=\"manager\"} | json | event_type=\"violation_audited\" | line_format \"[{{ .constraint_action }}] {{ .constraint_kind }}/{{ .constraint_name }}: {{ .resource_namespace }}/{{ .resource_name }} ({{ .resource_kind }}) — {{ .msg }}\""
+            }
+          ]
+        }
+      ],
+      "schemaVersion": 39,
+      "tags": ["gatekeeper", "opa", "policy"],
+      "templating": { "list": [] },
+      "time": { "from": "now-3h", "to": "now" },
+      "title": "OPA Gatekeeper",
+      "uid": "opa-gatekeeper"
+    }

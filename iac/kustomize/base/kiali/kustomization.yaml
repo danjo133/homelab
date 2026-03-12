@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Kiali namespace ExternalSecrets
+# - OIDC client secret from Vault for Kiali native OIDC auth
+
+resources:
+  - kiali-oidc-secret.yaml

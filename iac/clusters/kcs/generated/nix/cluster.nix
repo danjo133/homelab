@@ -13,6 +13,13 @@
     domain = "mesh-k8s.example.com";
     masterIp = "10.69.50.50";
     masterHostname = "kcs-master";
-    vaultAuthMount = "kubernetes-kcs";
+    vaultAuthMount = "kubernetes";
+    vaultNamespace = "kcs";
+  };
+
+  kss.cluster.oidc = {
+    enabled = true;
+    issuerUrl = "https://auth.mesh-k8s.example.com/realms/broker";
+    clientId = "kubernetes";
   };
 }

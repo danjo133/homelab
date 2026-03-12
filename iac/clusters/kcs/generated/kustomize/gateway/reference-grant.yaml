@@ -9,7 +9,7 @@ spec:
   from:
     - group: gateway.networking.k8s.io
       kind: Gateway
-      namespace: kube-system
+      namespace: istio-ingress
   to:
     - group: ""
       kind: Secret

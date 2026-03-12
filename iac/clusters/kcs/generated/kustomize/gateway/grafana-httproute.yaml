@@ -1,0 +1,21 @@
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: kcs — Grafana HTTPRoute for Gateway API ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: istio-ingress
+  hostnames:
+    - "grafana.mesh-k8s.example.com"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: kube-prometheus-stack-grafana
+          port: 80

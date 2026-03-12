@@ -1,0 +1,31 @@
+# PostgreSQL for Broker Keycloak
+# Bitnami PostgreSQL chart values
+
+# Use official postgres image since bitnami images require paid subscription
+image:
+  registry: docker.io
+  repository: bitnami/postgresql
+  tag: latest
+
+auth:
+  username: keycloak
+  database: keycloak
+  existingSecret: keycloak-db-credentials
+  secretKeys:
+    userPasswordKey: password
+    adminPasswordKey: postgres-password
+
+primary:
+  persistence:
+    enabled: true
+    size: 2Gi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+
+# No replicas needed for homelab
+architecture: standalone

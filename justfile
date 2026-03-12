@@ -113,6 +113,18 @@ bootstrap-secrets:
 bootstrap-deploy:
     ./stages/4_bootstrap/deploy.sh
 
+# Ensure per-cluster Harbor project exists
+bootstrap-harbor-project:
+    ./stages/4_bootstrap/harbor-projects.sh
+
+# Docker login to Harbor (using credentials from Vault)
+harbor-login:
+    ./scripts/harbor-login.sh
+
+# Show bootstrap deployment status
+bootstrap-status:
+    ./stages/4_bootstrap/status.sh
+
 # ─── Identity ─────────────────────────────────
 
 # Deploy Keycloak operator CRDs
@@ -150,6 +162,10 @@ identity-gatekeeper:
 # Deploy JIT elevation service
 identity-jit:
     ./stages/5_identity/jit.sh
+
+# Deploy cluster-setup service
+identity-cluster-setup:
+    ./stages/5_identity/cluster-setup.sh
 
 # Deploy all identity components
 identity-deploy:

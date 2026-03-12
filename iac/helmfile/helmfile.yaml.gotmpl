@@ -25,6 +25,10 @@ environments:
       - useGatewayAPI: false
       - useIstio: false
       - useNginx: true
+      - useHeadlamp: true
+      - useOAuth2Proxy: true
+      - useSpire: true
+      - useGatekeeper: true
   bgp-simple:
     values:
       - useCilium: true
@@ -49,6 +53,9 @@ environments:
       - useGatewayAPI: false
       - useIstio: true
       - useNginx: false
+      - useHeadlamp: true
+      - useOAuth2Proxy: true
+      - useGatekeeper: true
   base:
     values:
       - useCilium: true
@@ -102,6 +109,10 @@ repositories:
     url: https://grafana.github.io/helm-charts
   - name: aqua
     url: https://aquasecurity.github.io/helm-charts
+  - name: kiali
+    url: https://kiali.org/helm-charts
+  - name: headlamp
+    url: https://kubernetes-sigs.github.io/headlamp/
 
 releases:
   # ===========================================================================
@@ -118,8 +129,8 @@ releases:
     disableValidationOnInstall: true
     disableValidation: true
     values:
-      - ./values/cilium/common.yaml
-      - ./values/cilium/profile-{{ .Values | getOrNil "ciliumProfile" | default "base" }}.yaml
+      - ./values/cilium/common.yaml.gotmpl
+      - ./values/cilium/profile-{{ .Values | getOrNil "ciliumProfile" | default "base" }}.yaml.gotmpl
 {{ if .Values | getOrNil "k8sServiceHost" }}
     set:
       - name: k8sServiceHost
@@ -138,7 +149,7 @@ releases:
     version: "1.2.x"
     installed: {{ .Values | getOrNil "useCilium" | default false }}
     values:
-      - ./values/tetragon.yaml
+      - ./values/tetragon.yaml.gotmpl
     needs:
       - kube-system/cilium
 
@@ -154,7 +165,7 @@ releases:
     version: "0.14.x"
     installed: {{ .Values | getOrNil "useMetalLB" | default false }}
     values:
-      - ./values/metallb.yaml
+      - ./values/metallb.yaml.gotmpl
 
   # ===========================================================================
   # Nginx Ingress Controller
@@ -168,7 +179,7 @@ releases:
     version: "4.11.x"
     installed: {{ .Values.useNginx }}
     values:
-      - ./values/nginx-ingress.yaml
+      - ./values/nginx-ingress.yaml.gotmpl
 {{ if .Values | getOrNil "useCilium" | default false }}
     needs:
       - kube-system/cilium
@@ -191,7 +202,7 @@ releases:
     version: "1.28.x"
     installed: {{ .Values.useIstio }}
     values:
-      - ./values/istio/base.yaml
+      - ./values/istio/base.yaml.gotmpl
 {{ if .Values | getOrNil "useCilium" | default false }}
     needs:
       - kube-system/cilium
@@ -207,23 +218,37 @@ releases:
     version: "1.28.x"
     installed: {{ .Values.useIstio }}
     values:
-      - ./values/istio/istiod.yaml
+      - ./values/istio/istiod.yaml.gotmpl
     needs:
       - istio-system/istio-base
 
-  # Istio Ingress Gateway
-  - name: istio-ingressgateway
-    namespace: istio-ingress
+  # Istio CNI — Required for Ambient mode (ztunnel traffic redirection)
+  - name: istio-cni
+    namespace: istio-system
     createNamespace: true
     labels:
       stage: bootstrap
-    chart: istio/gateway
+    chart: istio/cni
     version: "1.28.x"
     installed: {{ .Values.useIstio }}
     values:
-      - ./values/istio/gateway.yaml
+      - ./values/istio/cni.yaml.gotmpl
     needs:
       - istio-system/istiod
+
+  # Ztunnel — Ambient mesh L4 proxy (node-level mTLS)
+  - name: ztunnel
+    namespace: istio-system
+    createNamespace: true
+    labels:
+      stage: bootstrap
+    chart: istio/ztunnel
+    version: "1.28.x"
+    installed: {{ .Values.useIstio }}
+    values:
+      - ./values/istio/ztunnel.yaml.gotmpl
+    needs:
+      - istio-system/istio-cni
 
   # ===========================================================================
   # cert-manager - Certificate Management
@@ -236,7 +261,7 @@ releases:
     chart: jetstack/cert-manager
     version: "v1.16.x"
     values:
-      - ./values/cert-manager.yaml
+      - ./values/cert-manager.yaml.gotmpl
 {{ if .Values | getOrNil "useCilium" | default false }}
     needs:
       - kube-system/cilium
@@ -253,7 +278,7 @@ releases:
     chart: external-secrets/external-secrets
     version: "0.10.x"
     values:
-      - ./values/external-secrets.yaml
+      - ./values/external-secrets.yaml.gotmpl
     needs:
       - cert-manager/cert-manager
 
@@ -267,13 +292,13 @@ releases:
       stage: bootstrap
     chart: external-dns/external-dns
     version: "1.15.x"
-    installed: {{ or .Values.useGatewayAPI .Values.useNginx }}
+    installed: {{ or .Values.useGatewayAPI .Values.useNginx .Values.useIstio }}
     values:
-      - ./values/external-dns.yaml
+      - ./values/external-dns.yaml.gotmpl
     set:
       - name: txtOwnerId
         value: "k8s-cluster-{{ .Values | getOrNil "clusterName" | default "kss" }}"
-{{ if .Values.useGatewayAPI }}
+{{ if or .Values.useGatewayAPI .Values.useIstio }}
       - name: sources
         values:
           - service
@@ -294,7 +319,16 @@ releases:
     chart: argo/argo-cd
     version: "7.7.x"
     values:
-      - ./values/argocd.yaml
+      - ./values/argocd.yaml.gotmpl
+    set:
+      - name: server.ingress.hostname
+        value: "argocd.{{ .Values.clusterDomain }}"
+      - name: configs.cm.url
+        value: "https://argocd.{{ .Values.clusterDomain }}"
+{{ if .Values.useIstio }}
+      - name: server.ingress.enabled
+        value: "false"
+{{ end }}
     needs:
       - external-secrets/external-secrets
 
@@ -309,7 +343,7 @@ releases:
     chart: bitnami/postgresql
     version: "16.x"
     values:
-      - ./values/keycloak-db.yaml
+      - ./values/keycloak-db.yaml.gotmpl
 {{- $dbpass := exec "sh" (list "-c" "kubectl get secret keycloak-db-credentials -n keycloak -o jsonpath={.data.password} 2>/dev/null | base64 -d 2>/dev/null; true") }}
 {{- if $dbpass }}
     set:
@@ -331,7 +365,12 @@ releases:
     version: "7.x"
     installed: {{ .Values | getOrNil "useOAuth2Proxy" | default false }}
     values:
-      - ./values/oauth2-proxy.yaml
+      - ./values/oauth2-proxy.yaml.gotmpl
+{{ if .Values.useIstio }}
+    set:
+      - name: ingress.enabled
+        value: "false"
+{{ end }}
     needs:
       - cert-manager/cert-manager
       - external-secrets/external-secrets
@@ -357,7 +396,7 @@ releases:
     version: "0.23.x"
     installed: {{ .Values | getOrNil "useSpire" | default false }}
     values:
-      - ./values/spire.yaml
+      - ./values/spire.yaml.gotmpl
     needs:
       - cert-manager/cert-manager
       - spire-system/spire-crds
@@ -374,7 +413,7 @@ releases:
     version: "3.18.x"
     installed: {{ .Values | getOrNil "useGatekeeper" | default false }}
     values:
-      - ./values/gatekeeper.yaml
+      - ./values/gatekeeper.yaml.gotmpl
 
   # ===========================================================================
   # Longhorn - Distributed Block Storage
@@ -389,7 +428,14 @@ releases:
     disableValidationOnInstall: true
     disableValidation: true
     values:
-      - ./values/longhorn.yaml
+      - ./values/longhorn.yaml.gotmpl
+{{ if .Values.useIstio }}
+    set:
+      - name: ingress.enabled
+        value: "false"
+      - name: metrics.serviceMonitor.enabled
+        value: "false"
+{{ end }}
 {{ if .Values.useNginx }}
     needs:
       - ingress-nginx/nginx-ingress
@@ -409,7 +455,12 @@ releases:
     disableValidationOnInstall: true
     disableValidation: true
     values:
-      - ./values/kube-prometheus-stack.yaml
+      - ./values/kube-prometheus-stack.yaml.gotmpl
+{{ if .Values.useIstio }}
+    set:
+      - name: grafana.ingress.enabled
+        value: "false"
+{{ end }}
 {{ if .Values.useNginx }}
     needs:
       - ingress-nginx/nginx-ingress
@@ -426,7 +477,7 @@ releases:
     chart: grafana/loki
     version: "6.x"
     values:
-      - ./values/loki.yaml
+      - ./values/loki.yaml.gotmpl
     needs:
       - monitoring/kube-prometheus-stack
 
@@ -441,7 +492,7 @@ releases:
     chart: grafana/promtail
     version: "6.x"
     values:
-      - ./values/promtail.yaml
+      - ./values/promtail.yaml.gotmpl
     needs:
       - monitoring/loki
 
@@ -454,13 +505,44 @@ releases:
     labels:
       stage: platform
     chart: aqua/trivy-operator
-    version: "0.24.x"
+    version: "0.32.x"
     disableValidationOnInstall: true
     disableValidation: true
     values:
-      - ./values/trivy-operator.yaml
+      - ./values/trivy-operator.yaml.gotmpl
     needs:
       - cert-manager/cert-manager
+
+  # ===========================================================================
+  # Kiali - Istio Service Mesh Observability UI
+  # ===========================================================================
+  - name: kiali
+    namespace: istio-system
+    createNamespace: true
+    labels:
+      stage: platform
+    chart: kiali/kiali-server
+    version: "~2"
+    installed: {{ .Values.useIstio }}
+    values:
+      - ./values/kiali.yaml.gotmpl
+    needs:
+      - istio-system/istiod
+      - monitoring/kube-prometheus-stack
+
+  # ===========================================================================
+  # Headlamp - Kubernetes Dashboard
+  # ===========================================================================
+  - name: headlamp
+    namespace: headlamp
+    createNamespace: true
+    labels:
+      stage: platform
+    chart: headlamp/headlamp
+    version: "~0"
+    installed: {{ .Values | getOrNil "useHeadlamp" | default false }}
+    values:
+      - ./values/headlamp.yaml.gotmpl
 
 ---
 # =============================================================================

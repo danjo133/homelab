@@ -16,16 +16,17 @@ kubectl rollout status deployment/gatekeeper-controller-manager -n gatekeeper-sy
 
 POLICY_DIR="${KUSTOMIZE_DIR}/base/gatekeeper-policies"
 
-# First pass: ConstraintTemplates succeed, Constraints fail (CRDs don't exist yet) — expected
-info "Applying ConstraintTemplates..."
-kubectl apply -k "${POLICY_DIR}" 2>&1 | grep -v "no matches" || true
-
-info "Waiting for constraint CRDs to be registered..."
-for ct in k8sdisallowprivileged k8srequiredlabels k8srequireresourcelimits; do
-  kubectl wait --for=condition=Established crd/"${ct}.constraints.gatekeeper.sh" --timeout=60s
+# Apply with retry — CRDs need a few seconds to propagate after Established
+info "Applying Gatekeeper policies..."
+for attempt in $(seq 1 6); do
+  if kubectl apply -k "${POLICY_DIR}" 2>/dev/null; then
+    break
+  fi
+  if [ "$attempt" -eq 6 ]; then
+    error "Failed to apply Gatekeeper constraints after $attempt attempts"
+    exit 1
+  fi
+  echo "  Attempt $attempt/6 — waiting for CRD propagation..."
+  sleep 10
 done
-
-# Second pass: now Constraints succeed too
-info "Applying Gatekeeper constraints..."
-kubectl apply -k "${POLICY_DIR}"
 success "Gatekeeper policies applied"

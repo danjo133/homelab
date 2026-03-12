@@ -10,12 +10,13 @@ Kubernetes homelab infrastructure-as-code: RKE2 clusters on NixOS VMs, managed b
 
 **Working:**
 - Support VM (Vault, Harbor, MinIO, NFS, Nginx) — fully operational
-- kss cluster (1 master + 3 workers, Canal CNI, MetalLB L2) — was working, needs clusterrole redeployment after Longhorn incident
+- kss cluster (1 master + 3 workers, Canal CNI, MetalLB L2)
 - Keycloak broker with upstream IdP federation, ArgoCD OIDC, cert-manager, external-secrets
 - Monitoring (Prometheus, Grafana, Loki)
-
-**Not working:**
-- kcs cluster — Cilium/BGP network sinkhole, kept for future Cilium/Istio/Envoy experimentation
+- OPA Gatekeeper — admission control with privileged deny + resource/label warnings
+- OAuth2-Proxy — OIDC SSO via broker Keycloak, nginx auth_request integration
+- SPIRE — SPIFFE workload identity, OIDC discovery, CSI driver
+- kcs cluster (1 master + 3 workers, Cilium CNI + BGP, Istio Ambient mesh, Gateway API ingress)
 
 ## Task Runner
 
@@ -56,6 +57,9 @@ just cluster-status           # Show nodes and pods
 just bootstrap-vault-auth     # Per-cluster Vault auth
 just bootstrap-secrets        # ClusterSecretStore + ExternalSecrets
 just bootstrap-deploy         # Full: vault-auth + helmfile + secrets
+just bootstrap-harbor-project # Ensure per-cluster Harbor project exists
+just harbor-login             # Docker login to Harbor (creds from Vault)
+just bootstrap-status         # Show bootstrap deployment status
 
 # Identity
 just identity-keycloak        # Deploy Keycloak broker

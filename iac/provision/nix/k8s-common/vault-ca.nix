@@ -1,6 +1,7 @@
-# Vault CA trust configuration
-# Fetches Vault CA certificate and adds it to system trust store
-# This allows k8s nodes to trust certificates issued by Vault PKI
+# Vault/OpenBao CA trust configuration
+# Fetches root CA certificate and adds it to system trust store
+# This allows k8s nodes to trust certificates issued by the PKI
+# Root CA is in the root namespace; per-cluster intermediate CAs are in namespaces
 
 { config, pkgs, lib, ... }:
 

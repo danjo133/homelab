@@ -1,0 +1,127 @@
+# Cilium Common Configuration
+# Shared settings across all Cilium deployment profiles
+#
+# This file contains settings that are consistent regardless of whether
+# you're using base Cilium, Cilium+Gateway+BGP, or Cilium+Istio.
+
+# =============================================================================
+# Image Configuration
+# =============================================================================
+
+image:
+  repository: quay.io/cilium/cilium
+  useDigest: true
+
+# =============================================================================
+# Operator
+# =============================================================================
+
+operator:
+  replicas: 1
+
+# =============================================================================
+# Core Settings
+# =============================================================================
+
+# IPAM - use Kubernetes for IP allocation
+ipam:
+  mode: kubernetes
+
+# Routing mode - VXLAN tunnel for pod-to-pod across nodes
+routingMode: tunnel
+tunnelProtocol: vxlan
+
+# =============================================================================
+# Security & Policy
+# =============================================================================
+
+networkPolicy:
+  enabled: true
+
+# Don't use Cilium host firewall - NixOS manages host firewall
+hostFirewall:
+  enabled: false
+
+# =============================================================================
+# Hubble Observability
+# =============================================================================
+
+hubble:
+  enabled: true
+  relay:
+    enabled: true
+    replicas: 1
+  ui:
+    enabled: true
+    replicas: 1
+    service:
+      type: ClusterIP
+  metrics:
+    enabled:
+      - dns
+      - drop
+      - tcp
+      - flow
+      - icmp
+
+# =============================================================================
+# Monitoring
+# =============================================================================
+
+prometheus:
+  enabled: true
+  serviceMonitor:
+    enabled: false  # Enable when Prometheus Operator is deployed
+
+# =============================================================================
+# Resources
+# =============================================================================
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 512Mi
+
+# =============================================================================
+# Scheduling
+# =============================================================================
+
+tolerations:
+  - operator: Exists
+
+nodeSelector: {}
+
+# =============================================================================
+# RBAC & Service Accounts
+# =============================================================================
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+  name: cilium
+
+# =============================================================================
+# Security Context
+# =============================================================================
+
+podSecurityContext:
+  runAsNonRoot: false
+  runAsUser: 0
+
+securityContext:
+  privileged: true
+  capabilities:
+    add:
+      - NET_ADMIN
+      - SYS_MODULE
+
+# =============================================================================
+# DNS
+# =============================================================================
+
+dnsProxy:
+  enabled: true

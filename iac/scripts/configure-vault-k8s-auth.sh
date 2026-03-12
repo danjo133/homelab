@@ -28,17 +28,27 @@ success() { echo -e "${GREEN}[OK]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
 # Check prerequisites
-command -v vault >/dev/null 2>&1 || error "vault CLI not found"
+command -v bao >/dev/null 2>&1 || error "bao CLI not found (install openbao)"
 command -v kubectl >/dev/null 2>&1 || error "kubectl not found"
 
 [ -n "${VAULT_ADDR:-}" ] || error "VAULT_ADDR not set"
 [ -n "${VAULT_TOKEN:-}" ] || error "VAULT_TOKEN not set"
 
+# Export for bao CLI
+export BAO_ADDR="${VAULT_ADDR}"
+export BAO_TOKEN="${VAULT_TOKEN}"
+
+# Set namespace if provided
+if [ -n "${VAULT_NAMESPACE:-}" ]; then
+  export BAO_NAMESPACE="$VAULT_NAMESPACE"
+  log "Using namespace: $VAULT_NAMESPACE"
+fi
+
 log "Vault address: $VAULT_ADDR"
 
-# Check Vault connectivity
-vault status >/dev/null 2>&1 || error "Cannot connect to Vault"
-success "Connected to Vault"
+# Check connectivity
+bao status >/dev/null 2>&1 || error "Cannot connect to OpenBao"
+success "Connected to OpenBao"
 
 # Check that vault-auth resources exist
 log "Checking vault-auth service account..."
@@ -61,15 +71,15 @@ K8S_CA_CERT=$(kubectl config view --raw --minify -o jsonpath='{.clusters[0].clus
 
 # Enable Kubernetes auth if not already enabled
 log "Configuring Kubernetes authentication..."
-if vault auth list -format=json | jq -e '.["kubernetes/"]' >/dev/null 2>&1; then
+if bao auth list -format=json | jq -e '.["kubernetes/"]' >/dev/null 2>&1; then
     success "Kubernetes auth already enabled"
 else
-    vault auth enable kubernetes
+    bao auth enable kubernetes
     success "Kubernetes auth enabled"
 fi
 
 # Configure Kubernetes auth with token reviewer JWT
-vault write auth/kubernetes/config \
+bao write auth/kubernetes/config \
     kubernetes_host="$K8S_HOST" \
     kubernetes_ca_cert="$K8S_CA_CERT" \
     token_reviewer_jwt="$TOKEN" \
@@ -79,7 +89,7 @@ success "Kubernetes auth configured with token reviewer"
 
 # Verify configuration
 log "Verifying configuration..."
-TOKEN_SET=$(vault read -format=json auth/kubernetes/config | jq -r '.data.token_reviewer_jwt_set')
+TOKEN_SET=$(bao read -format=json auth/kubernetes/config | jq -r '.data.token_reviewer_jwt_set')
 if [ "$TOKEN_SET" = "true" ]; then
     success "token_reviewer_jwt is set"
 else

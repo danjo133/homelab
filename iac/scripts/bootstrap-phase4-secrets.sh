@@ -8,8 +8,8 @@
 #   1. Stores secrets in Vault:
 #      - secret/keycloak/grafana-client  (OIDC client secret)
 #      - secret/grafana/admin            (admin username + generated password)
-#      - secret/minio/loki               (MinIO credentials for Loki bucket)
-#   2. Creates MinIO 'loki' bucket on support VM
+#      - secret/minio/loki-<cluster>      (MinIO credentials for Loki bucket)
+#   2. Creates MinIO 'loki-<cluster>' bucket on support VM
 #   3. Ensures 'grafana' OIDC client exists in broker Keycloak realm
 #      (realm import only creates clients on first import; this covers upgrades)
 #
@@ -51,16 +51,30 @@ fi
 # Keycloak URL — derive from cluster or accept override
 KEYCLOAK_URL="${KEYCLOAK_URL:-https://auth.simple-k8s.example.com}"
 
+# Cluster domain — used for per-cluster client redirect URIs
+CLUSTER_DOMAIN="${CLUSTER_DOMAIN:-simple-k8s.example.com}"
+
+# Cluster name — used for per-cluster Vault paths and MinIO buckets
+CLUSTER_NAME="${CLUSTER_NAME:-kss}"
+
 # Support VM IP for fetching MinIO creds
 SUPPORT_VM_IP="${SUPPORT_VM_IP:-10.69.50.10}"
 VAGRANT_SSH_KEY="${VAGRANT_SSH_KEY:-$HOME/.vagrant.d/ecdsa_private_key}"
 REMOTE_HOST="${REMOTE_HOST:-hypervisor}"
+
+# Vault namespace header (set by caller for per-cluster namespace isolation)
+VAULT_NAMESPACE="${VAULT_NAMESPACE:-}"
+VAULT_NS_HEADER=""
+if [ -n "$VAULT_NAMESPACE" ]; then
+  VAULT_NS_HEADER="-H X-Vault-Namespace:$VAULT_NAMESPACE"
+fi
 
 vault_secret_exists() {
   local path="$1"
   local http_code
   http_code=$(curl -sk -o /dev/null -w "%{http_code}" \
     -H "X-Vault-Token: $VAULT_TOKEN" \
+    $VAULT_NS_HEADER \
     "$VAULT_ADDR/v1/secret/data/$path")
   [ "$http_code" = "200" ]
 }
@@ -70,6 +84,7 @@ vault_store() {
   local data="$2"
   curl -sf -X POST \
     -H "X-Vault-Token: $VAULT_TOKEN" \
+    $VAULT_NS_HEADER \
     -H "Content-Type: application/json" \
     -d "$data" \
     "$VAULT_ADDR/v1/secret/data/$path" >/dev/null
@@ -80,6 +95,7 @@ vault_read() {
   local key="$2"
   curl -sf \
     -H "X-Vault-Token: $VAULT_TOKEN" \
+    $VAULT_NS_HEADER \
     "$VAULT_ADDR/v1/secret/data/$path" | jq -r ".data.data.\"$key\""
 }
 
@@ -120,9 +136,9 @@ fi
 # ========================================================================
 # 3. MinIO credentials for Loki (Vault)
 # ========================================================================
-echo "--- MinIO credentials for Loki ---"
-if vault_secret_exists "minio/loki"; then
-  echo "  secret/minio/loki already exists — skipping"
+echo "--- MinIO credentials for Loki ($CLUSTER_NAME) ---"
+if vault_secret_exists "minio/loki-${CLUSTER_NAME}"; then
+  echo "  secret/minio/loki-${CLUSTER_NAME} already exists — skipping"
 else
   echo "  Fetching MinIO credentials from support VM..."
   MINIO_CREDS=$(ssh "$REMOTE_HOST" \
@@ -141,21 +157,21 @@ else
     exit 1
   fi
 
-  vault_store "minio/loki" \
+  vault_store "minio/loki-${CLUSTER_NAME}" \
     "$(jq -n --arg ak "$MINIO_ACCESS_KEY" --arg sk "$MINIO_SECRET_KEY" \
       '{data: {"access-key": $ak, "secret-key": $sk}}')"
-  echo "  Stored secret/minio/loki"
+  echo "  Stored secret/minio/loki-${CLUSTER_NAME}"
 fi
 
 # ========================================================================
 # 4. Create MinIO 'loki' bucket
 # ========================================================================
-echo "--- MinIO loki bucket ---"
-echo "  Creating 'loki' bucket on MinIO (idempotent)..."
+echo "--- MinIO loki-${CLUSTER_NAME} bucket ---"
+echo "  Creating 'loki-${CLUSTER_NAME}' bucket on MinIO (idempotent)..."
 ssh "$REMOTE_HOST" \
   "ssh -o StrictHostKeyChecking=no -i $VAGRANT_SSH_KEY vagrant@$SUPPORT_VM_IP \
-  'sudo mkdir -p /var/lib/minio/data/loki'" 2>/dev/null || {
-  echo "  WARNING: Could not create loki bucket directory"
+  'sudo mkdir -p /var/lib/minio/data/loki-${CLUSTER_NAME}'" 2>/dev/null || {
+  echo "  WARNING: Could not create loki-${CLUSTER_NAME} bucket directory"
 }
 echo "  Done"
 
@@ -202,7 +218,7 @@ else
         -H "Authorization: Bearer $KC_TOKEN" \
         -H "Content-Type: application/json" \
         "${KEYCLOAK_URL}/admin/realms/broker/clients" \
-        -d "$(jq -n --arg secret "$GRAFANA_SECRET" '{
+        -d "$(jq -n --arg secret "$GRAFANA_SECRET" --arg domain "$CLUSTER_DOMAIN" '{
           clientId: "grafana",
           name: "Grafana",
           enabled: true,
@@ -212,8 +228,8 @@ else
           standardFlowEnabled: true,
           directAccessGrantsEnabled: false,
           serviceAccountsEnabled: false,
-          redirectUris: ["https://grafana.simple-k8s.example.com/login/generic_oauth"],
-          webOrigins: ["https://grafana.simple-k8s.example.com"],
+          redirectUris: [("https://grafana." + $domain + "/login/generic_oauth")],
+          webOrigins: [("https://grafana." + $domain)],
           defaultClientScopes: ["groups"]
         }')")
 
@@ -249,6 +265,16 @@ else
       echo "  Scopes assigned"
     fi
   fi
+fi
+
+# ========================================================================
+# 6. Harbor admin credentials — now handled by stages/4_bootstrap/secrets.sh
+# ========================================================================
+echo "--- Harbor admin credentials ---"
+if vault_secret_exists "harbor/admin"; then
+  echo "  secret/harbor/admin exists (seeded by bootstrap-secrets)"
+else
+  echo "  WARNING: secret/harbor/admin missing — run: just bootstrap-secrets"
 fi
 
 echo ""

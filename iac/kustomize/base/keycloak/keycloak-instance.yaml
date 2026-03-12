@@ -18,6 +18,9 @@ spec:
     passwordSecret:
       name: keycloak-db-credentials
       key: password
+  features:
+    enabled:
+      - token-exchange
   http:
     httpEnabled: true
   hostname:
@@ -55,6 +58,16 @@ spec:
                 valueFrom:
                   secretKeyRef:
                     name: jit-client-secret
+                    key: client-secret
+              - name: KIALI_CLIENT_SECRET
+                valueFrom:
+                  secretKeyRef:
+                    name: kiali-client-secret
+                    key: client-secret
+              - name: HEADLAMP_CLIENT_SECRET
+                valueFrom:
+                  secretKeyRef:
+                    name: headlamp-client-secret
                     key: client-secret
   # Ingress managed separately (keycloak-ingress.yaml) for proper TLS/cert-manager support
   ingress:

@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: kcs — JIT Elevation with per-cluster hostname
+
+resources:
+  - ../../../../../kustomize/base/jit-elevation
+
+patches:
+  - target:
+      kind: ConfigMap
+      name: jit-config
+    patch: |
+      - op: replace
+        path: /data/KEYCLOAK_URL
+        value: "https://auth.mesh-k8s.example.com"
+  - patch: |
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: jit-elevation
+        namespace: identity
+      $patch: delete

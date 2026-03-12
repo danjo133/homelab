@@ -56,8 +56,9 @@ Vagrant.configure("2") do |config|
       auto_config: false
 
     support.vm.provider "libvirt" do |libvirt|
-      libvirt.memory = 12288
+      libvirt.memory = 14336
       libvirt.cpus = 4
+      libvirt.machine_virtual_size = 100
       libvirt.disk_bus = "virtio"
       libvirt.disk_driver :cache => "directsync"
       libvirt.cpu_mode = "host-passthrough"
@@ -80,6 +81,7 @@ Vagrant.configure("2") do |config|
       master.vm.provider "libvirt" do |libvirt|
         libvirt.memory = cluster['master']['memory']
         libvirt.cpus = cluster['master']['cpus']
+        libvirt.machine_virtual_size = cluster['master'].fetch('disk', 20)
         libvirt.disk_bus = "virtio"
         libvirt.disk_driver :cache => "directsync"
         libvirt.cpu_mode = "host-passthrough"
@@ -99,6 +101,7 @@ Vagrant.configure("2") do |config|
         w.vm.provider "libvirt" do |libvirt|
           libvirt.memory = worker['memory']
           libvirt.cpus = worker['cpus']
+          libvirt.machine_virtual_size = worker.fetch('disk', 20)
           libvirt.disk_bus = "virtio"
           libvirt.disk_driver :cache => "directsync"
           libvirt.cpu_mode = "host-passthrough"

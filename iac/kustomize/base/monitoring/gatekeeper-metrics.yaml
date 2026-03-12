@@ -1,0 +1,37 @@
+# Service + ServiceMonitor to scrape OPA Gatekeeper metrics
+# Gatekeeper exposes metrics on port 8888 but has no built-in ServiceMonitor support
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gatekeeper-metrics
+  namespace: gatekeeper-system
+  labels:
+    app: gatekeeper
+spec:
+  selector:
+    app: gatekeeper
+    gatekeeper.sh/system: "yes"
+  ports:
+    - name: metrics
+      port: 8888
+      targetPort: 8888
+      protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: gatekeeper
+  namespace: monitoring
+  labels:
+    app: gatekeeper
+spec:
+  namespaceSelector:
+    matchNames:
+      - gatekeeper-system
+  selector:
+    matchLabels:
+      app: gatekeeper
+  endpoints:
+    - port: metrics
+      interval: 30s

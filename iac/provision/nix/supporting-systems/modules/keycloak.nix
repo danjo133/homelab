@@ -11,7 +11,7 @@ let
   keycloakAdminUser = "admin";
   keycloakAdminPassFile = config.sops.secrets.keycloak_admin_password.path;
   vaultAddr = "http://127.0.0.1:8200";
-  keysFile = "/var/lib/vault/init-keys.json";
+  keysFile = "/var/lib/openbao/init-keys.json";
   setupMarker = "/var/lib/keycloak/.setup-complete";
 
   # Auto-setup script: creates upstream realm, test users, broker-client
@@ -220,7 +220,7 @@ let
         \"authorizationServicesEnabled\": false,
         \"redirectUris\": [
           \"https://auth.simple-k8s.example.com/realms/broker/broker/upstream/endpoint\",
-          \"https://auth.*.example.com/realms/broker/broker/upstream/endpoint\"
+          \"https://auth.mesh-k8s.example.com/realms/broker/broker/upstream/endpoint\"
         ],
         \"webOrigins\": [\"+\"],
         \"defaultClientScopes\": [\"openid\", \"profile\", \"email\", \"roles\"],
@@ -253,16 +253,46 @@ let
     # ========================================================================
     # These are stored in Vault and injected into the broker Keycloak pod
     # as env vars, then referenced via ''${VAR} substitution in the realm import.
+    # IMPORTANT: Only generate secrets that don't already exist in Vault.
+    # Keycloak realm import is one-shot — if we regenerate a secret after
+    # the realm was already imported, Vault and Keycloak will be out of sync.
     echo "Generating broker realm client secrets..."
-    ARGOCD_CLIENT_SECRET=$(openssl rand -hex 32)
-    OAUTH2_PROXY_CLIENT_SECRET=$(openssl rand -hex 32)
-    GRAFANA_CLIENT_SECRET=$(openssl rand -hex 32)
-    JIT_CLIENT_SECRET=$(openssl rand -hex 32)
+
+    # Helper: get existing secret from Vault, or generate a new one
+    get_or_generate_secret() {
+      local SECRET_PATH="$1"
+      local PROPERTY="''${2:-client-secret}"
+
+      if [ -f "$KEYS_FILE" ]; then
+        local ROOT_TOKEN
+        ROOT_TOKEN=$(jq -r '.root_token' "$KEYS_FILE")
+        # Check any namespace (secrets are mirrored across all)
+        local EXISTING
+        EXISTING=$(curl -sf \
+          -H "X-Vault-Token: $ROOT_TOKEN" \
+          -H "X-Vault-Namespace: kss" \
+          "$VAULT_ADDR/v1/secret/data/$SECRET_PATH" 2>/dev/null \
+          | jq -r ".data.data[\"$PROPERTY\"] // empty" 2>/dev/null || true)
+        if [ -n "$EXISTING" ]; then
+          echo "$EXISTING"
+          return 0
+        fi
+      fi
+      # No existing secret found — generate a new one
+      openssl rand -hex 32
+    }
+
+    ARGOCD_CLIENT_SECRET=$(get_or_generate_secret "keycloak/argocd-client")
+    OAUTH2_PROXY_CLIENT_SECRET=$(get_or_generate_secret "keycloak/oauth2-proxy-client")
+    GRAFANA_CLIENT_SECRET=$(get_or_generate_secret "keycloak/grafana-client")
+    JIT_CLIENT_SECRET=$(get_or_generate_secret "keycloak/jit-service")
+    KIALI_CLIENT_SECRET=$(get_or_generate_secret "keycloak/kiali-client")
+    HEADLAMP_CLIENT_SECRET=$(get_or_generate_secret "keycloak/headlamp-client")
 
     # ========================================================================
-    # 7. Store secrets in Vault
+    # 7. Store secrets in Vault (per-namespace)
     # ========================================================================
-    echo "Storing secrets in Vault..."
+    echo "Storing secrets in Vault (all namespaces)..."
 
     if [ ! -f "$KEYS_FILE" ]; then
       echo "WARNING: Vault keys file not found, skipping Vault secret storage"
@@ -270,71 +300,90 @@ let
       ROOT_TOKEN=$(jq -r '.root_token' "$KEYS_FILE")
       export VAULT_TOKEN="$ROOT_TOKEN"
 
-      # Ensure KV v2 is enabled
-      if ! curl -sf -H "X-Vault-Token: $VAULT_TOKEN" "$VAULT_ADDR/v1/secret/config" >/dev/null 2>&1; then
+      for VAULT_NS in kss kcs; do
+        echo "  --- Namespace: $VAULT_NS ---"
+
+        # Store admin password
         curl -sf -X POST \
           -H "X-Vault-Token: $VAULT_TOKEN" \
-          -d '{"type":"kv","options":{"version":"2"}}' \
-          "$VAULT_ADDR/v1/sys/mounts/secret" 2>/dev/null || true
-      fi
+          -H "X-Vault-Namespace: $VAULT_NS" \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n --arg pass "$ADMIN_PASS" '{data: {password: $pass}}')" \
+          "$VAULT_ADDR/v1/secret/data/keycloak/admin"
+        echo "  Stored keycloak/admin in $VAULT_NS"
 
-      # Store admin password
-      curl -sf -X POST \
-        -H "X-Vault-Token: $VAULT_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d "$(jq -n --arg pass "$ADMIN_PASS" '{data: {password: $pass}}')" \
-        "$VAULT_ADDR/v1/secret/data/keycloak/admin"
-      echo "  Stored keycloak/admin in Vault"
+        # Store broker-client secret
+        curl -sf -X POST \
+          -H "X-Vault-Token: $VAULT_TOKEN" \
+          -H "X-Vault-Namespace: $VAULT_NS" \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n --arg secret "$CLIENT_SECRET" '{data: {"client-secret": $secret}}')" \
+          "$VAULT_ADDR/v1/secret/data/keycloak/broker-client"
+        echo "  Stored keycloak/broker-client in $VAULT_NS"
 
-      # Store broker-client secret
-      curl -sf -X POST \
-        -H "X-Vault-Token: $VAULT_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d "$(jq -n --arg secret "$CLIENT_SECRET" '{data: {"client-secret": $secret}}')" \
-        "$VAULT_ADDR/v1/secret/data/keycloak/broker-client"
-      echo "  Stored keycloak/broker-client in Vault"
+        # Store test user passwords
+        curl -sf -X POST \
+          -H "X-Vault-Token: $VAULT_TOKEN" \
+          -H "X-Vault-Namespace: $VAULT_NS" \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n \
+            --arg alice "$ALICE_PASS" \
+            --arg bob "$BOB_PASS" \
+            --arg carol "$CAROL_PASS" \
+            --arg admin "$DAVE_PASS" \
+            '{data: {"alice-password": $alice, "bob-password": $bob, "carol-password": $carol, "admin-password": $admin}}')" \
+          "$VAULT_ADDR/v1/secret/data/keycloak/test-users"
+        echo "  Stored keycloak/test-users in $VAULT_NS"
 
-      # Store test user passwords
-      curl -sf -X POST \
-        -H "X-Vault-Token: $VAULT_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d "$(jq -n \
-          --arg alice "$ALICE_PASS" \
-          --arg bob "$BOB_PASS" \
-          --arg carol "$CAROL_PASS" \
-          --arg admin "$DAVE_PASS" \
-          '{data: {"alice-password": $alice, "bob-password": $bob, "carol-password": $carol, "admin-password": $admin}}')" \
-        "$VAULT_ADDR/v1/secret/data/keycloak/test-users"
-      echo "  Stored keycloak/test-users in Vault"
+        # Store broker realm client secrets (pre-generated, pinned via realm import)
+        curl -sf -X POST \
+          -H "X-Vault-Token: $VAULT_TOKEN" \
+          -H "X-Vault-Namespace: $VAULT_NS" \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n --arg secret "$ARGOCD_CLIENT_SECRET" '{data: {"client-secret": $secret}}')" \
+          "$VAULT_ADDR/v1/secret/data/keycloak/argocd-client"
+        echo "  Stored keycloak/argocd-client in $VAULT_NS"
 
-      # Store broker realm client secrets (pre-generated, pinned via realm import)
-      curl -sf -X POST \
-        -H "X-Vault-Token: $VAULT_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d "$(jq -n --arg secret "$ARGOCD_CLIENT_SECRET" '{data: {"client-secret": $secret}}')" \
-        "$VAULT_ADDR/v1/secret/data/keycloak/argocd-client"
-      echo "  Stored keycloak/argocd-client in Vault"
+        curl -sf -X POST \
+          -H "X-Vault-Token: $VAULT_TOKEN" \
+          -H "X-Vault-Namespace: $VAULT_NS" \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n --arg id "oauth2-proxy" --arg secret "$OAUTH2_PROXY_CLIENT_SECRET" '{data: {"client-id": $id, "client-secret": $secret}}')" \
+          "$VAULT_ADDR/v1/secret/data/keycloak/oauth2-proxy-client"
+        echo "  Stored keycloak/oauth2-proxy-client in $VAULT_NS"
 
-      curl -sf -X POST \
-        -H "X-Vault-Token: $VAULT_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d "$(jq -n --arg id "oauth2-proxy" --arg secret "$OAUTH2_PROXY_CLIENT_SECRET" '{data: {"client-id": $id, "client-secret": $secret}}')" \
-        "$VAULT_ADDR/v1/secret/data/keycloak/oauth2-proxy-client"
-      echo "  Stored keycloak/oauth2-proxy-client in Vault"
+        curl -sf -X POST \
+          -H "X-Vault-Token: $VAULT_TOKEN" \
+          -H "X-Vault-Namespace: $VAULT_NS" \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n --arg secret "$GRAFANA_CLIENT_SECRET" '{data: {"client-secret": $secret}}')" \
+          "$VAULT_ADDR/v1/secret/data/keycloak/grafana-client"
+        echo "  Stored keycloak/grafana-client in $VAULT_NS"
 
-      curl -sf -X POST \
-        -H "X-Vault-Token: $VAULT_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d "$(jq -n --arg secret "$GRAFANA_CLIENT_SECRET" '{data: {"client-secret": $secret}}')" \
-        "$VAULT_ADDR/v1/secret/data/keycloak/grafana-client"
-      echo "  Stored keycloak/grafana-client in Vault"
+        curl -sf -X POST \
+          -H "X-Vault-Token: $VAULT_TOKEN" \
+          -H "X-Vault-Namespace: $VAULT_NS" \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n --arg secret "$JIT_CLIENT_SECRET" '{data: {"client-secret": $secret}}')" \
+          "$VAULT_ADDR/v1/secret/data/keycloak/jit-service"
+        echo "  Stored keycloak/jit-service in $VAULT_NS"
 
-      curl -sf -X POST \
-        -H "X-Vault-Token: $VAULT_TOKEN" \
-        -H "Content-Type: application/json" \
-        -d "$(jq -n --arg secret "$JIT_CLIENT_SECRET" '{data: {"client-secret": $secret}}')" \
-        "$VAULT_ADDR/v1/secret/data/keycloak/jit-service"
-      echo "  Stored keycloak/jit-service in Vault"
+        curl -sf -X POST \
+          -H "X-Vault-Token: $VAULT_TOKEN" \
+          -H "X-Vault-Namespace: $VAULT_NS" \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n --arg secret "$KIALI_CLIENT_SECRET" '{data: {"client-secret": $secret}}')" \
+          "$VAULT_ADDR/v1/secret/data/keycloak/kiali-client"
+        echo "  Stored keycloak/kiali-client in $VAULT_NS"
+
+        curl -sf -X POST \
+          -H "X-Vault-Token: $VAULT_TOKEN" \
+          -H "X-Vault-Namespace: $VAULT_NS" \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n --arg secret "$HEADLAMP_CLIENT_SECRET" '{data: {"client-secret": $secret}}')" \
+          "$VAULT_ADDR/v1/secret/data/keycloak/headlamp-client"
+        echo "  Stored keycloak/headlamp-client in $VAULT_NS"
+      done
     fi
 
     # Mark setup complete
@@ -432,9 +481,9 @@ in
   # Auto-setup service: realm, users, clients, Vault secrets
   systemd.services.keycloak-auto-setup = {
     description = "Keycloak Auto-Setup (upstream realm, users, broker-client)";
-    after = [ "keycloak.service" "vault-auto-init.service" ];
+    after = [ "keycloak.service" "openbao-auto-init.service" ];
     requires = [ "keycloak.service" ];
-    wants = [ "vault-auto-init.service" ];
+    wants = [ "openbao-auto-init.service" ];
     wantedBy = [ "multi-user.target" ];
 
     serviceConfig = {

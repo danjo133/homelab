@@ -6,23 +6,27 @@ master:
   mac: "52:54:00:69:50:20"
   memory: 8192
   cpus: 4
+  disk: 40
 
 workers:
   - name: worker-1
     ip: "10.69.50.31"
     mac: "52:54:00:69:50:31"
-    memory: 8192
+    memory: 10240
     cpus: 4
+    disk: 40
   - name: worker-2
     ip: "10.69.50.32"
     mac: "52:54:00:69:50:32"
-    memory: 8192
+    memory: 10240
     cpus: 4
+    disk: 40
   - name: worker-3
     ip: "10.69.50.33"
     mac: "52:54:00:69:50:33"
-    memory: 8192
+    memory: 10240
     cpus: 4
+    disk: 40
 
 # CNI: "default" (Canal + kube-proxy) or "cilium"
 cni: default
@@ -34,7 +38,8 @@ loadbalancer:
   cidr: "10.69.50.192/28"
 
 vault:
-  auth_mount: kubernetes-kss
+  auth_mount: kubernetes
+  namespace: kss
 
 bgp:
   asn: 64514

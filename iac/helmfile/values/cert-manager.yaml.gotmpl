@@ -1,0 +1,42 @@
+# cert-manager Helm Values
+# Automated certificate management
+
+# Install CRDs with the chart
+crds:
+  enabled: true
+
+# Deployment replicas
+replicaCount: 1
+
+# Webhook configuration
+webhook:
+  replicaCount: 1
+
+# CAinjector configuration
+cainjector:
+  replicaCount: 1
+
+# Resources
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 256Mi
+
+# Node selection
+nodeSelector: {}
+tolerations:
+  - operator: Exists
+affinity: {}
+
+# Disable startupapicheck - it can fail in fresh clusters where the
+# webhook takes time to become ready. cert-manager itself works fine.
+startupapicheck:
+  enabled: false
+
+# Prometheus metrics
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: false

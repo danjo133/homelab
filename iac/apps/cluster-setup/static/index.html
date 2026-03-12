@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cluster Setup</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0d1117;color:#c9d1d9;min-height:100vh}
+.container{max-width:720px;margin:0 auto;padding:24px 20px}
+h1{font-size:1.5rem;margin-bottom:8px}
+.subtitle{color:#8b949e;margin-bottom:24px;font-size:0.9rem}
+.tabs{display:flex;gap:0;border-bottom:1px solid #21262d;margin-bottom:24px}
+.tab{padding:8px 16px;cursor:pointer;color:#8b949e;border-bottom:2px solid transparent;font-size:0.9rem}
+.tab:hover{color:#c9d1d9}
+.tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
+.panel{display:none}
+.panel.active{display:block}
+.card{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:20px;margin-bottom:16px}
+.btn{display:inline-block;padding:8px 20px;border-radius:6px;border:none;cursor:pointer;font-size:0.9rem;font-weight:500}
+.btn-primary{background:#238636;color:#fff}
+.btn-primary:hover{background:#2ea043}
+.btn-copy{background:#30363d;color:#c9d1d9;padding:4px 12px;font-size:0.8rem}
+.btn-copy:hover{background:#3d444d}
+.btn-copy.copied{background:#238636}
+.status{padding:12px 16px;border-radius:6px;margin-bottom:16px;font-size:0.9rem}
+.status-ok{background:#0d2818;border:1px solid #238636}
+.status-err{background:#3d1014;border:1px solid #da3633}
+.user-info{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.user-info .name{font-weight:600;font-size:1.1rem}
+.user-info .email{color:#8b949e;font-size:0.85rem}
+table{width:100%;border-collapse:collapse;font-size:0.85rem}
+th{text-align:left;padding:8px 12px;border-bottom:1px solid #21262d;color:#8b949e;font-weight:500}
+td{padding:8px 12px;border-bottom:1px solid #161b22;word-break:break-all}
+.mono{font-family:'SFMono-Regular',Consolas,monospace;font-size:0.8rem}
+.collapsible{cursor:pointer;color:#58a6ff;font-size:0.85rem;margin-top:12px}
+.collapsible:hover{text-decoration:underline}
+.collapse-content{display:none;margin-top:8px}
+.collapse-content.open{display:block}
+.token-box{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:12px;word-break:break-all;font-family:'SFMono-Regular',Consolas,monospace;font-size:0.75rem;max-height:200px;overflow-y:auto;color:#8b949e}
+.kubeconfig-preview{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:12px;font-family:'SFMono-Regular',Consolas,monospace;font-size:0.8rem;white-space:pre;overflow-x:auto;max-height:400px;overflow-y:auto;color:#c9d1d9}
+.countdown{color:#f0883e;font-weight:600}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.75rem;background:#21262d;color:#c9d1d9;margin:2px}
+.instructions{background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:16px;margin-top:16px;font-size:0.85rem;line-height:1.6}
+.instructions code{background:#21262d;padding:2px 6px;border-radius:4px;font-family:'SFMono-Regular',Consolas,monospace;font-size:0.8rem}
+.row-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid #30363d;border-top-color:#58a6ff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading{text-align:center;padding:40px;color:#8b949e}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Cluster Setup</h1>
+  <p class="subtitle">OIDC token info and kubeconfig for kubectl access</p>
+
+  <div id="loading" class="loading"><span class="spinner"></span> Loading...</div>
+
+  <div id="app" style="display:none">
+    <div id="user-banner" class="user-info card"></div>
+
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('token')">Token Info</div>
+      <div class="tab" onclick="switchTab('kubeconfig')">Kubeconfig</div>
+    </div>
+
+    <div id="panel-token" class="panel active">
+      <div class="card">
+        <h3 style="margin-bottom:12px;font-size:1rem">Token Claims</h3>
+        <div id="expiry-info" style="margin-bottom:12px"></div>
+        <table>
+          <thead><tr><th>Claim</th><th>Value</th></tr></thead>
+          <tbody id="claims-body"></tbody>
+        </table>
+        <div class="collapsible" onclick="toggleCollapse('raw-token')">Show raw JWT</div>
+        <div id="raw-token" class="collapse-content">
+          <div id="raw-token-box" class="token-box"></div>
+          <div style="margin-top:8px">
+            <button class="btn btn-copy" onclick="copyText('raw-token-box', this)">Copy JWT</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-kubeconfig" class="panel">
+      <div class="card">
+        <h3 style="margin-bottom:12px;font-size:1rem">OIDC Kubeconfig</h3>
+        <p style="color:#8b949e;font-size:0.85rem;margin-bottom:16px">
+          Download a kubeconfig that authenticates via OIDC using <code style="background:#21262d;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:0.8rem">kubectl-oidc-login</code>.
+        </p>
+        <div id="kubeconfig-preview" class="kubeconfig-preview"></div>
+        <div class="row-actions" style="margin-top:12px">
+          <button class="btn btn-primary" onclick="downloadKubeconfig()">Download kubeconfig</button>
+          <button class="btn btn-copy" onclick="copyText('kubeconfig-preview', this)">Copy YAML</button>
+        </div>
+        <div class="instructions">
+          <strong>Setup instructions:</strong><br><br>
+          1. Install <code>kubectl-oidc-login</code>:<br>
+          <code>kubectl krew install oidc-login</code><br><br>
+          2. Download and save the kubeconfig above<br><br>
+          3. Use it:<br>
+          <code>export KUBECONFIG=~/Downloads/kubeconfig-<span id="cluster-name-span"></span>-oidc.yaml</code><br>
+          <code>kubectl get nodes</code><br><br>
+          4. A browser window will open for Keycloak authentication on first use.<br><br>
+          <strong>RBAC group mappings</strong> (prefix <code>oidc:</code>):<br>
+          &bull; <code>platform-admins</code> &rarr; cluster-admin<br>
+          &bull; <code>k8s-admins</code> &rarr; cluster-admin<br>
+          &bull; <code>k8s-operators</code> &rarr; k8s-operator (read-only)
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="error-section" style="display:none">
+    <div class="status status-err" id="error-msg"></div>
+  </div>
+</div>
+
+<script>
+let tokenData = null;
+let countdownInterval = null;
+
+async function init() {
+  try {
+    const resp = await fetch('/api/token-info');
+    if (!resp.ok) {
+      const err = await resp.json();
+      showError(err.error || 'Failed to load token info');
+      return;
+    }
+    tokenData = await resp.json();
+    renderApp();
+  } catch(e) {
+    showError('Failed to connect to API: ' + e.message);
+  }
+}
+
+function renderApp() {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+
+  // User banner
+  const banner = document.getElementById('user-banner');
+  const groups = (tokenData.groups || []).map(function(g) {
+    return '<span class="badge">' + esc(g) + '</span>';
+  }).join('');
+  banner.innerHTML =
+    '<div>' +
+    '<div class="name">' + esc(tokenData.user || 'unknown') + '</div>' +
+    '<div class="email">' + esc(tokenData.email || '') + '</div>' +
+    '</div>' +
+    '<div style="margin-left:auto">' + groups + '</div>';
+
+  // Claims table
+  const claims = tokenData.claims || {};
+  const displayClaims = [
+    'sub', 'preferred_username', 'email', 'email_verified',
+    'groups', 'realm_access', 'resource_access',
+    'scope', 'iss', 'aud', 'azp', 'iat', 'exp', 'auth_time'
+  ];
+  const tbody = document.getElementById('claims-body');
+  tbody.innerHTML = '';
+  displayClaims.forEach(function(key) {
+    if (claims[key] === undefined) return;
+    var val = claims[key];
+    if (key === 'iat' || key === 'exp' || key === 'auth_time') {
+      val = new Date(val * 1000).toISOString() + ' (' + val + ')';
+    } else if (typeof val === 'object') {
+      val = JSON.stringify(val, null, 2);
+    }
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td class="mono">' + esc(key) + '</td><td class="mono">' + esc(String(val)) + '</td>';
+    tbody.appendChild(tr);
+  });
+  // Any remaining claims
+  Object.keys(claims).forEach(function(key) {
+    if (displayClaims.indexOf(key) !== -1) return;
+    var val = typeof claims[key] === 'object' ? JSON.stringify(claims[key]) : String(claims[key]);
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td class="mono">' + esc(key) + '</td><td class="mono">' + esc(val) + '</td>';
+    tbody.appendChild(tr);
+  });
+
+  // Expiry countdown
+  if (claims.exp) {
+    updateCountdown(claims.exp);
+    countdownInterval = setInterval(function() { updateCountdown(claims.exp); }, 1000);
+  }
+
+  // Raw token
+  document.getElementById('raw-token-box').textContent = tokenData.raw_token || '';
+
+  // Kubeconfig preview
+  loadKubeconfigPreview();
+}
+
+function updateCountdown(exp) {
+  var now = Math.floor(Date.now() / 1000);
+  var remaining = exp - now;
+  var el = document.getElementById('expiry-info');
+  if (remaining <= 0) {
+    el.innerHTML = '<span class="countdown">Token expired</span>';
+  } else {
+    var mins = Math.floor(remaining / 60);
+    var secs = remaining % 60;
+    el.innerHTML = 'Token expires in <span class="countdown">' + mins + 'm ' + secs + 's</span>';
+  }
+}
+
+async function loadKubeconfigPreview() {
+  try {
+    var resp = await fetch('/api/kubeconfig');
+    var text = await resp.text();
+    document.getElementById('kubeconfig-preview').textContent = text;
+    document.getElementById('cluster-name-span').textContent = text.match(/name: (\S+)-oidc/)?.[1] || '';
+  } catch(e) {
+    document.getElementById('kubeconfig-preview').textContent = 'Failed to load kubeconfig';
+  }
+}
+
+function downloadKubeconfig() {
+  window.location.href = '/api/kubeconfig';
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+  event.target.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+function toggleCollapse(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+function copyText(elementId, btn) {
+  var text = document.getElementById(elementId).textContent;
+  navigator.clipboard.writeText(text).then(function() {
+    var orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(function() { btn.textContent = orig; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function showError(msg) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('error-section').style.display = 'block';
+  document.getElementById('error-msg').textContent = msg;
+}
+
+function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+init();
+</script>
+</body>
+</html>

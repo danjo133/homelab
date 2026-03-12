@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JIT Elevation</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0d1117;color:#c9d1d9;min-height:100vh}
+.container{max-width:720px;margin:0 auto;padding:24px 20px}
+h1{font-size:1.5rem;margin-bottom:8px}
+.subtitle{color:#8b949e;margin-bottom:24px;font-size:0.9rem}
+.tabs{display:flex;gap:0;border-bottom:1px solid #21262d;margin-bottom:24px}
+.tab{padding:8px 16px;cursor:pointer;color:#8b949e;border-bottom:2px solid transparent;font-size:0.9rem}
+.tab:hover{color:#c9d1d9}
+.tab.active{color:#58a6ff;border-bottom-color:#58a6ff}
+.panel{display:none}
+.panel.active{display:block}
+.card{background:#161b22;border:1px solid #21262d;border-radius:8px;padding:20px;margin-bottom:16px}
+label{display:block;color:#8b949e;font-size:0.85rem;margin-bottom:6px}
+input[type=text],select,textarea{width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px 12px;color:#c9d1d9;font-size:0.9rem;font-family:inherit}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#58a6ff}
+textarea{resize:vertical;font-family:'SFMono-Regular',Consolas,monospace;font-size:0.8rem}
+.btn{display:inline-block;padding:8px 20px;border-radius:6px;border:none;cursor:pointer;font-size:0.9rem;font-weight:500}
+.btn-primary{background:#238636;color:#fff}
+.btn-primary:hover{background:#2ea043}
+.btn-primary:disabled{background:#21262d;color:#484f58;cursor:not-allowed}
+.btn-outline{background:transparent;color:#58a6ff;border:1px solid #30363d}
+.btn-outline:hover{background:#161b22}
+.btn-copy{background:#30363d;color:#c9d1d9;padding:4px 12px;font-size:0.8rem;margin-top:8px}
+.btn-copy:hover{background:#3d444d}
+.status{padding:12px 16px;border-radius:6px;margin-bottom:16px;font-size:0.9rem}
+.status-ok{background:#0d2818;border:1px solid #238636}
+.status-err{background:#3d1014;border:1px solid #da3633}
+.user-info{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.user-info .name{font-weight:600}
+.user-info .groups{color:#8b949e;font-size:0.85rem}
+table{width:100%;border-collapse:collapse;font-size:0.85rem}
+th{text-align:left;padding:8px 12px;border-bottom:1px solid #21262d;color:#8b949e;font-weight:500}
+td{padding:8px 12px;border-bottom:1px solid #161b22}
+.row-actions{display:flex;gap:8px;margin-top:16px}
+.hidden{display:none}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid #30363d;border-top-color:#58a6ff;border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>JIT Elevation</h1>
+  <p class="subtitle">Temporary privilege escalation via Keycloak Token Exchange</p>
+
+  <div id="login-section">
+    <div class="card">
+      <p style="margin-bottom:16px">Authenticate with Keycloak to request elevated privileges.</p>
+      <button class="btn btn-primary" onclick="startLogin()">Login with Keycloak</button>
+    </div>
+  </div>
+
+  <div id="app-section" class="hidden">
+    <div id="user-banner" class="user-info card"></div>
+
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('elevate')">Elevate</div>
+      <div class="tab" onclick="switchTab('audit')">Audit Log</div>
+      <div class="tab" onclick="switchTab('api')">API</div>
+    </div>
+
+    <div id="panel-elevate" class="panel active">
+      <div class="card">
+        <div style="margin-bottom:16px">
+          <label for="reason">Reason (required)</label>
+          <input type="text" id="reason" placeholder="e.g. debugging pod crash in production">
+        </div>
+        <div style="margin-bottom:16px">
+          <label for="duration">Duration</label>
+          <select id="duration">
+            <option value="60">60 seconds</option>
+            <option value="120">120 seconds</option>
+            <option value="300" selected>300 seconds (5 min)</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="elevate-btn" onclick="requestElevation()">Request Elevation</button>
+      </div>
+
+      <div id="result-section" class="hidden">
+        <div id="result-status" class="status status-ok"></div>
+        <div class="card">
+          <label>Elevated Token</label>
+          <textarea id="token-output" rows="4" readonly></textarea>
+          <button class="btn btn-copy" onclick="copyToken()">Copy token</button>
+        </div>
+        <div class="card">
+          <label>kubectl usage</label>
+          <textarea id="kubectl-output" rows="3" readonly></textarea>
+          <button class="btn btn-copy" onclick="copyKubectl()">Copy command</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-audit" class="panel">
+      <div class="card">
+        <div class="row-actions" style="margin-bottom:16px;margin-top:0">
+          <button class="btn btn-outline" onclick="loadAudit()">Refresh</button>
+        </div>
+        <table>
+          <thead><tr><th>Time</th><th>User</th><th>Reason</th><th>Duration</th></tr></thead>
+          <tbody id="audit-body"><tr><td colspan="4" style="color:#8b949e">Click refresh to load</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="panel-api" class="panel">
+      <div class="card">
+        <h3 style="margin-bottom:12px;font-size:1rem">API Endpoints</h3>
+        <div style="margin:8px 0"><span style="color:#7ee787;font-weight:bold">POST</span> <span style="color:#79c0ff">/api/elevate</span> &mdash; Request elevation (Bearer token required)</div>
+        <div style="margin:8px 0"><span style="color:#7ee787;font-weight:bold">GET</span> <span style="color:#79c0ff">/api/audit</span> &mdash; Recent elevation events</div>
+        <div style="margin:8px 0"><span style="color:#7ee787;font-weight:bold">GET</span> <span style="color:#79c0ff">/api/config</span> &mdash; OIDC configuration</div>
+        <div style="margin:8px 0"><span style="color:#7ee787;font-weight:bold">GET</span> <span style="color:#79c0ff">/health</span> &mdash; Health check</div>
+        <h3 style="margin:16px 0 8px;font-size:1rem">CLI Usage</h3>
+        <div style="background:#0d1117;padding:12px;border-radius:6px;font-family:monospace;font-size:0.8rem;white-space:pre;overflow-x:auto">kubectl jit --reason "debugging pod crash" --duration 300</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let cfg = null;
+let accessToken = null;
+let userInfo = null;
+
+async function init() {
+  cfg = await (await fetch('/api/config')).json();
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if (code) {
+    await exchangeCode(code);
+    window.history.replaceState({}, '', '/');
+  } else if (sessionStorage.getItem('jit_access_token')) {
+    accessToken = sessionStorage.getItem('jit_access_token');
+    await showApp();
+  }
+}
+
+function generateCodeVerifier() {
+  const arr = new Uint8Array(32);
+  crypto.getRandomValues(arr);
+  return btoa(String.fromCharCode(...arr)).replace(/[+/=]/g, c => ({'+':'-','/':'_','=':''}[c]));
+}
+
+async function generateCodeChallenge(verifier) {
+  const data = new TextEncoder().encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/[+/=]/g, c => ({'+':'-','/':'_','=':''}[c]));
+}
+
+async function startLogin() {
+  const verifier = generateCodeVerifier();
+  sessionStorage.setItem('pkce_verifier', verifier);
+  const challenge = await generateCodeChallenge(verifier);
+  const authUrl = cfg.keycloak_url + '/realms/' + cfg.realm + '/protocol/openid-connect/auth?' + new URLSearchParams({
+    response_type: 'code',
+    client_id: cfg.client_id,
+    redirect_uri: window.location.origin + '/',
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+    scope: 'openid groups email'
+  });
+  window.location.href = authUrl;
+}
+
+async function exchangeCode(code) {
+  const verifier = sessionStorage.getItem('pkce_verifier');
+  if (!verifier) { showError('Missing PKCE verifier'); return; }
+  const tokenUrl = cfg.keycloak_url + '/realms/' + cfg.realm + '/protocol/openid-connect/token';
+  const resp = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: cfg.client_id,
+      code: code,
+      redirect_uri: window.location.origin + '/',
+      code_verifier: verifier
+    })
+  });
+  if (!resp.ok) { showError('Token exchange failed: ' + resp.status); return; }
+  const data = await resp.json();
+  accessToken = data.access_token;
+  sessionStorage.setItem('jit_access_token', accessToken);
+  sessionStorage.removeItem('pkce_verifier');
+  await showApp();
+}
+
+async function showApp() {
+  try {
+    const infoUrl = cfg.keycloak_url + '/realms/' + cfg.realm + '/protocol/openid-connect/userinfo';
+    const resp = await fetch(infoUrl, {headers: {'Authorization': 'Bearer ' + accessToken}});
+    if (!resp.ok) { logout(); return; }
+    userInfo = await resp.json();
+  } catch(e) { logout(); return; }
+  document.getElementById('login-section').classList.add('hidden');
+  document.getElementById('app-section').classList.remove('hidden');
+  document.getElementById('user-banner').innerHTML =
+    '<div><div class="name">' + esc(userInfo.preferred_username || 'unknown') + '</div>' +
+    '<div class="groups">Groups: ' + esc((userInfo.groups || []).join(', ') || 'none') + '</div></div>' +
+    '<div style="margin-left:auto"><button class="btn btn-outline" onclick="logout()">Logout</button></div>';
+}
+
+function logout() {
+  sessionStorage.removeItem('jit_access_token');
+  accessToken = null;
+  userInfo = null;
+  document.getElementById('login-section').classList.remove('hidden');
+  document.getElementById('app-section').classList.add('hidden');
+  document.getElementById('result-section').classList.add('hidden');
+}
+
+async function requestElevation() {
+  const reason = document.getElementById('reason').value.trim();
+  if (!reason) { showError('Reason is required'); return; }
+  const duration = document.getElementById('duration').value;
+  const btn = document.getElementById('elevate-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Requesting...';
+  try {
+    const resp = await fetch('/api/elevate', {
+      method: 'POST',
+      headers: {'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json'},
+      body: JSON.stringify({reason: reason, duration: parseInt(duration)})
+    });
+    const data = await resp.json();
+    if (!resp.ok) { showError(data.error || 'Elevation failed'); return; }
+    document.getElementById('result-section').classList.remove('hidden');
+    document.getElementById('result-status').className = 'status status-ok';
+    document.getElementById('result-status').textContent = 'Elevated as ' + data.user + ' (expires in ' + data.expires_in + 's)';
+    document.getElementById('token-output').value = data.access_token;
+    document.getElementById('kubectl-output').value =
+      'kubectl --token="' + data.access_token.substring(0, 20) + '..." get pods -A\n\n' +
+      '# Full token is in the field above — copy and use with:\n' +
+      '# kubectl --token="<full-token>" ...';
+  } catch(e) { showError('Request failed: ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = 'Request Elevation'; }
+}
+
+async function loadAudit() {
+  const resp = await fetch('/api/audit');
+  const data = await resp.json();
+  const body = document.getElementById('audit-body');
+  if (!data.events || data.events.length === 0) {
+    body.innerHTML = '<tr><td colspan="4" style="color:#8b949e">No elevation events</td></tr>';
+    return;
+  }
+  body.innerHTML = data.events.slice().reverse().map(function(e) {
+    return '<tr><td>' + esc(e.timestamp) + '</td><td>' + esc(e.user) + '</td><td>' + esc(e.reason) + '</td><td>' + e.duration + 's</td></tr>';
+  }).join('');
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.panel').forEach(function(p) { p.classList.remove('active'); });
+  event.target.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+  if (name === 'audit') loadAudit();
+}
+
+function showError(msg) {
+  document.getElementById('result-section').classList.remove('hidden');
+  var s = document.getElementById('result-status');
+  s.className = 'status status-err';
+  s.textContent = msg;
+  document.getElementById('token-output').value = '';
+  document.getElementById('kubectl-output').value = '';
+}
+
+function copyToken() { navigator.clipboard.writeText(document.getElementById('token-output').value); }
+function copyKubectl() { navigator.clipboard.writeText(document.getElementById('kubectl-output').value); }
+function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+init();
+</script>
+</body>
+</html>

@@ -14,6 +14,8 @@ resources:
   - argocd-client-secret.yaml
   - grafana-client-secret.yaml
   - jit-client-secret.yaml
+  - kiali-client-secret.yaml
+  - headlamp-client-secret.yaml
   # NOTE: keycloak-db-secret.yaml and argocd-oidc-secret.yaml are deployed
   # during bootstrap (external-secrets kustomize) because helmfile releases
   # (keycloak-db, argocd) need them at deploy time.

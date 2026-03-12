@@ -6,35 +6,51 @@ master:
   mac: "52:54:00:69:50:50"
   memory: 8192
   cpus: 4
+  disk: 40
 
 workers:
   - name: worker-1
     ip: "10.69.50.61"
     mac: "52:54:00:69:50:61"
-    memory: 8192
+    memory: 10240
     cpus: 4
+    disk: 40
   - name: worker-2
     ip: "10.69.50.62"
     mac: "52:54:00:69:50:62"
-    memory: 8192
+    memory: 10240
     cpus: 4
+    disk: 40
   - name: worker-3
     ip: "10.69.50.63"
     mac: "52:54:00:69:50:63"
-    memory: 8192
+    memory: 10240
     cpus: 4
+    disk: 40
 
 # CNI: "default" (Canal + kube-proxy) or "cilium"
 cni: cilium
 
-# Helmfile environment: default, bgp-simple, gateway-bgp, base
-helmfile_env: gateway-bgp
+# Helmfile environment: default, bgp-simple, gateway-bgp, istio-mesh, base
+helmfile_env: istio-mesh
 
 loadbalancer:
   cidr: "10.69.50.208/28"
 
 vault:
-  auth_mount: kubernetes-kcs
+  auth_mount: kubernetes
+  namespace: kcs
 
 bgp:
   asn: 64513
+
+# OIDC authentication via broker Keycloak
+oidc:
+  enabled: true
+  issuer_url: "https://auth.mesh-k8s.example.com/realms/broker"
+  client_id: kubernetes
+
+# Identity system configuration
+identity:
+  root_idp_url: "https://idp.support.example.com"
+  broker_realm: broker

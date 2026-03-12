@@ -27,6 +27,14 @@ fi
 
 echo "Bootstrapping Keycloak secrets in Vault..."
 
+# Vault namespace header (set by caller for per-cluster namespace isolation)
+VAULT_NAMESPACE="${VAULT_NAMESPACE:-}"
+VAULT_NS_HEADER=""
+if [ -n "$VAULT_NAMESPACE" ]; then
+    VAULT_NS_HEADER="-H X-Vault-Namespace:$VAULT_NAMESPACE"
+    echo "Using Vault namespace: $VAULT_NAMESPACE"
+fi
+
 # Helper: generate random string
 gen_random() {
     openssl rand -base64 "$1" | tr -d '=/+' | head -c "$1"
@@ -38,6 +46,7 @@ gen_random() {
 echo "Checking keycloak/db-credentials..."
 EXISTING=$(curl -sk -o /dev/null -w "%{http_code}" \
     -H "X-Vault-Token: $VAULT_TOKEN" \
+    $VAULT_NS_HEADER \
     "$VAULT_ADDR/v1/secret/data/keycloak/db-credentials")
 
 if [ "$EXISTING" = "200" ]; then
@@ -48,6 +57,7 @@ else
 
     curl -sk -X POST \
         -H "X-Vault-Token: $VAULT_TOKEN" \
+        $VAULT_NS_HEADER \
         -H "Content-Type: application/json" \
         -d "$(jq -n \
             --arg user "keycloak" \
@@ -65,6 +75,7 @@ fi
 echo "Checking oauth2-proxy..."
 EXISTING=$(curl -sk -o /dev/null -w "%{http_code}" \
     -H "X-Vault-Token: $VAULT_TOKEN" \
+    $VAULT_NS_HEADER \
     "$VAULT_ADDR/v1/secret/data/oauth2-proxy")
 
 if [ "$EXISTING" = "200" ]; then
@@ -75,6 +86,7 @@ else
 
     curl -sk -X POST \
         -H "X-Vault-Token: $VAULT_TOKEN" \
+        $VAULT_NS_HEADER \
         -H "Content-Type: application/json" \
         -d "$(jq -n \
             --arg secret "$COOKIE_SECRET" \
@@ -90,6 +102,7 @@ fi
 echo "Creating Vault policy 'keycloak-operator'..."
 curl -sk -X PUT \
     -H "X-Vault-Token: $VAULT_TOKEN" \
+    $VAULT_NS_HEADER \
     -H "Content-Type: application/json" \
     -d '{
         "policy": "path \"secret/data/keycloak/*\" {\n  capabilities = [\"read\"]\n}\npath \"secret/data/oauth2-proxy\" {\n  capabilities = [\"read\"]\n}"

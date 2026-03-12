@@ -52,6 +52,7 @@ CNI=$(yq -r '.cni // "default"' "$CLUSTER_YAML")
 HELMFILE_ENV=$(yq -r '.helmfile_env // "default"' "$CLUSTER_YAML")
 LB_CIDR=$(yq -r '.loadbalancer.cidr' "$CLUSTER_YAML")
 VAULT_AUTH_MOUNT=$(yq -r '.vault.auth_mount' "$CLUSTER_YAML")
+VAULT_NAMESPACE=$(yq -r '.vault.namespace // ""' "$CLUSTER_YAML")
 BGP_ASN=$(yq -r '.bgp.asn' "$CLUSTER_YAML")
 
 # Shared support services domain (Vault, Harbor, MinIO are on the shared support VM)
@@ -74,7 +75,7 @@ DOMAIN_SLUG=$(echo "$DOMAIN" | tr '.' '-')
 
 # Create output directories
 GEN_DIR="$CLUSTER_DIR/generated"
-rm -rf "$GEN_DIR/kustomize/metallb" "$GEN_DIR/kustomize/cilium" "$GEN_DIR/kustomize/cert-manager" "$GEN_DIR/kustomize/gateway" "$GEN_DIR/kustomize/oidc-rbac" "$GEN_DIR/kustomize/monitoring"
+rm -rf "$GEN_DIR/kustomize/metallb" "$GEN_DIR/kustomize/cilium" "$GEN_DIR/kustomize/cert-manager" "$GEN_DIR/kustomize/gateway" "$GEN_DIR/kustomize/oidc-rbac" "$GEN_DIR/kustomize/monitoring" "$GEN_DIR/kustomize/harbor" "$GEN_DIR/kustomize/jit-elevation" "$GEN_DIR/kustomize/cluster-setup" "$GEN_DIR/kustomize/kiali" "$GEN_DIR/kustomize/headlamp"
 mkdir -p "$GEN_DIR/nix" "$GEN_DIR/kustomize/external-secrets"
 
 # ============================================================================
@@ -95,6 +96,7 @@ echo "  Generating vars.mk..."
     echo "CLUSTER_HELMFILE_ENV := $HELMFILE_ENV"
     echo "CLUSTER_LB_CIDR := $LB_CIDR"
     echo "CLUSTER_VAULT_AUTH_MOUNT := $VAULT_AUTH_MOUNT"
+    echo "CLUSTER_VAULT_NAMESPACE := $VAULT_NAMESPACE"
     echo "CLUSTER_BGP_ASN := $BGP_ASN"
 
     for i in $(seq 0 $((WORKER_COUNT - 1))); do
@@ -158,6 +160,7 @@ cat > "$GEN_DIR/nix/cluster.nix" << NIXEOF
     masterIp = "$MASTER_IP";
     masterHostname = "$NAME-master";
     vaultAuthMount = "$VAULT_AUTH_MOUNT";
+    vaultNamespace = "$VAULT_NAMESPACE";
   };
 NIXEOF
 
@@ -227,9 +230,11 @@ cat > "$GEN_DIR/helmfile-values.yaml" << YAMLEOF
 # Cluster: $NAME
 clusterName: $NAME
 clusterDomain: $DOMAIN
+domainSlug: $DOMAIN_SLUG
 k8sServiceHost: $NAME-master.$DOMAIN
 lbPoolCidr: "$LB_CIDR"
 vaultAuthMount: $VAULT_AUTH_MOUNT
+vaultNamespace: $VAULT_NAMESPACE
 bgpAsn: $BGP_ASN
 YAMLEOF
 
@@ -447,11 +452,39 @@ spec:
 YAMLEOF
 
 # ============================================================================
-# 8. Generate kustomize/gateway/ (only for gateway-bgp)
+# 8. Generate kustomize/gateway/ (for gateway-bgp and istio-mesh)
 # ============================================================================
-if [ "$HELMFILE_ENV" = "gateway-bgp" ]; then
-    echo "  Generating kustomize/gateway/..."
+if [ "$HELMFILE_ENV" = "gateway-bgp" ] || [ "$HELMFILE_ENV" = "istio-mesh" ]; then
+    # Set gateway class and namespace based on environment
+    if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
+        GATEWAY_CLASS="istio"
+        GATEWAY_NS="istio-ingress"
+    else
+        GATEWAY_CLASS="cilium"
+        GATEWAY_NS="kube-system"
+    fi
+
+    echo "  Generating kustomize/gateway/ (class=$GATEWAY_CLASS, ns=$GATEWAY_NS)..."
     mkdir -p "$GEN_DIR/kustomize/gateway"
+
+    # Build resource list — HTTPRoutes only for istio-mesh
+    GATEWAY_RESOURCES="  - gateway.yaml
+  - http-redirect.yaml
+  - reference-grant.yaml"
+
+    if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
+        GATEWAY_RESOURCES="$GATEWAY_RESOURCES
+  - argocd-httproute.yaml
+  - keycloak-httproute.yaml
+  - grafana-httproute.yaml
+  - oauth2-proxy-httproute.yaml
+  - jit-httproute.yaml
+  - setup-httproute.yaml
+  - hubble-httproute.yaml
+  - kiali-httproute.yaml
+  - headlamp-httproute.yaml
+  - ext-authz-policy.yaml"
+    fi
 
     cat > "$GEN_DIR/kustomize/gateway/kustomization.yaml" << YAMLEOF
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -461,9 +494,7 @@ kind: Kustomization
 # Cluster: $NAME — Gateway API resources
 
 resources:
-  - gateway.yaml
-  - http-redirect.yaml
-  - reference-grant.yaml
+$GATEWAY_RESOURCES
 YAMLEOF
 
     cat > "$GEN_DIR/kustomize/gateway/gateway.yaml" << YAMLEOF
@@ -473,11 +504,11 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: main-gateway
-  namespace: kube-system
+  namespace: $GATEWAY_NS
   annotations:
     external-dns.alpha.kubernetes.io/hostname: "*.$DOMAIN"
 spec:
-  gatewayClassName: cilium
+  gatewayClassName: $GATEWAY_CLASS
   listeners:
     - name: http
       protocol: HTTP
@@ -508,11 +539,11 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http-to-https-redirect
-  namespace: kube-system
+  namespace: $GATEWAY_NS
 spec:
   parentRefs:
     - name: main-gateway
-      namespace: kube-system
+      namespace: $GATEWAY_NS
       sectionName: http
   hostnames:
     - "*.$DOMAIN"
@@ -536,12 +567,255 @@ spec:
   from:
     - group: gateway.networking.k8s.io
       kind: Gateway
-      namespace: kube-system
+      namespace: $GATEWAY_NS
   to:
     - group: ""
       kind: Secret
       name: wildcard-${DOMAIN_SLUG}-tls
 YAMLEOF
+
+    # ArgoCD HTTPRoute — only for istio-mesh (gateway-bgp uses Cilium Envoy proxy)
+    if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
+        cat > "$GEN_DIR/kustomize/gateway/argocd-httproute.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — ArgoCD HTTPRoute for Gateway API ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: argocd
+  namespace: argocd
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: $GATEWAY_NS
+  hostnames:
+    - "argocd.$DOMAIN"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: argocd-server
+          port: 80
+YAMLEOF
+
+        cat > "$GEN_DIR/kustomize/gateway/keycloak-httproute.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Keycloak HTTPRoute for Gateway API ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: keycloak
+  namespace: keycloak
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: $GATEWAY_NS
+  hostnames:
+    - "auth.$DOMAIN"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: broker-keycloak-service
+          port: 8080
+YAMLEOF
+
+        cat > "$GEN_DIR/kustomize/gateway/grafana-httproute.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Grafana HTTPRoute for Gateway API ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: $GATEWAY_NS
+  hostnames:
+    - "grafana.$DOMAIN"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: kube-prometheus-stack-grafana
+          port: 80
+YAMLEOF
+
+        cat > "$GEN_DIR/kustomize/gateway/oauth2-proxy-httproute.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — OAuth2-Proxy HTTPRoute for Gateway API ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: oauth2-proxy
+  namespace: oauth2-proxy
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: $GATEWAY_NS
+  hostnames:
+    - "oauth2-proxy.$DOMAIN"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /oauth2
+      backendRefs:
+        - name: oauth2-proxy
+          port: 80
+YAMLEOF
+
+        cat > "$GEN_DIR/kustomize/gateway/jit-httproute.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — JIT Elevation HTTPRoute for Gateway API ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: jit-elevation
+  namespace: identity
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: $GATEWAY_NS
+  hostnames:
+    - "jit.$DOMAIN"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: jit-elevation
+          port: 80
+YAMLEOF
+
+        cat > "$GEN_DIR/kustomize/gateway/setup-httproute.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Cluster Setup HTTPRoute for Gateway API ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cluster-setup
+  namespace: identity
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: $GATEWAY_NS
+  hostnames:
+    - "setup.$DOMAIN"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: cluster-setup
+          port: 80
+YAMLEOF
+
+        cat > "$GEN_DIR/kustomize/gateway/hubble-httproute.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Hubble UI HTTPRoute for Gateway API ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hubble-ui
+  namespace: kube-system
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: $GATEWAY_NS
+  hostnames:
+    - "hubble.$DOMAIN"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: hubble-ui
+          port: 80
+YAMLEOF
+
+        cat > "$GEN_DIR/kustomize/gateway/kiali-httproute.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Kiali HTTPRoute for Gateway API ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: kiali
+  namespace: istio-system
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: $GATEWAY_NS
+  hostnames:
+    - "kiali.$DOMAIN"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: kiali
+          port: 20001
+YAMLEOF
+
+        cat > "$GEN_DIR/kustomize/gateway/headlamp-httproute.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Headlamp HTTPRoute for Gateway API ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: headlamp
+  namespace: headlamp
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: $GATEWAY_NS
+  hostnames:
+    - "k8s.$DOMAIN"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: headlamp
+          port: 80
+YAMLEOF
+
+        cat > "$GEN_DIR/kustomize/gateway/ext-authz-policy.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — ext_authz via OAuth2-Proxy for protected services
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: oauth2-proxy-auth
+  namespace: $GATEWAY_NS
+spec:
+  targetRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: main-gateway
+  action: CUSTOM
+  provider:
+    name: oauth2-proxy
+  rules:
+    - to:
+        - operation:
+            hosts:
+              - "setup.$DOMAIN"
+              - "hubble.$DOMAIN"
+YAMLEOF
+    fi
 
 fi
 
@@ -574,7 +848,7 @@ cp "$PROJECT_ROOT/iac/kustomize/base/keycloak/argocd-oidc-secret.yaml" \
 
 cat > "$GEN_DIR/kustomize/external-secrets/cluster-secret-store.yaml" << YAMLEOF
 # Auto-generated from cluster.yaml — do not edit
-# Cluster: $NAME — ClusterSecretStore with per-cluster Vault auth mount
+# Cluster: $NAME — ClusterSecretStore with per-cluster Vault namespace
 apiVersion: external-secrets.io/v1beta1
 kind: ClusterSecretStore
 metadata:
@@ -585,6 +859,7 @@ spec:
       server: "https://vault.$SUPPORT_DOMAIN"
       path: "secret"
       version: "v2"
+      namespace: "$VAULT_NAMESPACE"
       auth:
         kubernetes:
           mountPath: "$VAULT_AUTH_MOUNT"
@@ -618,6 +893,21 @@ patches:
       - op: replace
         path: /spec/hostname/hostname
         value: auth.$DOMAIN
+YAMLEOF
+
+if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
+    # Istio clusters use HTTPRoutes — remove nginx Ingress entirely
+    cat >> "$GEN_DIR/kustomize/keycloak/kustomization.yaml" << YAMLEOF
+  - patch: |
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: broker-keycloak
+        namespace: keycloak
+      \$patch: delete
+YAMLEOF
+else
+    cat >> "$GEN_DIR/kustomize/keycloak/kustomization.yaml" << YAMLEOF
   - target:
       kind: Ingress
       name: broker-keycloak
@@ -628,6 +918,67 @@ patches:
       - op: replace
         path: /spec/rules/0/host
         value: auth.$DOMAIN
+YAMLEOF
+fi
+
+cat >> "$GEN_DIR/kustomize/keycloak/kustomization.yaml" << YAMLEOF
+  # Per-cluster redirect URIs for OIDC clients
+  # Client index: 0=kubernetes, 1=oauth2-proxy, 2=argocd, 3=grafana, 4=jit-service, 5=kiali, 6=headlamp
+  - target:
+      kind: KeycloakRealmImport
+      name: broker-realm
+    patch: |
+      - op: replace
+        path: /spec/realm/clients/0/redirectUris
+        value:
+          - "http://localhost:8000"
+          - "http://localhost:18000"
+          - "http://127.0.0.1:8000"
+          - "http://127.0.0.1:18000"
+          - "https://jit.$DOMAIN/*"
+      - op: replace
+        path: /spec/realm/clients/0/webOrigins
+        value:
+          - "http://localhost:8000"
+          - "http://localhost:18000"
+          - "https://jit.$DOMAIN"
+      - op: replace
+        path: /spec/realm/clients/1/redirectUris
+        value:
+          - "https://oauth2-proxy.$DOMAIN/oauth2/callback"
+          - "https://*.$DOMAIN/oauth2/callback"
+      - op: replace
+        path: /spec/realm/clients/2/redirectUris
+        value:
+          - "https://argocd.$DOMAIN/auth/callback"
+      - op: replace
+        path: /spec/realm/clients/2/webOrigins
+        value:
+          - "https://argocd.$DOMAIN"
+      - op: replace
+        path: /spec/realm/clients/3/redirectUris
+        value:
+          - "https://grafana.$DOMAIN/login/generic_oauth"
+      - op: replace
+        path: /spec/realm/clients/3/webOrigins
+        value:
+          - "https://grafana.$DOMAIN"
+      - op: replace
+        path: /spec/realm/clients/5/redirectUris
+        value:
+          - "https://kiali.$DOMAIN/*"
+      - op: replace
+        path: /spec/realm/clients/5/webOrigins
+        value:
+          - "https://kiali.$DOMAIN"
+      - op: replace
+        path: /spec/realm/clients/6/redirectUris
+        value:
+          - "https://k8s.$DOMAIN/*"
+      - op: replace
+        path: /spec/realm/clients/6/webOrigins
+        value:
+          - "https://k8s.$DOMAIN"
 YAMLEOF
 
 # ============================================================================
@@ -746,6 +1097,200 @@ kind: Kustomization
 
 resources:
   - ../../../../../kustomize/base/monitoring
+
+patches:
+  # Per-cluster Vault path for Loki MinIO credentials
+  - target:
+      kind: ExternalSecret
+      name: loki-minio-secret
+    patch: |
+      - op: replace
+        path: /spec/data/0/remoteRef/key
+        value: minio/loki-$NAME
+      - op: replace
+        path: /spec/data/1/remoteRef/key
+        value: minio/loki-$NAME
+YAMLEOF
+
+# ============================================================================
+# 13. Generate kustomize/harbor/ (Harbor imagePullSecret ExternalSecrets)
+# ============================================================================
+echo "  Generating kustomize/harbor/..."
+mkdir -p "$GEN_DIR/kustomize/harbor"
+
+cat > "$GEN_DIR/kustomize/harbor/kustomization.yaml" << YAMLEOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Harbor imagePullSecret ExternalSecrets
+
+resources:
+  - ../../../../../kustomize/base/harbor
+YAMLEOF
+
+# ============================================================================
+# 14. Generate kustomize/jit-elevation/ (per-cluster JIT overlay)
+# ============================================================================
+echo "  Generating kustomize/jit-elevation/..."
+mkdir -p "$GEN_DIR/kustomize/jit-elevation"
+
+cat > "$GEN_DIR/kustomize/jit-elevation/kustomization.yaml" << YAMLEOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — JIT Elevation with per-cluster hostname
+
+resources:
+  - ../../../../../kustomize/base/jit-elevation
+
+patches:
+  - target:
+      kind: ConfigMap
+      name: jit-config
+    patch: |
+      - op: replace
+        path: /data/KEYCLOAK_URL
+        value: "https://auth.$DOMAIN"
+YAMLEOF
+
+if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
+    # Istio clusters use HTTPRoutes — remove nginx Ingress entirely
+    cat >> "$GEN_DIR/kustomize/jit-elevation/kustomization.yaml" << YAMLEOF
+  - patch: |
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: jit-elevation
+        namespace: identity
+      \$patch: delete
+YAMLEOF
+else
+    cat >> "$GEN_DIR/kustomize/jit-elevation/kustomization.yaml" << YAMLEOF
+  - target:
+      kind: Ingress
+      name: jit-elevation
+    patch: |
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: jit.$DOMAIN
+      - op: replace
+        path: /spec/rules/0/host
+        value: jit.$DOMAIN
+YAMLEOF
+fi
+
+# ============================================================================
+# 15. Generate kustomize/cluster-setup/ (per-cluster cluster-setup overlay)
+# ============================================================================
+echo "  Generating kustomize/cluster-setup/..."
+mkdir -p "$GEN_DIR/kustomize/cluster-setup"
+
+cat > "$GEN_DIR/kustomize/cluster-setup/kustomization.yaml" << YAMLEOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Cluster Setup with per-cluster config
+
+resources:
+  - ../../../../../kustomize/base/cluster-setup
+
+patches:
+  - target:
+      kind: ConfigMap
+      name: cluster-setup-config
+    patch: |
+      - op: replace
+        path: /data/CLUSTER_NAME
+        value: "$NAME"
+      - op: replace
+        path: /data/CLUSTER_DOMAIN
+        value: "$DOMAIN"
+      - op: replace
+        path: /data/KEYCLOAK_URL
+        value: "https://auth.$DOMAIN"
+      - op: replace
+        path: /data/API_SERVER
+        value: "https://$NAME-master.$DOMAIN:6443"
+YAMLEOF
+
+if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
+    # Istio clusters use HTTPRoutes — remove nginx Ingress entirely
+    cat >> "$GEN_DIR/kustomize/cluster-setup/kustomization.yaml" << YAMLEOF
+  - patch: |
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: cluster-setup
+        namespace: identity
+      \$patch: delete
+YAMLEOF
+else
+    cat >> "$GEN_DIR/kustomize/cluster-setup/kustomization.yaml" << YAMLEOF
+  - target:
+      kind: Ingress
+      name: cluster-setup
+    patch: |
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: setup.$DOMAIN
+      - op: replace
+        path: /spec/rules/0/host
+        value: setup.$DOMAIN
+      - op: replace
+        path: /metadata/annotations/nginx.ingress.kubernetes.io~1auth-url
+        value: "http://oauth2-proxy.oauth2-proxy.svc.cluster.local/oauth2/auth"
+      - op: replace
+        path: /metadata/annotations/nginx.ingress.kubernetes.io~1auth-signin
+        value: "https://oauth2-proxy.$DOMAIN/oauth2/start?rd=\$scheme://\$host\$escaped_request_uri"
+YAMLEOF
+fi
+
+# ============================================================================
+# 16. Generate kustomize/kiali/ (per-cluster Kiali OIDC secret overlay)
+# ============================================================================
+if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
+    echo "  Generating kustomize/kiali/..."
+    mkdir -p "$GEN_DIR/kustomize/kiali"
+
+    cat > "$GEN_DIR/kustomize/kiali/kustomization.yaml" << YAMLEOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Kiali OIDC secret in istio-system
+
+resources:
+  - ../../../../../kustomize/base/kiali
+YAMLEOF
+fi
+
+# ============================================================================
+# 17. Generate kustomize/headlamp/ (per-cluster Headlamp OIDC secret overlay)
+# ============================================================================
+echo "  Generating kustomize/headlamp/..."
+mkdir -p "$GEN_DIR/kustomize/headlamp"
+
+cat > "$GEN_DIR/kustomize/headlamp/kustomization.yaml" << YAMLEOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Headlamp OIDC secret in headlamp namespace
+
+resources:
+  - ../../../../../kustomize/base/headlamp
+
+patches:
+  - target:
+      kind: ExternalSecret
+      name: headlamp-oidc
+    patch: |
+      - op: replace
+        path: /spec/target/template/data/issuerURL
+        value: "https://auth.$DOMAIN/realms/broker"
 YAMLEOF
 
 echo ""

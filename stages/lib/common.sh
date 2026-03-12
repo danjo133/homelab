@@ -76,6 +76,7 @@ load_cluster_vars() {
   CLUSTER_CNI="$(cluster_yaml_val '.cni // "default"')"
   CLUSTER_HELMFILE_ENV="$(cluster_yaml_val '.helmfile_env // "default"')"
   CLUSTER_VAULT_AUTH_MOUNT="$(cluster_yaml_val '.vault.auth_mount')"
+  CLUSTER_VAULT_NAMESPACE="$(cluster_yaml_val '.vault.namespace // ""')"
   MASTER_VM="${CLUSTER_NAME}-master"
 
   CLUSTER_WORKER_COUNT="$(yq '.workers | length' "${IAC_DIR}/clusters/${KSS_CLUSTER}/cluster.yaml")"

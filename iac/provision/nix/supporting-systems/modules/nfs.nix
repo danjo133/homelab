@@ -36,6 +36,10 @@ in
       # Backup storage
       # - root_squash: map root to nobody for security
       ${backupsDir}  ${allowedNetwork}(rw,sync,no_subtree_check,root_squash,insecure)
+
+      # Longhorn backup target
+      # - no_root_squash: Longhorn runs as root inside pods
+      ${longhornDir}  ${allowedNetwork}(rw,sync,no_subtree_check,no_root_squash,insecure)
     '';
   };
 

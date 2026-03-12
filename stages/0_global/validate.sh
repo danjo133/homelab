@@ -6,7 +6,7 @@ load_cluster_vars
 # Validate Helmfile
 header "Helmfile Validation"
 if command -v helmfile &>/dev/null; then
-  cd "${HELMFILE_DIR}" && helmfile lint
+  cd "${HELMFILE_DIR}" && helmfile --state-values-file "$(cluster_gen_dir)/helmfile-values.yaml" -e "${CLUSTER_HELMFILE_ENV}" lint
   success "Helmfile validation passed"
 else
   error "helmfile not found"

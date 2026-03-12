@@ -17,8 +17,7 @@ for i in $(seq 0 $((CLUSTER_WORKER_COUNT - 1))); do
   ip="${CLUSTER_WORKER_IPS[$i]}"
   name="${CLUSTER_WORKER_NAMES[$i]}"
   echo "  Copying token to ${CLUSTER_NAME}-${name} (${ip})..."
-  ssh_vm "${ip}" "sudo mkdir -p /var/lib/rancher/rke2 && echo '${TOKEN}' | sudo tee /var/lib/rancher/rke2/shared-token > /dev/null"
-  ssh_vm "${ip}" "sudo touch /etc/rancher/rke2/.token-configured"
+  ssh_vm "${ip}" "sudo mkdir -p /var/lib/rancher/rke2 /etc/rancher/rke2 && echo '${TOKEN}' | sudo tee /var/lib/rancher/rke2/shared-token > /dev/null"
 done
 
 success "Token distributed to all ${KSS_CLUSTER} workers"

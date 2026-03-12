@@ -1,0 +1,102 @@
+# Loki Log Aggregation
+# Chart: grafana/loki from grafana.github.io/helm-charts
+#
+# SingleBinary deployment mode — right-sized for homelab.
+# S3-compatible storage via MinIO on support VM.
+
+deploymentMode: SingleBinary
+
+loki:
+  auth_enabled: false
+
+  commonConfig:
+    replication_factor: 1
+
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: s3
+        schema: v13
+        index:
+          prefix: loki_index_
+          period: 24h
+
+  storage:
+    type: s3
+    s3:
+      endpoint: https://minio.support.example.com
+      bucketnames: loki-{{ .Values.clusterName }}
+      region: us-east-1
+      s3ForcePathStyle: true
+      insecure: false
+    bucketNames:
+      chunks: loki-{{ .Values.clusterName }}
+      ruler: loki-{{ .Values.clusterName }}
+      admin: loki-{{ .Values.clusterName }}
+
+  limits_config:
+    retention_period: 168h  # 7 days
+    ingestion_rate_mb: 10
+    ingestion_burst_size_mb: 20
+    max_query_series: 5000
+
+  storage_config:
+    tsdb_shipper:
+      active_index_directory: /var/loki/tsdb-index
+      cache_location: /var/loki/tsdb-cache
+
+# SingleBinary mode
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 512Mi
+    limits:
+      memory: 1536Mi
+  persistence:
+    enabled: true
+    size: 10Gi
+  extraEnv:
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: loki-minio-secret
+          key: access-key
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: loki-minio-secret
+          key: secret-key
+
+# Disable other deployment modes
+backend:
+  replicas: 0
+read:
+  replicas: 0
+write:
+  replicas: 0
+
+# Gateway (nginx) — not needed in SingleBinary mode
+gateway:
+  enabled: false
+
+# Disable bundled monitoring (we use kube-prometheus-stack)
+monitoring:
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+  lokiCanary:
+    enabled: false
+
+# Disable bundled caches (defaults request ~10GB each, too large for homelab)
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+
+# Disable test
+test:
+  enabled: false

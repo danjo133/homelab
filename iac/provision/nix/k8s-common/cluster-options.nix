@@ -45,6 +45,12 @@
       description = "Vault Kubernetes auth mount path";
     };
 
+    vaultNamespace = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "Vault namespace for this cluster (OpenBao namespace isolation)";
+    };
+
     oidc = {
       enabled = lib.mkOption {
         type = lib.types.bool;

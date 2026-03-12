@@ -12,7 +12,7 @@
     ./hardware-configuration.nix
     ./modules/base.nix
     ./modules/nginx.nix      # Uses self-signed certs by default
-    ./modules/vault.nix
+    ./modules/openbao.nix
     ./modules/minio.nix
     ./modules/nfs.nix
     ./modules/harbor.nix
@@ -32,7 +32,7 @@
   # Add docker group to vagrant user (for Harbor management)
   users.users.vagrant.extraGroups = lib.mkAfter [ "docker" ];
 
-  # Allow unfree packages (Vault has BSL license)
+  # Allow unfree packages (some dependencies may require it)
   nixpkgs.config.allowUnfree = true;
 
   system.stateVersion = "25.11";

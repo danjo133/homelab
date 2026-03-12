@@ -26,6 +26,14 @@ fi
 SPIRE_OIDC_URL="${SPIRE_OIDC_URL:-https://spire-oidc.simple-k8s.example.com}"
 TRUST_DOMAIN="${TRUST_DOMAIN:-simple-k8s.example.com}"
 
+# Vault namespace header (set by caller for per-cluster namespace isolation)
+VAULT_NAMESPACE="${VAULT_NAMESPACE:-}"
+VAULT_NS_HEADER=""
+if [ -n "$VAULT_NAMESPACE" ]; then
+    VAULT_NS_HEADER="-H X-Vault-Namespace:$VAULT_NAMESPACE"
+    echo "Using Vault namespace: $VAULT_NAMESPACE"
+fi
+
 echo "Configuring Vault JWT auth for SPIFFE..."
 echo "  SPIRE OIDC URL: $SPIRE_OIDC_URL"
 echo "  Trust Domain: $TRUST_DOMAIN"
@@ -36,6 +44,7 @@ echo "  Trust Domain: $TRUST_DOMAIN"
 echo "Enabling JWT auth mount at auth/jwt-spiffe..."
 RESULT=$(curl -sk -o /dev/null -w "%{http_code}" -X POST \
     -H "X-Vault-Token: $VAULT_TOKEN" \
+    $VAULT_NS_HEADER \
     -d '{"type":"jwt"}' \
     "$VAULT_ADDR/v1/sys/auth/jwt-spiffe")
 
@@ -53,6 +62,7 @@ fi
 echo "Configuring JWT auth with SPIRE OIDC discovery..."
 curl -sk -X POST \
     -H "X-Vault-Token: $VAULT_TOKEN" \
+    $VAULT_NS_HEADER \
     -H "Content-Type: application/json" \
     -d "$(jq -n \
         --arg url "$SPIRE_OIDC_URL" \
@@ -70,6 +80,7 @@ echo "  JWT auth configured"
 echo "Creating spiffe-workload policy..."
 curl -sk -X PUT \
     -H "X-Vault-Token: $VAULT_TOKEN" \
+    $VAULT_NS_HEADER \
     -H "Content-Type: application/json" \
     -d '{
         "policy": "# Allow SPIFFE workloads to read secrets scoped to their namespace\npath \"secret/data/workloads/*\" {\n  capabilities = [\"read\"]\n}\n\n# Allow PKI certificate issuance\npath \"pki_int/issue/overkill\" {\n  capabilities = [\"create\", \"update\"]\n}"
@@ -84,6 +95,7 @@ echo "  Policy created"
 echo "Creating spiffe-workload role..."
 curl -sk -X POST \
     -H "X-Vault-Token: $VAULT_TOKEN" \
+    $VAULT_NS_HEADER \
     -H "Content-Type: application/json" \
     -d "$(jq -n \
         --arg td "spiffe://$TRUST_DOMAIN" \

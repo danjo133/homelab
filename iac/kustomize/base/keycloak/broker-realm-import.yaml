@@ -277,6 +277,17 @@ spec:
           - email
           - roles
           - groups
+        attributes:
+          oidc.token.exchange.standard.enabled: "true"
+        protocolMappers:
+          - name: jit-service-audience
+            protocol: openid-connect
+            protocolMapper: oidc-audience-mapper
+            config:
+              included.client.audience: "jit-service"
+              id.token.claim: "false"
+              access.token.claim: "true"
+              introspection.token.claim: "true"
 
       # OAuth2-Proxy - confidential client for web SSO
       - clientId: oauth2-proxy
@@ -344,4 +355,38 @@ spec:
         defaultClientScopes:
           - groups
         attributes:
-          oidc.token.exchange.enabled: "true"
+          oidc.token.exchange.standard.enabled: "true"
+
+      # Kiali - confidential client for Istio mesh UI OIDC
+      - clientId: kiali
+        name: "Kiali (Istio Mesh UI)"
+        secret: "${KIALI_CLIENT_SECRET}"
+        enabled: true
+        protocol: openid-connect
+        publicClient: false
+        standardFlowEnabled: true
+        directAccessGrantsEnabled: false
+        serviceAccountsEnabled: false
+        redirectUris:
+          - "https://kiali.simple-k8s.example.com/*"
+        webOrigins:
+          - "https://kiali.simple-k8s.example.com"
+        defaultClientScopes:
+          - groups
+
+      # Headlamp - confidential client for K8s dashboard OIDC
+      - clientId: headlamp
+        name: "Headlamp (K8s Dashboard)"
+        secret: "${HEADLAMP_CLIENT_SECRET}"
+        enabled: true
+        protocol: openid-connect
+        publicClient: false
+        standardFlowEnabled: true
+        directAccessGrantsEnabled: false
+        serviceAccountsEnabled: false
+        redirectUris:
+          - "https://k8s.simple-k8s.example.com/*"
+        webOrigins:
+          - "https://k8s.simple-k8s.example.com"
+        defaultClientScopes:
+          - groups

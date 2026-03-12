@@ -2,7 +2,14 @@
 # Cluster: kcs
 clusterName: kcs
 clusterDomain: mesh-k8s.example.com
+domainSlug: mesh-k8s.example.com
 k8sServiceHost: kcs-master.mesh-k8s.example.com
 lbPoolCidr: "10.69.50.208/28"
-vaultAuthMount: kubernetes-kcs
+vaultAuthMount: kubernetes
+vaultNamespace: kcs
 bgpAsn: 64513
+
+# OIDC configuration
+oidcEnabled: true
+oidcIssuerUrl: "https://auth.mesh-k8s.example.com/realms/broker"
+oidcClientId: "kubernetes"

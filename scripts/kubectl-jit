@@ -1,0 +1,168 @@
+#!/usr/bin/env bash
+# kubectl-jit — Request JIT privilege elevation via Keycloak Token Exchange
+#
+# Usage: kubectl jit --reason "debugging pod crash" [--duration 300] [--cluster-domain simple-k8s.example.com]
+#
+# Prerequisites:
+#   - kubectl krew install oidc-login
+#   - KUBECONFIG pointing to an OIDC-configured context (e.g., config-kss-oidc)
+#   - curl, jq
+#
+# Flow:
+#   1. Auto-detect cluster domain from kubeconfig context name
+#   2. Get OIDC token via kubelogin (triggers browser if no cached token)
+#   3. POST to JIT elevation API with Bearer token
+#   4. Write elevated kubeconfig to ~/.kube/config-<cluster>-elevated
+
+set -euo pipefail
+
+# Defaults
+DURATION=300
+CLUSTER_DOMAIN=""
+REASON=""
+
+usage() {
+    cat <<EOF
+Usage: kubectl jit --reason "reason text" [options]
+
+Options:
+  --reason TEXT          Required. Reason for elevation (audit trail)
+  --duration SECONDS    Elevation duration (default: 300, max: 300)
+  --cluster-domain FQDN Override auto-detected cluster domain
+
+Examples:
+  kubectl jit --reason "debugging pod crash"
+  kubectl jit --reason "investigating OOM" --duration 60
+  kubectl jit --reason "deploying hotfix" --cluster-domain mesh-k8s.example.com
+EOF
+    exit 1
+}
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --reason) REASON="$2"; shift 2 ;;
+        --duration) DURATION="$2"; shift 2 ;;
+        --cluster-domain) CLUSTER_DOMAIN="$2"; shift 2 ;;
+        --help|-h) usage ;;
+        *) echo "Unknown option: $1"; usage ;;
+    esac
+done
+
+if [[ -z "$REASON" ]]; then
+    echo "Error: --reason is required"
+    usage
+fi
+
+# Check prerequisites
+for cmd in curl jq kubectl; do
+    if ! command -v "$cmd" &>/dev/null; then
+        echo "Error: $cmd is required but not found"
+        exit 1
+    fi
+done
+
+# Auto-detect cluster domain from current context
+if [[ -z "$CLUSTER_DOMAIN" ]]; then
+    CONTEXT=$(kubectl config current-context 2>/dev/null || true)
+    if [[ -z "$CONTEXT" ]]; then
+        echo "Error: No current kubectl context. Set KUBECONFIG or use --cluster-domain"
+        exit 1
+    fi
+    # Context name format: <cluster>-oidc (e.g., kss-oidc → simple-k8s.example.com)
+    CLUSTER_SHORT="${CONTEXT%-oidc}"
+    if [[ "$CLUSTER_SHORT" == "$CONTEXT" ]]; then
+        echo "Error: Context '$CONTEXT' doesn't match <cluster>-oidc pattern."
+        echo "Use --cluster-domain to specify explicitly."
+        exit 1
+    fi
+    CLUSTER_DOMAIN="${CLUSTER_SHORT}.example.com"
+    echo "Auto-detected cluster domain: $CLUSTER_DOMAIN"
+fi
+
+CLUSTER_SHORT="${CLUSTER_DOMAIN%%.*}"
+JIT_URL="https://jit.${CLUSTER_DOMAIN}"
+KEYCLOAK_URL="https://auth.${CLUSTER_DOMAIN}"
+
+# Get OIDC token via kubelogin (will open browser if needed)
+echo "Obtaining OIDC token (browser may open)..."
+TOKEN_JSON=$(kubectl oidc-login get-token \
+    --oidc-issuer-url="${KEYCLOAK_URL}/realms/broker" \
+    --oidc-client-id=kubernetes \
+    --oidc-extra-scope=groups \
+    --oidc-extra-scope=email 2>/dev/null)
+
+ACCESS_TOKEN=$(echo "$TOKEN_JSON" | jq -r '.status.token')
+if [[ -z "$ACCESS_TOKEN" || "$ACCESS_TOKEN" == "null" ]]; then
+    echo "Error: Failed to obtain OIDC token"
+    exit 1
+fi
+
+echo "Requesting JIT elevation (duration=${DURATION}s)..."
+RESPONSE=$(curl -sf "${JIT_URL}/api/elevate" \
+    -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "{\"reason\": \"${REASON}\", \"duration\": ${DURATION}}" 2>&1) || {
+    echo "Error: JIT elevation request failed"
+    echo "$RESPONSE"
+    exit 1
+}
+
+# Check for error in response
+ERROR=$(echo "$RESPONSE" | jq -r '.error // empty')
+if [[ -n "$ERROR" ]]; then
+    echo "Error: $ERROR"
+    echo "$RESPONSE" | jq -r 'del(.error) | to_entries[] | "  \(.key): \(.value)"' 2>/dev/null
+    exit 1
+fi
+
+ELEVATED_TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+EXPIRES_IN=$(echo "$RESPONSE" | jq -r '.expires_in')
+USER=$(echo "$RESPONSE" | jq -r '.user')
+
+if [[ -z "$ELEVATED_TOKEN" || "$ELEVATED_TOKEN" == "null" ]]; then
+    echo "Error: No elevated token in response"
+    echo "$RESPONSE" | jq .
+    exit 1
+fi
+
+# Get the API server from current context
+API_SERVER=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null)
+if [[ -z "$API_SERVER" ]]; then
+    API_SERVER="https://${CLUSTER_SHORT}-master.${CLUSTER_DOMAIN}:6443"
+fi
+
+# Write elevated kubeconfig (direct token, not exec plugin)
+ELEVATED_KUBECONFIG="${HOME}/.kube/config-${CLUSTER_SHORT}-elevated"
+cat > "$ELEVATED_KUBECONFIG" << EOF
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: ${API_SERVER}
+    insecure-skip-tls-verify: true
+  name: ${CLUSTER_SHORT}-elevated
+contexts:
+- context:
+    cluster: ${CLUSTER_SHORT}-elevated
+    user: elevated-user
+  name: ${CLUSTER_SHORT}-elevated
+current-context: ${CLUSTER_SHORT}-elevated
+users:
+- name: elevated-user
+  user:
+    token: ${ELEVATED_TOKEN}
+EOF
+chmod 600 "$ELEVATED_KUBECONFIG"
+
+echo ""
+echo "Elevation successful!"
+echo "  User:       ${USER}"
+echo "  Expires in: ${EXPIRES_IN}s"
+echo "  Reason:     ${REASON}"
+echo ""
+echo "Usage:"
+echo "  export KUBECONFIG=${ELEVATED_KUBECONFIG}"
+echo ""
+echo "Or per-command:"
+echo "  kubectl --kubeconfig=${ELEVATED_KUBECONFIG} get pods -A"

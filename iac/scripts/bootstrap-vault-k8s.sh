@@ -35,7 +35,7 @@ success() { echo -e "${GREEN}[OK]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
 # Check prerequisites
-command -v vault >/dev/null 2>&1 || error "vault CLI not found"
+command -v bao >/dev/null 2>&1 || error "bao CLI not found (install openbao)"
 command -v sops >/dev/null 2>&1 || error "sops CLI not found"
 command -v kubectl >/dev/null 2>&1 || error "kubectl not found"
 command -v jq >/dev/null 2>&1 || error "jq not found"
@@ -44,21 +44,31 @@ command -v jq >/dev/null 2>&1 || error "jq not found"
 [ -n "${VAULT_TOKEN:-}" ] || error "VAULT_TOKEN not set"
 [ -f "$SECRETS_FILE" ] || error "Secrets file not found: $SECRETS_FILE"
 
+# Export for bao CLI (bao uses BAO_ADDR/BAO_TOKEN but also reads VAULT_ADDR/VAULT_TOKEN)
+export BAO_ADDR="${VAULT_ADDR}"
+export BAO_TOKEN="${VAULT_TOKEN}"
+
+# Set namespace if provided
+if [ -n "${VAULT_NAMESPACE:-}" ]; then
+  export BAO_NAMESPACE="$VAULT_NAMESPACE"
+  log "Using namespace: $VAULT_NAMESPACE"
+fi
+
 log "Vault address: $VAULT_ADDR"
 
-# Check Vault connectivity
-vault status >/dev/null 2>&1 || error "Cannot connect to Vault"
-success "Connected to Vault"
+# Check connectivity
+bao status >/dev/null 2>&1 || error "Cannot connect to OpenBao"
+success "Connected to OpenBao"
 
 # =============================================================================
 # 1. Enable KV v2 secrets engine
 # =============================================================================
 log "Enabling KV v2 secrets engine at 'secret/'..."
 
-if vault secrets list -format=json | jq -e '.["secret/"]' >/dev/null 2>&1; then
+if bao secrets list -format=json | jq -e '.["secret/"]' >/dev/null 2>&1; then
     success "KV secrets engine already enabled"
 else
-    vault secrets enable -path=secret -version=2 kv
+    bao secrets enable -path=secret -version=2 kv
     success "KV v2 secrets engine enabled"
 fi
 
@@ -72,15 +82,15 @@ CLOUDFLARE_TOKEN=$(sops -d "$SECRETS_FILE" | yq -r '.cloudflare_api_token')
 [ -n "$CLOUDFLARE_TOKEN" ] && [ "$CLOUDFLARE_TOKEN" != "null" ] || error "Failed to extract cloudflare_api_token"
 
 # Store in Vault
-vault kv put secret/cloudflare api-token="$CLOUDFLARE_TOKEN"
-success "Cloudflare API token stored in Vault at secret/cloudflare"
+bao kv put secret/cloudflare api-token="$CLOUDFLARE_TOKEN"
+success "Cloudflare API token stored at secret/cloudflare"
 
 # =============================================================================
 # 3. Create policy for external-secrets
 # =============================================================================
 log "Creating external-secrets policy..."
 
-vault policy write external-secrets - <<EOF
+bao policy write external-secrets - <<EOF
 # Policy for external-secrets operator
 # Allows reading secrets from the secret/ path
 
@@ -99,10 +109,10 @@ success "Policy 'external-secrets' created"
 # =============================================================================
 log "Configuring Kubernetes authentication..."
 
-if vault auth list -format=json | jq -e '.["kubernetes/"]' >/dev/null 2>&1; then
+if bao auth list -format=json | jq -e '.["kubernetes/"]' >/dev/null 2>&1; then
     success "Kubernetes auth already enabled"
 else
-    vault auth enable kubernetes
+    bao auth enable kubernetes
     success "Kubernetes auth enabled"
 fi
 
@@ -172,7 +182,7 @@ done
 success "Service account token retrieved"
 
 # Configure Kubernetes auth with token reviewer JWT
-vault write auth/kubernetes/config \
+bao write auth/kubernetes/config \
     kubernetes_host="$K8S_HOST" \
     kubernetes_ca_cert="$K8S_CA_CERT" \
     token_reviewer_jwt="$TOKEN" \
@@ -185,7 +195,7 @@ success "Kubernetes auth configured with token reviewer"
 # =============================================================================
 log "Creating Kubernetes auth role for external-secrets..."
 
-vault write auth/kubernetes/role/external-secrets \
+bao write auth/kubernetes/role/external-secrets \
     bound_service_account_names=external-secrets \
     bound_service_account_namespaces=external-secrets \
     policies=external-secrets \
@@ -208,6 +218,6 @@ echo "  2. Apply ClusterSecretStore: kubectl apply -f iac/kustomize/base/externa
 echo "  3. Apply ExternalSecrets: kubectl apply -f iac/kustomize/base/external-secrets/"
 echo ""
 echo "To verify:"
-echo "  vault kv get secret/cloudflare"
+echo "  bao kv get secret/cloudflare"
 echo "  kubectl get clustersecretstores"
 echo "  kubectl get externalsecrets -A"

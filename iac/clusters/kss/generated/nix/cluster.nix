@@ -13,7 +13,8 @@
     domain = "simple-k8s.example.com";
     masterIp = "10.69.50.20";
     masterHostname = "kss-master";
-    vaultAuthMount = "kubernetes-kss";
+    vaultAuthMount = "kubernetes";
+    vaultNamespace = "kss";
   };
 
   kss.cluster.oidc = {
