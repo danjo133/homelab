@@ -79,11 +79,18 @@ else
         TARGET_REVISION="deploy"
     else
         echo "WARNING: Neither config-local.sh nor config.yaml found, using example.com defaults"
+        ROOT_DOMAIN="example.com"
         SUPPORT_DOMAIN="support.example.com"
-        GIT_REPO_URL="ssh://git@gitlab.support.example.com:2222/infra/homelab.git"
+        VAULT_URL="https://vault.support.example.com"
+        HARBOR_URL="https://harbor.support.example.com"
         HARBOR_REGISTRY="harbor.support.example.com"
+        MINIO_URL="https://minio.support.example.com"
         GITLAB_URL="https://gitlab.support.example.com"
+        GITLAB_SSH_URL="ssh://git@gitlab.support.example.com:2222"
+        GIT_REPO_URL="ssh://git@gitlab.support.example.com:2222/infra/homelab.git"
+        KEYCLOAK_URL="https://idp.support.example.com"
         PORTAL_PREFIX="portal.example.com"
+        LETSENCRYPT_EMAIL="letsencrypt@example.com"
         TARGET_REVISION="deploy"
     fi
 fi
@@ -101,7 +108,7 @@ DOMAIN_SLUG=$(echo "$DOMAIN" | tr '.' '-')
 
 # Create output directories
 GEN_DIR="$CLUSTER_DIR/generated"
-rm -rf "$GEN_DIR/kustomize/metallb" "$GEN_DIR/kustomize/cilium" "$GEN_DIR/kustomize/cert-manager" "$GEN_DIR/kustomize/gateway" "$GEN_DIR/kustomize/oidc-rbac" "$GEN_DIR/kustomize/monitoring" "$GEN_DIR/kustomize/harbor" "$GEN_DIR/kustomize/jit-elevation" "$GEN_DIR/kustomize/cluster-setup" "$GEN_DIR/kustomize/kiali" "$GEN_DIR/kustomize/headlamp"
+rm -rf "$GEN_DIR/kustomize/metallb" "$GEN_DIR/kustomize/cilium" "$GEN_DIR/kustomize/cert-manager" "$GEN_DIR/kustomize/gateway" "$GEN_DIR/kustomize/oidc-rbac" "$GEN_DIR/kustomize/monitoring" "$GEN_DIR/kustomize/harbor" "$GEN_DIR/kustomize/apps-discovery" "$GEN_DIR/kustomize/portal" "$GEN_DIR/kustomize/architecture" "$GEN_DIR/kustomize/globalpulse" "$GEN_DIR/kustomize/jit-elevation" "$GEN_DIR/kustomize/cluster-setup" "$GEN_DIR/kustomize/kiali" "$GEN_DIR/kustomize/headlamp" "$GEN_DIR/kustomize/mcpo"
 mkdir -p "$GEN_DIR/nix" "$GEN_DIR/kustomize/external-secrets"
 
 # ============================================================================
@@ -1088,6 +1095,11 @@ YAMLEOF
 echo "  Generating kustomize/harbor/..."
 mkdir -p "$GEN_DIR/kustomize/harbor"
 
+# Copy harbor-pull-secret.yaml with domain substitution
+sed -e "s|harbor\.support\.example\.com|${HARBOR_REGISTRY}|g" \
+    "$PROJECT_ROOT/iac/kustomize/base/harbor/harbor-pull-secret.yaml" \
+    > "$GEN_DIR/kustomize/harbor/harbor-pull-secret.yaml"
+
 cat > "$GEN_DIR/kustomize/harbor/kustomization.yaml" << YAMLEOF
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
@@ -1096,8 +1108,318 @@ kind: Kustomization
 # Cluster: $NAME — Harbor imagePullSecret ExternalSecrets
 
 resources:
-  - ../../../../../kustomize/base/harbor
+  - harbor-pull-secret.yaml
 YAMLEOF
+
+# ============================================================================
+# 13b. Generate kustomize/apps-discovery/ (ArgoCD repo-creds + Harbor secrets for apps)
+# ============================================================================
+echo "  Generating kustomize/apps-discovery/..."
+mkdir -p "$GEN_DIR/kustomize/apps-discovery"
+
+# Copy each file with domain substitution
+for f in argocd-repo-creds-apps.yaml harbor-image-updater-secret.yaml harbor-pull-secret-apps.yaml; do
+    sed -e "s|harbor\.support\.example\.com|${HARBOR_REGISTRY}|g" \
+        -e "s|gitlab\.support\.example\.com|gitlab.${SUPPORT_DOMAIN}|g" \
+        "$PROJECT_ROOT/iac/kustomize/base/apps-discovery/$f" \
+        > "$GEN_DIR/kustomize/apps-discovery/$f"
+done
+
+# Copy files without domain references as-is
+for f in gitlab-scm-token.yaml gitlab-ssh-known-hosts.yaml namespace.yaml; do
+    cp "$PROJECT_ROOT/iac/kustomize/base/apps-discovery/$f" \
+       "$GEN_DIR/kustomize/apps-discovery/$f"
+done
+
+cat > "$GEN_DIR/kustomize/apps-discovery/kustomization.yaml" << YAMLEOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Apps discovery (repo-creds, Harbor pull/push secrets)
+
+resources:
+  - namespace.yaml
+  - gitlab-scm-token.yaml
+  - gitlab-ssh-known-hosts.yaml
+  - argocd-repo-creds-apps.yaml
+  - harbor-image-updater-secret.yaml
+  - harbor-pull-secret-apps.yaml
+YAMLEOF
+
+# ============================================================================
+# 13c. Generate kustomize/portal/ (per-cluster portal overlay)
+# ============================================================================
+echo "  Generating kustomize/portal/..."
+mkdir -p "$GEN_DIR/kustomize/portal"
+
+cat > "$GEN_DIR/kustomize/portal/kustomization.yaml" << YAMLEOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Portal with per-cluster config
+
+resources:
+  - ../../../../../kustomize/base/portal
+  - support-services.yaml
+
+patches:
+  - target:
+      kind: ConfigMap
+      name: portal-config
+    patch: |
+      - op: replace
+        path: /data/CLUSTER_NAME
+        value: "$NAME"
+      - op: replace
+        path: /data/CLUSTER_DOMAIN
+        value: "$DOMAIN"
+  - target:
+      kind: Deployment
+      name: portal
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: ${HARBOR_REGISTRY}/apps/portal:latest
+YAMLEOF
+
+if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
+    cat >> "$GEN_DIR/kustomize/portal/kustomization.yaml" << YAMLEOF
+  - patch: |
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: portal
+        namespace: kube-public
+      \$patch: delete
+YAMLEOF
+else
+    cat >> "$GEN_DIR/kustomize/portal/kustomization.yaml" << YAMLEOF
+  - target:
+      kind: Ingress
+      name: portal
+    patch: |
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: portal.$DOMAIN
+      - op: replace
+        path: /spec/rules/0/host
+        value: portal.$DOMAIN
+      - op: replace
+        path: /metadata/annotations/nginx.ingress.kubernetes.io~1auth-signin
+        value: "https://oauth2-proxy.$DOMAIN/oauth2/start?rd=\$scheme://\$host\$escaped_request_uri"
+YAMLEOF
+fi
+
+# Generate support-services.yaml (portal entries for support VM services)
+cat > "$GEN_DIR/kustomize/portal/support-services.yaml" << YAMLEOF
+# Auto-generated — support VM portal discovery entries
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: support-vault
+  namespace: kube-public
+  annotations:
+    external-dns.alpha.kubernetes.io/exclude: "true"
+    portal.example.com/name: "Vault"
+    portal.example.com/description: "Secrets management & PKI"
+    portal.example.com/icon: "\U0001F510"
+    portal.example.com/category: "Infrastructure"
+    portal.example.com/order: "10"
+spec:
+  rules:
+    - host: vault.$SUPPORT_DOMAIN
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: support-harbor
+  namespace: kube-public
+  annotations:
+    external-dns.alpha.kubernetes.io/exclude: "true"
+    portal.example.com/name: "Harbor"
+    portal.example.com/description: "Container registry & image scanning"
+    portal.example.com/icon: "\U0001F433"
+    portal.example.com/category: "Infrastructure"
+    portal.example.com/order: "20"
+spec:
+  rules:
+    - host: harbor.$SUPPORT_DOMAIN
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: support-minio
+  namespace: kube-public
+  annotations:
+    external-dns.alpha.kubernetes.io/exclude: "true"
+    portal.example.com/name: "MinIO"
+    portal.example.com/description: "Object storage console"
+    portal.example.com/icon: "\U0001F4E6"
+    portal.example.com/category: "Infrastructure"
+    portal.example.com/order: "30"
+spec:
+  rules:
+    - host: minio-console.$SUPPORT_DOMAIN
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: support-gitlab
+  namespace: kube-public
+  annotations:
+    external-dns.alpha.kubernetes.io/exclude: "true"
+    portal.example.com/name: "GitLab"
+    portal.example.com/description: "Git hosting & CI/CD"
+    portal.example.com/icon: "\U0001F98A"
+    portal.example.com/category: "Infrastructure"
+    portal.example.com/order: "40"
+spec:
+  rules:
+    - host: gitlab.$SUPPORT_DOMAIN
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: support-keycloak
+  namespace: kube-public
+  annotations:
+    external-dns.alpha.kubernetes.io/exclude: "true"
+    portal.example.com/name: "Keycloak"
+    portal.example.com/description: "Upstream identity provider"
+    portal.example.com/icon: "\U0001F511"
+    portal.example.com/category: "Infrastructure"
+    portal.example.com/order: "50"
+spec:
+  rules:
+    - host: idp.$SUPPORT_DOMAIN
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: support-ziti
+  namespace: kube-public
+  annotations:
+    external-dns.alpha.kubernetes.io/exclude: "true"
+    portal.example.com/name: "OpenZiti"
+    portal.example.com/description: "Zero-trust network admin console"
+    portal.example.com/icon: "\U0001F310"
+    portal.example.com/category: "Infrastructure"
+    portal.example.com/order: "60"
+spec:
+  rules:
+    - host: zac.$SUPPORT_DOMAIN
+YAMLEOF
+
+# ============================================================================
+# 13d. Generate kustomize/architecture/ (per-cluster architecture overlay)
+# ============================================================================
+echo "  Generating kustomize/architecture/..."
+mkdir -p "$GEN_DIR/kustomize/architecture"
+
+cat > "$GEN_DIR/kustomize/architecture/kustomization.yaml" << YAMLEOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Architecture diagram viewer
+
+resources:
+  - ../../../../../kustomize/base/architecture
+
+patches:
+  - target:
+      kind: Deployment
+      name: architecture
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: ${HARBOR_REGISTRY}/apps/architecture:latest
+YAMLEOF
+
+if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
+    cat >> "$GEN_DIR/kustomize/architecture/kustomization.yaml" << YAMLEOF
+  - patch: |
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: architecture
+        namespace: kube-public
+      \$patch: delete
+YAMLEOF
+else
+    cat >> "$GEN_DIR/kustomize/architecture/kustomization.yaml" << YAMLEOF
+  - target:
+      kind: Ingress
+      name: architecture
+    patch: |
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: architecture.$DOMAIN
+      - op: replace
+        path: /spec/rules/0/host
+        value: architecture.$DOMAIN
+      - op: replace
+        path: /metadata/annotations/nginx.ingress.kubernetes.io~1auth-signin
+        value: "https://oauth2-proxy.$DOMAIN/oauth2/start?rd=\$scheme://\$host\$escaped_request_uri"
+YAMLEOF
+fi
+
+# ============================================================================
+# 13e. Generate kustomize/globalpulse/ (per-cluster globalpulse overlay)
+# ============================================================================
+echo "  Generating kustomize/globalpulse/..."
+mkdir -p "$GEN_DIR/kustomize/globalpulse"
+
+cat > "$GEN_DIR/kustomize/globalpulse/kustomization.yaml" << YAMLEOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — GlobalPulse world monitor
+
+resources:
+  - ../../../../../kustomize/base/globalpulse
+
+patches:
+  - target:
+      kind: Deployment
+      name: globalpulse
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: ${HARBOR_REGISTRY}/library/globalpulse:latest
+YAMLEOF
+
+if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
+    cat >> "$GEN_DIR/kustomize/globalpulse/kustomization.yaml" << YAMLEOF
+  - patch: |
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: globalpulse
+        namespace: globalpulse
+      \$patch: delete
+YAMLEOF
+else
+    cat >> "$GEN_DIR/kustomize/globalpulse/kustomization.yaml" << YAMLEOF
+  - target:
+      kind: Ingress
+      name: globalpulse
+    patch: |
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: world.$DOMAIN
+      - op: replace
+        path: /spec/rules/0/host
+        value: world.$DOMAIN
+      - op: replace
+        path: /metadata/annotations/nginx.ingress.kubernetes.io~1auth-signin
+        value: "https://oauth2-proxy.$DOMAIN/oauth2/start?rd=\$scheme://\$host\$escaped_request_uri"
+YAMLEOF
+fi
 
 # ============================================================================
 # 14. Generate kustomize/jit-elevation/ (per-cluster JIT overlay)
@@ -1123,6 +1445,13 @@ patches:
       - op: replace
         path: /data/KEYCLOAK_URL
         value: "https://auth.$DOMAIN"
+  - target:
+      kind: Deployment
+      name: jit-elevation
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: ${HARBOR_REGISTRY}/apps/jit-elevation:latest
 YAMLEOF
 
 if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
@@ -1184,6 +1513,13 @@ patches:
       - op: replace
         path: /data/API_SERVER
         value: "https://$NAME-master.$DOMAIN:6443"
+  - target:
+      kind: Deployment
+      name: cluster-setup
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: ${HARBOR_REGISTRY}/apps/cluster-setup:latest
 YAMLEOF
 
 if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
