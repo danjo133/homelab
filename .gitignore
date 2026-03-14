@@ -82,7 +82,7 @@ tmp/
 temp/
 *.tmp
 .tmp-*
-.claude/.fuse_hidden*
+.claude/
 
 # Git hooks
 .git/hooks/pre-push.local
