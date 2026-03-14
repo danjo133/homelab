@@ -25,7 +25,21 @@ else
     REMOTE_HOST="${REMOTE_HOST:-localhost}"
     REMOTE_PROJECT_DIR="${REMOTE_PROJECT_DIR:-\$HOME/dev/homelab}"
     SUPPORT_VM_IP="${SUPPORT_VM_IP:-10.69.50.10}"
-    VAULT_URL="${VAULT_URL:-https://vault.support.lab.example.com}"
+    SUPPORT_DOMAIN="${SUPPORT_DOMAIN:-support.example.com}"
+    ROOT_DOMAIN="${ROOT_DOMAIN:-example.com}"
+    BASE_DOMAIN="${BASE_DOMAIN:-example.com}"
+    VAULT_URL="${VAULT_URL:-https://vault.support.example.com}"
+    HARBOR_URL="${HARBOR_URL:-https://harbor.support.example.com}"
+    HARBOR_REGISTRY="${HARBOR_REGISTRY:-harbor.support.example.com}"
+    MINIO_URL="${MINIO_URL:-https://minio.support.example.com}"
+    GITLAB_URL="${GITLAB_URL:-https://gitlab.support.example.com}"
+    GITLAB_SSH_URL="${GITLAB_SSH_URL:-ssh://git@gitlab.support.example.com:2222}"
+    GIT_REPO_URL="${GIT_REPO_URL:-ssh://git@gitlab.support.example.com:2222/infra/homelab.git}"
+    KEYCLOAK_URL="${KEYCLOAK_URL:-https://idp.support.example.com}"
+    TELEPORT_ADDR="${TELEPORT_ADDR:-teleport.support.example.com:3080}"
+    PORTAL_PREFIX="${PORTAL_PREFIX:-portal.example.com}"
+    LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-letsencrypt@example.com}"
+    TARGET_REVISION="${TARGET_REVISION:-deploy}"
 fi
 
 # ─── Remote Execution ─────────────────────────────────────────────────────────

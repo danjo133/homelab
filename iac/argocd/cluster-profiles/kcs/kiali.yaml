@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kiali
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: applications
+  sources:
+    - repoURL: __REPO_URL__
+      targetRevision: __TARGET_REVISION__
+      ref: values
+    - repoURL: https://kiali.org/helm-charts
+      chart: kiali-server
+      targetRevision: "~2"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/__CLUSTER_NAME__/kiali.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  ignoreDifferences:
+    - kind: ConfigMap
+      jqPathExpressions:
+        - .data["config.yaml"]
+    - group: apps
+      kind: Deployment
+      jqPathExpressions:
+        - .spec.template.metadata.annotations."checksum/config"
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true

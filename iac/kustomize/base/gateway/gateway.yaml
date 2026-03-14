@@ -40,7 +40,7 @@ spec:
         certificateRefs:
           # Reference the wildcard certificate from cert-manager
           - kind: Secret
-            name: wildcard-mylab-example-com-tls
+            name: wildcard-support-example-com-tls
             namespace: cert-manager
       allowedRoutes:
         namespaces:

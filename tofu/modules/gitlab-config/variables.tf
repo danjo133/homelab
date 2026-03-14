@@ -28,3 +28,15 @@ variable "admin_ssh_public_key" {
   type        = string
   default     = ""
 }
+
+variable "support_domain" {
+  description = "Support services domain for GitLab FQDN (e.g. support.example.com)"
+  type        = string
+  default     = "support.example.com"
+}
+
+variable "email_domain" {
+  description = "Email domain for service accounts (e.g. example.com)"
+  type        = string
+  default     = "example.com"
+}

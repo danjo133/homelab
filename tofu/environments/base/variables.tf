@@ -83,7 +83,7 @@ variable "gitlab_argocd_password" {
 variable "ziti_api_url" {
   description = "Ziti controller management API URL"
   type        = string
-  default     = "https://z.test.io:2029/edge/management/v1"
+  default     = "https://z.example.com:2029/edge/management/v1"
 }
 
 variable "ziti_admin_user" {
@@ -162,6 +162,32 @@ variable "admin_ssh_public_key_file" {
   description = "Path to SSH public key for GitLab push access"
   type        = string
   default     = "~/.ssh/kss.pub"
+}
+
+# --- Domains ---
+
+variable "base_domain" {
+  description = "Base domain for services (e.g. example.com)"
+  type        = string
+  default     = "example.com"
+}
+
+variable "support_domain" {
+  description = "Support services subdomain (e.g. support.example.com)"
+  type        = string
+  default     = "support.example.com"
+}
+
+variable "email_domain" {
+  description = "Email domain for service accounts and test users (e.g. example.com)"
+  type        = string
+  default     = "example.com"
+}
+
+variable "cluster_names" {
+  description = "List of cluster names for constructing broker redirect URIs"
+  type        = list(string)
+  default     = ["kss", "kcs"]
 }
 
 # --- Module configuration ---

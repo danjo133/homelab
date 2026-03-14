@@ -12,7 +12,7 @@
 # It is idempotent — safe to re-run.
 #
 # Requires:
-#   - KEYCLOAK_URL env var (e.g. https://auth.kss.example.com)
+#   - KEYCLOAK_URL env var (e.g. https://auth.<cluster-domain>)
 #   - CLUSTER_DOMAIN env var (e.g. kss.example.com) — optional, for redirect URI fixes
 #   - kubectl access to the keycloak namespace
 

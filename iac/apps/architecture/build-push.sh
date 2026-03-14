@@ -32,7 +32,8 @@ if [[ ! -f "$CLUSTER_YAML" ]]; then
 fi
 
 PROJECT=$(yq -r '.name' "$CLUSTER_YAML")
-REGISTRY="harbor.support.example.com"
+# HARBOR_REGISTRY is set by harbor-login.sh (sourced below) via config-local.sh
+REGISTRY="${HARBOR_REGISTRY:-harbor.support.example.com}"
 FULL_IMAGE="${REGISTRY}/${PROJECT}/${IMAGE}:${TAG}"
 
 # ─── Harbor login ─────────────────────────────────────────────────────────────

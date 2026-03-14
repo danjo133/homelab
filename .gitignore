@@ -60,6 +60,14 @@ iac/provision/nix/supporting-systems/generated-config.nix
 # Exception: sops-encrypted secrets are safe to track
 !iac/provision/nix/supporting-systems/secrets/secrets.yaml
 
+# Generated files (committed on deploy branch, gitignored on main)
+iac/argocd/clusters/
+iac/argocd/values/kss/
+iac/argocd/values/kcs/
+iac/clusters/*/generated/
+tofu/environments/*/backend.tf
+.push-guard
+
 # Trivy
 trivy-results.json
 trivy-results.*.json

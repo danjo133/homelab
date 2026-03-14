@@ -62,6 +62,9 @@ probes:
 # e.g., kss.example.com
 clusterDomain: ""
 
+# Portal annotation prefix, injected by ApplicationSet helm parameter
+portalPrefix: "portal.example.com"
+
 # Ingress mode: "nginx" (KSS) or "gateway" (KCS)
 ingressMode: nginx
 

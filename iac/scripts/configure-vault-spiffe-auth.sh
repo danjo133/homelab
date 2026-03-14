@@ -13,6 +13,14 @@
 
 set -euo pipefail
 
+# Source config-local.sh for domain variables (if available)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+CONFIG_LOCAL="${PROJECT_ROOT}/stages/lib/config-local.sh"
+if [ -f "$CONFIG_LOCAL" ]; then
+  source "$CONFIG_LOCAL"
+fi
+
 if [ -z "${VAULT_ADDR:-}" ]; then
     echo "ERROR: VAULT_ADDR not set"
     exit 1
@@ -23,8 +31,9 @@ if [ -z "${VAULT_TOKEN:-}" ]; then
     exit 1
 fi
 
-SPIRE_OIDC_URL="${SPIRE_OIDC_URL:-https://spire-oidc.kss.example.com}"
-TRUST_DOMAIN="${TRUST_DOMAIN:-kss.example.com}"
+# CLUSTER_DOMAIN should be set by caller (e.g. from cluster.yaml)
+SPIRE_OIDC_URL="${SPIRE_OIDC_URL:-https://spire-oidc.${CLUSTER_DOMAIN:-kss.example.com}}"
+TRUST_DOMAIN="${TRUST_DOMAIN:-${CLUSTER_DOMAIN:-kss.example.com}}"
 
 # Vault namespace header (set by caller for per-cluster namespace isolation)
 VAULT_NAMESPACE="${VAULT_NAMESPACE:-}"

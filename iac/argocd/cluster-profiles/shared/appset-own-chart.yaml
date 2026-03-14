@@ -1,0 +1,50 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: apps-own-chart
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - scmProvider:
+        gitlab:
+          group: "apps"
+          api: __GITLAB_URL__
+          tokenRef:
+            secretName: gitlab-scm-token
+            key: token
+          insecure: true
+        filters:
+          - pathsExist:
+              - chart/Chart.yaml
+        cloneProtocol: ssh
+  ignoreApplicationDifferences:
+    - jsonPointers:
+        - /spec/source/helm/parameters
+  template:
+    metadata:
+      name: "{{ .repository | normalize }}"
+      namespace: argocd
+      annotations:
+        argocd-image-updater.argoproj.io/image-list: "app=__HARBOR_DOMAIN__/apps/{{ .repository | normalize }}"
+        argocd-image-updater.argoproj.io/app.update-strategy: newest-build
+        argocd-image-updater.argoproj.io/app.allow-tags: "regexp:^[0-9a-f]{40}$"
+        argocd-image-updater.argoproj.io/write-back-method: argocd
+    spec:
+      project: applications
+      source:
+        repoURL: "{{ .url }}"
+        targetRevision: "{{ .branch }}"
+        path: chart
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: apps
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

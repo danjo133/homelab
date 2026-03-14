@@ -52,9 +52,9 @@ for var in "${REQUIRED_VARS[@]}"; do
   fi
 done
 
-VAULT_ADDR="${TF_VAR_vault_addr:-https://vault.support.example.com}"
+VAULT_ADDR="${TF_VAR_vault_addr:-${VAULT_URL}}"
 VAULT_TOKEN="${TF_VAR_vault_token:-}"
-HARBOR_URL="${TF_VAR_harbor_url:-https://harbor.support.example.com}"
+HARBOR_URL="${TF_VAR_harbor_url:-${HARBOR_URL}}"
 HARBOR_USER="${TF_VAR_harbor_admin_user:-admin}"
 HARBOR_PASS="${TF_VAR_harbor_admin_password:-}"
 

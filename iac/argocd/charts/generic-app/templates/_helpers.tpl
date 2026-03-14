@@ -22,14 +22,14 @@ Handles Mi and Gi suffixes.
 
 {{/*
 Portal annotations for Ingress/HTTPRoute.
-Renders portal.example.com/* annotations when portal.enabled is true.
+Renders {{ .Values.portalPrefix }}/* annotations when portal.enabled is true.
 */}}
 {{- define "generic-app.portalAnnotations" -}}
 {{- if .Values.portal.enabled -}}
-portal.example.com/name: {{ .Values.portal.name | default .Release.Name | quote }}
-portal.example.com/description: {{ .Values.portal.description | quote }}
-portal.example.com/icon: {{ .Values.portal.icon | quote }}
-portal.example.com/category: {{ .Values.portal.category | quote }}
-portal.example.com/order: {{ .Values.portal.order | quote }}
+{{ .Values.portalPrefix }}/name: {{ .Values.portal.name | default .Release.Name | quote }}
+{{ .Values.portalPrefix }}/description: {{ .Values.portal.description | quote }}
+{{ .Values.portalPrefix }}/icon: {{ .Values.portal.icon | quote }}
+{{ .Values.portalPrefix }}/category: {{ .Values.portal.category | quote }}
+{{ .Values.portalPrefix }}/order: {{ .Values.portal.order | quote }}
 {{- end }}
 {{- end -}}

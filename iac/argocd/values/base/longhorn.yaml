@@ -1,7 +1,7 @@
 # Longhorn — distributed block storage
 defaultSettings:
   defaultReplicaCount: 2
-  backupTarget: "nfs://10.69.50.10:/export/longhorn"
+  backupTarget: "nfs://10.69.50.10:/export/longhorn"  # IP overridden by per-cluster values
   createDefaultDiskLabeledNodes: false
   storageOverProvisioningPercentage: 200
   storageMinimalAvailablePercentage: 15
@@ -17,11 +17,7 @@ ingress:
   ingressClassName: nginx
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    portal.example.com/name: "Longhorn"
-    portal.example.com/description: "Distributed block storage management"
-    portal.example.com/icon: "\U0001F4BE"
-    portal.example.com/category: "Platform"
-    portal.example.com/order: "30"
+    # Portal annotations added by per-cluster generated values
 
 longhornManager:
   tolerations:

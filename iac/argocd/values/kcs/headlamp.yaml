@@ -1,3 +1,0 @@
-# Headlamp — kcs cluster overrides (no ingress, uses HTTPRoute)
-ingress:
-  enabled: false

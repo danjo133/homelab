@@ -32,11 +32,7 @@ grafana:
     enabled: true
     ingressClassName: nginx
     annotations:
-      portal.example.com/name: "Grafana"
-      portal.example.com/description: "Dashboards and observability"
-      portal.example.com/icon: "\U0001F4CA"
-      portal.example.com/category: "Monitoring"
-      portal.example.com/order: "10"
+      # Portal annotations added by per-cluster generated values
   admin:
     existingSecret: grafana-admin-secret
     userKey: admin-user

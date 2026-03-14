@@ -14,8 +14,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-HARBOR_REGISTRY="harbor.support.example.com"
-VAULT_URL="https://vault.support.example.com"
+# Source config-local.sh for HARBOR_REGISTRY and VAULT_URL
+CONFIG_LOCAL="${PROJECT_ROOT}/stages/lib/config-local.sh"
+if [ -f "$CONFIG_LOCAL" ]; then
+  source "$CONFIG_LOCAL"
+fi
+HARBOR_REGISTRY="${HARBOR_REGISTRY:-harbor.support.example.com}"
+VAULT_URL="${VAULT_URL:-https://vault.support.example.com}"
 VAULT_KEYS_BACKUP="${PROJECT_ROOT}/iac/.vault-keys-backup.json"
 
 if [[ ! -f "$VAULT_KEYS_BACKUP" ]]; then

@@ -7,12 +7,8 @@ server:
     enabled: true
     ingressClassName: nginx
     tls: true
-    annotations:
-      portal.example.com/name: "ArgoCD"
-      portal.example.com/description: "GitOps continuous deployment"
-      portal.example.com/icon: "\U0001F680"
-      portal.example.com/category: "Platform"
-      portal.example.com/order: "10"
+    annotations: {}
+    # Portal annotations added by per-cluster generated values
 
 configs:
   params:
@@ -20,13 +16,8 @@ configs:
   cm:
     kustomize.buildOptions: "--load-restrictor LoadRestrictionsNone"
   ssh:
-    # Local GitLab SSH host keys — auto-published to Vault by github-mirror
-    # service on the support VM. Refresh with:
-    #   ssh-keyscan -p 2222 gitlab.support.example.com
-    extraHosts: |
-      [gitlab.support.example.com]:2222 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIrMylPgSSJFgSHxKfuWJWJSIhhG72rGWeTgqTyJRRcn
-      [gitlab.support.example.com]:2222 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBFe6+BeEFXTl/ZMO8Jh68WfzfSt3gHwJzoOe3cWyWPMYH4ltEg6KWmQgrp4yzeNfKtFdm8D0UIJGGqNFmiT53i0=
-      [gitlab.support.example.com]:2222 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCuU2SxTzSb0r2A3tNK1DhFAn0NV2AI143P2DR9H104hXFBMfO+bGBgoJkZsodojcziSdFhuiQXRXLWOCByUwUsNqnr5DibltbKBuXHY2o002dcbd4+Y9gGw955G4EdGXqT9ZLLZZ2MdQfcbpVh/3PzOe2miYU9YEhRNhi3lgFPkCbzeeRmD+AkPcSMTS6JnejQxt19oHs7Db6DdtNzVEpLoUw0n5irrySTAtKes5ZznshI5Vsdey84PODfpTtPBbtjX3A5icGLiyaHOVIFHs89Uvv877S8lWI3t5+eBb9JIzFMgdxcL4xgeG/feUTX3onZfGwTZej1l0OyQ1Vm/2hQu7xnpSC8WDo+3SBwc3Tyy0SklIGeZ29nsxcLQqScJd7eqTKmL1kGh9qlV8v0X3ru9tix2bNIv77xB+qjNwGGLsfsJkgb8lkBawTtGizU5zk3VLGqI6FZGs/EAbZBkHms7cNO3++Rm+9uhAwKbj0N2PGUjgRhd8+L01pogOfb+BU=
+    # GitLab SSH host keys — added by per-cluster generated values
+    extraHosts: ""
   rbac:
     policy.csv: |
       g, oidc:platform-admins, role:admin

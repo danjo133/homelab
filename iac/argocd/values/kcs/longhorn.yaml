@@ -1,6 +1,0 @@
-# Longhorn — kcs cluster overrides
-ingress:
-  enabled: false  # Uses Gateway API HTTPRoute
-  host: longhorn.kcs.example.com
-  tls: true
-  tlsSecret: wildcard-kcs-example-com-tls

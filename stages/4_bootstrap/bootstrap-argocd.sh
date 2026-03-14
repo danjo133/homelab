@@ -48,8 +48,8 @@ success "ArgoCD is ready"
 
 # ── Step 2: Configure GitLab repo credentials (SSH from Vault) ───────────────
 
-GITLAB_SSH_URL="ssh://git@gitlab.support.example.com:2222/infra/homelab.git"
-VAULT_ADDR="${VAULT_ADDR:-https://vault.support.example.com}"
+GITLAB_SSH_URL="${GIT_REPO_URL}"
+VAULT_ADDR="${VAULT_ADDR:-${VAULT_URL}}"
 
 if kubectl -n argocd get secret repo-gitlab >/dev/null 2>&1; then
   info "GitLab repo credential already exists, skipping..."

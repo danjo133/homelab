@@ -14,6 +14,12 @@ set -euo pipefail
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$APP_DIR/../../.." && pwd)"
 
+# Source config-local.sh for HARBOR_REGISTRY
+CONFIG_LOCAL="${PROJECT_ROOT}/stages/lib/config-local.sh"
+if [ -f "$CONFIG_LOCAL" ]; then
+  source "$CONFIG_LOCAL"
+fi
+
 IMAGE="portal"
 TAG="${1:-latest}"
 
@@ -32,7 +38,7 @@ if [[ ! -f "$CLUSTER_YAML" ]]; then
 fi
 
 PROJECT=$(yq -r '.name' "$CLUSTER_YAML")
-REGISTRY="harbor.support.example.com"
+REGISTRY="${HARBOR_REGISTRY:-harbor.support.example.com}"
 FULL_IMAGE="${REGISTRY}/${PROJECT}/${IMAGE}:${TAG}"
 
 # ─── Harbor login ─────────────────────────────────────────────────────────────

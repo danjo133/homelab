@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: portal
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd-image-updater.argoproj.io/image-list: "app=__HARBOR_DOMAIN__/apps/portal"
+    argocd-image-updater.argoproj.io/app.update-strategy: newest-build
+    argocd-image-updater.argoproj.io/app.allow-tags: "regexp:^[0-9a-f]{40}$"
+    argocd-image-updater.argoproj.io/app.kustomize.image-name: __HARBOR_DOMAIN__/apps/portal
+    argocd-image-updater.argoproj.io/write-back-method: argocd
+spec:
+  project: applications
+  source:
+    repoURL: __REPO_URL__
+    targetRevision: __TARGET_REVISION__
+    path: iac/argocd/clusters/__CLUSTER_NAME__/kustomize/portal
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-public
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

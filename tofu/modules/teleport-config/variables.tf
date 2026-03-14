@@ -3,3 +3,9 @@ variable "vault_namespaces" {
   type        = list(string)
   default     = ["kss", "kcs"]
 }
+
+variable "teleport_proxy_addr" {
+  description = "Teleport proxy address (host:port) for K8s agent config"
+  type        = string
+  default     = "teleport.support.example.com:3080"
+}

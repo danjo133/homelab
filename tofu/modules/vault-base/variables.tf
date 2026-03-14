@@ -4,6 +4,12 @@ variable "namespaces" {
   default     = ["kss", "kcs"]
 }
 
+variable "vault_fqdn" {
+  description = "Vault server FQDN for PKI issuing/CRL URLs (e.g. vault.support.example.com)"
+  type        = string
+  default     = "vault.support.example.com"
+}
+
 variable "broker_client_secret" {
   description = "Upstream broker-client secret to seed into each cluster namespace"
   type        = string

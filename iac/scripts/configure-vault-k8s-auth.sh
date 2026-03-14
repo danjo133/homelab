@@ -10,7 +10,7 @@
 # - kubectl has access to the k8s cluster
 #
 # Usage:
-#   export VAULT_ADDR=https://vault.support.example.com
+#   export VAULT_ADDR=$VAULT_URL   # from config-local.sh
 #   export VAULT_TOKEN=<root-token>
 #   export KUBECONFIG=/path/to/kubeconfig
 #   ./configure-vault-k8s-auth.sh

@@ -38,7 +38,7 @@ source "$PROJECT_ROOT/stages/lib/common.sh"
 require_cluster
 load_cluster_vars
 
-VAULT_ADDR="${TF_VAR_vault_addr:-https://vault.support.example.com}"
+VAULT_ADDR="${TF_VAR_vault_addr:-${VAULT_URL}}"
 VAULT_TOKEN="${TF_VAR_vault_token:?TF_VAR_vault_token must be set}"
 NS="${CLUSTER_VAULT_NAMESPACE}"
 
@@ -69,7 +69,7 @@ vault_exists() {
 info "Checking upstream broker-client secret..."
 
 # Try to get the broker-client secret from the upstream Keycloak
-UPSTREAM_URL="${TF_VAR_keycloak_url:-https://idp.support.example.com}"
+UPSTREAM_URL="${TF_VAR_keycloak_url:-${KEYCLOAK_URL}}"
 UPSTREAM_USER="${TF_VAR_keycloak_admin_user:-admin}"
 UPSTREAM_PASS="${TF_VAR_keycloak_admin_password:-}"
 

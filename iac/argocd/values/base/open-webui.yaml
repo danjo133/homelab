@@ -11,7 +11,7 @@ redis:
   enabled: false
 
 ollamaUrls:
-  - "http://10.69.10.10:11434"
+  - "http://10.69.10.10:11434"  # Overridden by per-cluster values
 
 replicaCount: 1
 

@@ -13,10 +13,17 @@ module "vault_base" {
   namespaces           = var.vault_namespaces
   broker_client_secret = module.keycloak_upstream.broker_client_secret
   seed_broker_client   = true
+  vault_fqdn           = "vault.${var.support_domain}"
 }
 
 module "keycloak_upstream" {
-  source = "../../modules/keycloak-upstream"
+  source         = "../../modules/keycloak-upstream"
+  email_domain   = var.email_domain
+  support_domain = var.support_domain
+  broker_redirect_uris = [
+    for name in var.cluster_names :
+    "https://auth.${name}.${var.base_domain}/realms/broker/broker/upstream/endpoint"
+  ]
 }
 
 module "minio_config" {
@@ -98,13 +105,16 @@ module "gitlab_config" {
   harbor_push_user     = module.harbor_apps.push_robot_name
   harbor_push_password = module.harbor_apps.push_robot_secret
   admin_ssh_public_key = file(pathexpand(var.admin_ssh_public_key_file))
+  support_domain       = var.support_domain
+  email_domain         = var.email_domain
 
   depends_on = [module.vault_base]
 }
 
 module "teleport_config" {
-  source           = "../../modules/teleport-config"
-  vault_namespaces = var.vault_namespaces
+  source               = "../../modules/teleport-config"
+  vault_namespaces     = var.vault_namespaces
+  teleport_proxy_addr  = var.teleport_addr
 
   depends_on = [module.vault_base]
 }
@@ -117,12 +127,12 @@ module "ziti_config" {
     # ── Support VM ─────────────────────────────────────────────────────────────
     support-admin = {
       intercept_addresses = [
-        "vault.support.example.com",
-        "harbor.support.example.com",
-        "minio.support.example.com",
-        "minio-console.support.example.com",
-        "gitlab.support.example.com",
-        "zac.support.example.com",
+        "vault.${var.support_domain}",
+        "harbor.${var.support_domain}",
+        "minio.${var.support_domain}",
+        "minio-console.${var.support_domain}",
+        "gitlab.${var.support_domain}",
+        "zac.${var.support_domain}",
       ]
       intercept_port = 443
       host_address   = "127.0.0.1"
@@ -131,8 +141,8 @@ module "ziti_config" {
     }
     support-auth = {
       intercept_addresses = [
-        "keycloak.support.example.com",
-        "idp.support.example.com",
+        "keycloak.${var.support_domain}",
+        "idp.${var.support_domain}",
       ]
       intercept_port = 443
       host_address   = "127.0.0.1"
@@ -143,10 +153,10 @@ module "ziti_config" {
     # ── KSS cluster ───────────────────────────────────────────────────────────
     kss-admin = {
       intercept_addresses = [
-        "argocd.kss.example.com",
-        "headlamp.kss.example.com",
-        "longhorn.kss.example.com",
-        "spire-oidc.kss.example.com",
+        "argocd.kss.${var.base_domain}",
+        "headlamp.kss.${var.base_domain}",
+        "longhorn.kss.${var.base_domain}",
+        "spire-oidc.kss.${var.base_domain}",
       ]
       intercept_port = 443
       host_address   = "10.69.50.192"
@@ -155,11 +165,11 @@ module "ziti_config" {
     }
     kss-general = {
       intercept_addresses = [
-        "grafana.kss.example.com",
-        "jit.kss.example.com",
-        "setup.kss.example.com",
-        "architecture.kss.example.com",
-        "chat.kss.example.com",
+        "grafana.kss.${var.base_domain}",
+        "jit.kss.${var.base_domain}",
+        "setup.kss.${var.base_domain}",
+        "architecture.kss.${var.base_domain}",
+        "chat.kss.${var.base_domain}",
       ]
       intercept_port = 443
       host_address   = "10.69.50.192"
@@ -168,11 +178,11 @@ module "ziti_config" {
     }
     kss-public = {
       intercept_addresses = [
-        "portal.kss.example.com",
-        "auth.kss.example.com",
-        "oauth2-proxy.kss.example.com",
-        "sl.kss.example.com",
-        "londonvisit.kss.example.com",
+        "portal.kss.${var.base_domain}",
+        "auth.kss.${var.base_domain}",
+        "oauth2-proxy.kss.${var.base_domain}",
+        "sl.kss.${var.base_domain}",
+        "londonvisit.kss.${var.base_domain}",
       ]
       intercept_port = 443
       host_address   = "10.69.50.192"
@@ -183,11 +193,11 @@ module "ziti_config" {
     # ── KCS cluster ───────────────────────────────────────────────────────────
     kcs-admin = {
       intercept_addresses = [
-        "argocd.kcs.example.com",
-        "headlamp.kcs.example.com",
-        "longhorn.kcs.example.com",
-        "kiali.kcs.example.com",
-        "hubble.kcs.example.com",
+        "argocd.kcs.${var.base_domain}",
+        "headlamp.kcs.${var.base_domain}",
+        "longhorn.kcs.${var.base_domain}",
+        "kiali.kcs.${var.base_domain}",
+        "hubble.kcs.${var.base_domain}",
       ]
       intercept_port = 443
       host_address   = "10.69.50.209"
@@ -196,11 +206,11 @@ module "ziti_config" {
     }
     kcs-general = {
       intercept_addresses = [
-        "grafana.kcs.example.com",
-        "jit.kcs.example.com",
-        "setup.kcs.example.com",
-        "architecture.kcs.example.com",
-        "chat.kcs.example.com",
+        "grafana.kcs.${var.base_domain}",
+        "jit.kcs.${var.base_domain}",
+        "setup.kcs.${var.base_domain}",
+        "architecture.kcs.${var.base_domain}",
+        "chat.kcs.${var.base_domain}",
       ]
       intercept_port = 443
       host_address   = "10.69.50.209"
@@ -209,11 +219,11 @@ module "ziti_config" {
     }
     kcs-public = {
       intercept_addresses = [
-        "portal.kcs.example.com",
-        "auth.kcs.example.com",
-        "oauth2-proxy.kcs.example.com",
-        "sl.kcs.example.com",
-        "londonvisit.kcs.example.com",
+        "portal.kcs.${var.base_domain}",
+        "auth.kcs.${var.base_domain}",
+        "oauth2-proxy.kcs.${var.base_domain}",
+        "sl.kcs.${var.base_domain}",
+        "londonvisit.kcs.${var.base_domain}",
       ]
       intercept_port = 443
       host_address   = "10.69.50.209"

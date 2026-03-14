@@ -34,6 +34,12 @@ variable "harbor_admin_password" {
 
 # --- Broker Keycloak ---
 
+variable "broker_keycloak_url" {
+  description = "Broker Keycloak URL (e.g. https://auth.kcs.example.com)"
+  type        = string
+  default     = "https://auth.kcs.example.com"
+}
+
 variable "broker_admin_user" {
   description = "Broker Keycloak admin username"
   type        = string
@@ -41,9 +47,23 @@ variable "broker_admin_user" {
 }
 
 variable "broker_admin_password" {
-  description = "Broker Keycloak admin password (auth.<cluster>.example.com)"
+  description = "Broker Keycloak admin password"
   type        = string
   sensitive   = true
+}
+
+# --- Domains ---
+
+variable "base_domain" {
+  description = "Base domain for services (e.g. example.com)"
+  type        = string
+  default     = "example.com"
+}
+
+variable "support_domain" {
+  description = "Support services subdomain (e.g. support.example.com)"
+  type        = string
+  default     = "support.example.com"
 }
 
 # --- Kubernetes auth (optional — set from live cluster) ---

@@ -29,7 +29,7 @@ fi
 
 # Configure mcli alias
 info "Configuring MinIO client..."
-mcli alias set kss-minio https://minio.support.example.com "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" --quiet
+mcli alias set kss-minio "${MINIO_URL}" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" --quiet
 
 # Create bucket
 info "Creating tofu-state bucket..."

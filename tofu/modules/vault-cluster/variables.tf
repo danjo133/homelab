@@ -31,3 +31,21 @@ variable "k8s_ca_cert" {
   type        = string
   default     = ""
 }
+
+variable "support_domain" {
+  description = "Support services domain (e.g. support.example.com)"
+  type        = string
+  default     = "support.example.com"
+}
+
+variable "base_domain" {
+  description = "Base domain for certificate issuance (e.g. example.com)"
+  type        = string
+  default     = "example.com"
+}
+
+variable "pki_role_name" {
+  description = "Name for the PKI certificate issuing role"
+  type        = string
+  default     = "overkill"
+}

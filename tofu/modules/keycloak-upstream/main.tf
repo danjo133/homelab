@@ -138,7 +138,7 @@ resource "keycloak_user_roles" "carol" {
 resource "keycloak_user" "dave" {
   realm_id       = keycloak_realm.upstream.id
   username       = "dave"
-  email          = "dave@example.com"
+  email          = "dave@${var.email_domain}"
   first_name     = "Admin"
   last_name      = "User"
   enabled        = true
@@ -176,10 +176,7 @@ resource "keycloak_openid_client" "broker_client" {
   service_accounts_enabled     = false
   use_refresh_tokens           = false
 
-  valid_redirect_uris = [
-    "https://auth.kcs.example.com/realms/broker/broker/upstream/endpoint",
-    "https://auth.kss.example.com/realms/broker/broker/upstream/endpoint",
-  ]
+  valid_redirect_uris = var.broker_redirect_uris
   web_origins = ["+"]
 
   lifecycle { ignore_changes = [client_secret] }
@@ -199,7 +196,7 @@ resource "keycloak_openid_client" "teleport" {
   use_refresh_tokens           = false
 
   valid_redirect_uris = [
-    "https://teleport.support.example.com:3080/v1/webapi/oidc/callback",
+    "https://teleport.${var.support_domain}:3080/v1/webapi/oidc/callback",
   ]
   web_origins = ["+"]
 
@@ -247,7 +244,7 @@ resource "keycloak_openid_client" "gitlab" {
   use_refresh_tokens           = false
 
   valid_redirect_uris = [
-    "https://gitlab.support.example.com/users/auth/openid_connect/callback",
+    "https://gitlab.${var.support_domain}/users/auth/openid_connect/callback",
   ]
   web_origins = ["+"]
 

@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Pre-push hook: block pushes containing personal domains to GitHub
+#
+# Install: git config core.hooksPath .githooks
+#
+# When pushing to a github.com remote, this hook checks the diff for any
+# patterns listed in .push-guard. If found, the push is blocked.
+
+remote_url="$2"
+
+if [[ "$remote_url" == *"github.com"* ]]; then
+    if [ -f ".push-guard" ]; then
+        while IFS= read -r pattern; do
+            [[ -z "$pattern" || "$pattern" == "#"* ]] && continue
+            while read -r local_ref local_oid remote_ref remote_oid; do
+                range="${remote_oid}..${local_oid}"
+                [[ "$remote_oid" == "0000000"* ]] && range="$local_oid"
+                if git diff "$range" -- ':(exclude).push-guard' ':(exclude).githooks/pre-push' 2>/dev/null | grep -qF "$pattern"; then
+                    echo "BLOCKED: Personal domain '$pattern' found in push to GitHub"
+                    echo "Check your changes with: git diff $range | grep '$pattern'"
+                    exit 1
+                fi
+            done
+        done < .push-guard
+    fi
+fi

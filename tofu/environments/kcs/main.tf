@@ -15,6 +15,8 @@ module "vault_cluster" {
   k8s_host               = var.k8s_host
   k8s_token_reviewer_jwt = var.k8s_token_reviewer_jwt
   k8s_ca_cert            = var.k8s_ca_cert
+  support_domain         = var.support_domain
+  base_domain            = var.base_domain
 }
 
 module "harbor_cluster" {
@@ -71,8 +73,9 @@ data "vault_kv_secret_v2" "microsoft_client" {
 module "keycloak_broker" {
   source = "../../modules/keycloak-broker"
 
-  cluster_name = "kcs"
-  domain       = "kcs.example.com"
+  cluster_name    = "kcs"
+  domain          = "kcs.${var.base_domain}"
+  upstream_issuer = "https://idp.${var.support_domain}/realms/upstream"
 
   upstream_client_secret  = data.vault_kv_secret_v2.broker_client.data["client-secret"]
   google_client_id        = data.vault_kv_secret_v2.google_client.data["client-id"]

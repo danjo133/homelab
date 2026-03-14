@@ -1,7 +1,0 @@
-# ExternalDNS — kcs cluster overrides
-txtOwnerId: "k8s-cluster-kcs"
-
-sources:
-  - service
-  - ingress
-  - gateway-httproute

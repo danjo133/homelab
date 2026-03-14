@@ -33,9 +33,9 @@ for var in TF_VAR_vault_token TF_VAR_keycloak_admin_password TF_VAR_minio_access
   fi
 done
 
-VAULT_ADDR="${TF_VAR_vault_addr:-https://vault.support.example.com}"
+VAULT_ADDR="${TF_VAR_vault_addr:-${VAULT_URL}}"
 VAULT_TOKEN="$TF_VAR_vault_token"
-KC_URL="${TF_VAR_keycloak_url:-https://idp.support.example.com}"
+KC_URL="${TF_VAR_keycloak_url:-${KEYCLOAK_URL}}"
 KC_USER="${TF_VAR_keycloak_admin_user:-admin}"
 KC_PASS="$TF_VAR_keycloak_admin_password"
 
@@ -155,7 +155,7 @@ import_resource "module.keycloak_upstream.keycloak_openid_user_realm_role_protoc
 header "GitLab: importing group and project"
 
 if [[ -n "${TF_VAR_gitlab_token:-}" ]]; then
-  GL_URL="${TF_VAR_gitlab_url:-https://gitlab.support.example.com}"
+  GL_URL="${TF_VAR_gitlab_url:-${GITLAB_URL}}"
 
   INFRA_GROUP_ID=$(curl -sf -H "PRIVATE-TOKEN: $TF_VAR_gitlab_token" \
     "$GL_URL/api/v4/groups?search=infra" | jq -r '.[] | select(.path == "infra") | .id')
@@ -207,7 +207,7 @@ done
 # ============================================================================
 header "Harbor: importing apps project and robots"
 
-HARBOR_URL="${TF_VAR_harbor_url:-https://harbor.support.example.com}"
+HARBOR_URL="${TF_VAR_harbor_url:-${HARBOR_URL}}"
 HARBOR_USER="${TF_VAR_harbor_admin_user:-admin}"
 HARBOR_PASS="$TF_VAR_harbor_admin_password"
 HARBOR_AUTH=$(echo -n "$HARBOR_USER:$HARBOR_PASS" | base64)
