@@ -1800,6 +1800,14 @@ YAMLEOF
         echo "        path: /spec/sourceRepos/0"
         echo "        value: ${GIT_REPO_URL}"
     done
+    # applications project also has apps/* wildcard at index 1
+    echo "  - target:"
+    echo "      kind: AppProject"
+    echo "      name: applications"
+    echo "    patch: |"
+    echo "      - op: replace"
+    echo "        path: /spec/sourceRepos/1"
+    echo "        value: ${GITLAB_SSH_URL}/apps/*"
 
 } > "$CLUSTER_OUT/kustomization.yaml"
 

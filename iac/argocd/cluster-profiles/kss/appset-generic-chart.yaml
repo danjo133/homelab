@@ -49,6 +49,8 @@ spec:
             valueFiles:
               - $appvalues/deploy/values.yaml
             parameters:
+              - name: image.registry
+                value: __HARBOR_DOMAIN__
               - name: image.repository
                 value: "apps/{{ .repository | normalize }}"
               - name: clusterDomain
