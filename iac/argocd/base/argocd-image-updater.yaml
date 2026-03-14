@@ -17,6 +17,7 @@ spec:
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/argocd-image-updater.yaml
+          - $values/iac/argocd/values/CLUSTER_NAME/argocd-image-updater.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd

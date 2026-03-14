@@ -1,5 +1,7 @@
 # Headlamp — Kubernetes dashboard with OIDC
 config:
+  # Disable session-ttl flag — not supported by current headlamp binary
+  sessionTTL: null
   oidc:
     secret:
       create: false

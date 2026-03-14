@@ -49,6 +49,9 @@ rbac:
 initContainers:
   - name: wait-for-internet
     image: busybox:1.37
+    securityContext:
+      runAsUser: 65534
+      runAsNonRoot: true
     command:
       - sh
       - -c
