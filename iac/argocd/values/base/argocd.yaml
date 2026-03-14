@@ -38,6 +38,9 @@ repoServer:
       memory: 512Mi
     limits:
       memory: 1Gi
+  livenessProbe:
+    timeoutSeconds: 8
+    failureThreshold: 5
 
 controller:
   replicas: 1
