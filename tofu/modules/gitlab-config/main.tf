@@ -128,6 +128,14 @@ resource "gitlab_project_variable" "homelab_harbor_push_password" {
   masked    = true
 }
 
+resource "gitlab_group_variable" "harbor_registry" {
+  group     = gitlab_group.infra.id
+  key       = "HARBOR_REGISTRY"
+  value     = "harbor.${var.support_domain}"
+  protected = false
+  masked    = false
+}
+
 # ─── SSH Known Hosts ─────────────────────────────────────────────────────────
 
 # Fetch current GitLab SSH host keys via ssh-keyscan
