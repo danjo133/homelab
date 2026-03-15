@@ -520,6 +520,11 @@ if [ "$HELMFILE_ENV" = "gateway-bgp" ] || [ "$HELMFILE_ENV" = "istio-mesh" ]; th
   - hubble-httproute.yaml
   - kiali-httproute.yaml
   - headlamp-httproute.yaml
+  - httproute-portal.yaml
+  - httproute-architecture.yaml
+  - httproute-globalpulse.yaml
+  - httproute-open-webui.yaml
+  - httproute-longhorn.yaml
   - ext-authz-policy.yaml"
     fi
 
@@ -621,6 +626,12 @@ kind: HTTPRoute
 metadata:
   name: argocd
   namespace: argocd
+  annotations:
+    ${PORTAL_PREFIX}/name: "ArgoCD"
+    ${PORTAL_PREFIX}/description: "GitOps continuous delivery"
+    ${PORTAL_PREFIX}/icon: "\U0001F680"
+    ${PORTAL_PREFIX}/category: "Platform"
+    ${PORTAL_PREFIX}/order: "10"
 spec:
   parentRefs:
     - name: main-gateway
@@ -645,6 +656,12 @@ kind: HTTPRoute
 metadata:
   name: keycloak
   namespace: keycloak
+  annotations:
+    ${PORTAL_PREFIX}/name: "Keycloak"
+    ${PORTAL_PREFIX}/description: "Broker identity provider"
+    ${PORTAL_PREFIX}/icon: "\U0001F511"
+    ${PORTAL_PREFIX}/category: "Identity"
+    ${PORTAL_PREFIX}/order: "10"
 spec:
   parentRefs:
     - name: main-gateway
@@ -669,6 +686,12 @@ kind: HTTPRoute
 metadata:
   name: grafana
   namespace: monitoring
+  annotations:
+    ${PORTAL_PREFIX}/name: "Grafana"
+    ${PORTAL_PREFIX}/description: "Dashboards and observability"
+    ${PORTAL_PREFIX}/icon: "\U0001F4CA"
+    ${PORTAL_PREFIX}/category: "Monitoring"
+    ${PORTAL_PREFIX}/order: "10"
 spec:
   parentRefs:
     - name: main-gateway
@@ -717,6 +740,12 @@ kind: HTTPRoute
 metadata:
   name: jit-elevation
   namespace: identity
+  annotations:
+    ${PORTAL_PREFIX}/name: "JIT Elevation"
+    ${PORTAL_PREFIX}/description: "Temporary privilege escalation"
+    ${PORTAL_PREFIX}/icon: "\U0001F6E1"
+    ${PORTAL_PREFIX}/category: "Identity"
+    ${PORTAL_PREFIX}/order: "20"
 spec:
   parentRefs:
     - name: main-gateway
@@ -741,6 +770,12 @@ kind: HTTPRoute
 metadata:
   name: cluster-setup
   namespace: identity
+  annotations:
+    ${PORTAL_PREFIX}/name: "Cluster Setup"
+    ${PORTAL_PREFIX}/description: "OIDC kubeconfig download"
+    ${PORTAL_PREFIX}/icon: "\U00002699"
+    ${PORTAL_PREFIX}/category: "Identity"
+    ${PORTAL_PREFIX}/order: "30"
 spec:
   parentRefs:
     - name: main-gateway
@@ -765,6 +800,12 @@ kind: HTTPRoute
 metadata:
   name: hubble-ui
   namespace: kube-system
+  annotations:
+    ${PORTAL_PREFIX}/name: "Hubble"
+    ${PORTAL_PREFIX}/description: "Cilium network observability"
+    ${PORTAL_PREFIX}/icon: "\U0001F52D"
+    ${PORTAL_PREFIX}/category: "Monitoring"
+    ${PORTAL_PREFIX}/order: "30"
 spec:
   parentRefs:
     - name: main-gateway
@@ -789,6 +830,12 @@ kind: HTTPRoute
 metadata:
   name: kiali
   namespace: istio-system
+  annotations:
+    ${PORTAL_PREFIX}/name: "Kiali"
+    ${PORTAL_PREFIX}/description: "Istio service mesh console"
+    ${PORTAL_PREFIX}/icon: "\U0001F578"
+    ${PORTAL_PREFIX}/category: "Monitoring"
+    ${PORTAL_PREFIX}/order: "20"
 spec:
   parentRefs:
     - name: main-gateway
@@ -813,6 +860,12 @@ kind: HTTPRoute
 metadata:
   name: headlamp
   namespace: headlamp
+  annotations:
+    ${PORTAL_PREFIX}/name: "Headlamp"
+    ${PORTAL_PREFIX}/description: "Kubernetes dashboard"
+    ${PORTAL_PREFIX}/icon: "\U0001F4BB"
+    ${PORTAL_PREFIX}/category: "Platform"
+    ${PORTAL_PREFIX}/order: "20"
 spec:
   parentRefs:
     - name: main-gateway
@@ -826,6 +879,156 @@ spec:
             value: /
       backendRefs:
         - name: headlamp
+          port: 80
+YAMLEOF
+
+        cat > "$GEN_DIR/kustomize/gateway/httproute-portal.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Portal HTTPRoute for Gateway API ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: portal
+  namespace: kube-public
+  annotations:
+    ${PORTAL_PREFIX}/name: "Cluster Portal"
+    ${PORTAL_PREFIX}/description: "Service discovery landing page"
+    ${PORTAL_PREFIX}/icon: "\U0001F9ED"
+    ${PORTAL_PREFIX}/category: "Platform"
+    ${PORTAL_PREFIX}/order: "0"
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: $GATEWAY_NS
+  hostnames:
+    - "portal.$DOMAIN"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: portal
+          port: 80
+YAMLEOF
+
+        cat > "$GEN_DIR/kustomize/gateway/httproute-architecture.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Architecture HTTPRoute for Gateway API ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: architecture
+  namespace: kube-public
+  annotations:
+    ${PORTAL_PREFIX}/name: "Architecture"
+    ${PORTAL_PREFIX}/description: "C4 infrastructure diagrams"
+    ${PORTAL_PREFIX}/icon: "\U0001F3D7"
+    ${PORTAL_PREFIX}/category: "Apps"
+    ${PORTAL_PREFIX}/order: "10"
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: $GATEWAY_NS
+  hostnames:
+    - "architecture.$DOMAIN"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: architecture
+          port: 80
+YAMLEOF
+
+        cat > "$GEN_DIR/kustomize/gateway/httproute-globalpulse.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — GlobalPulse HTTPRoute for Gateway API ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: globalpulse
+  namespace: globalpulse
+  annotations:
+    ${PORTAL_PREFIX}/name: "World Monitor"
+    ${PORTAL_PREFIX}/description: "Global infrastructure status"
+    ${PORTAL_PREFIX}/icon: "\U0001F30D"
+    ${PORTAL_PREFIX}/category: "Apps"
+    ${PORTAL_PREFIX}/order: "20"
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: $GATEWAY_NS
+  hostnames:
+    - "world.$DOMAIN"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: globalpulse
+          port: 80
+YAMLEOF
+
+        cat > "$GEN_DIR/kustomize/gateway/httproute-open-webui.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Open WebUI HTTPRoute for Gateway API ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: open-webui
+  namespace: open-webui
+  annotations:
+    ${PORTAL_PREFIX}/name: "Open WebUI"
+    ${PORTAL_PREFIX}/description: "LLM chat interface"
+    ${PORTAL_PREFIX}/icon: "\U0001F4AC"
+    ${PORTAL_PREFIX}/category: "Apps"
+    ${PORTAL_PREFIX}/order: "30"
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: $GATEWAY_NS
+  hostnames:
+    - "chat.$DOMAIN"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: open-webui
+          port: 80
+YAMLEOF
+
+        cat > "$GEN_DIR/kustomize/gateway/httproute-longhorn.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — Longhorn HTTPRoute for Gateway API ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: longhorn
+  namespace: longhorn-system
+  annotations:
+    ${PORTAL_PREFIX}/name: "Longhorn"
+    ${PORTAL_PREFIX}/description: "Distributed block storage"
+    ${PORTAL_PREFIX}/icon: "\U0001F4BE"
+    ${PORTAL_PREFIX}/category: "Platform"
+    ${PORTAL_PREFIX}/order: "30"
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: $GATEWAY_NS
+  hostnames:
+    - "longhorn.$DOMAIN"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: longhorn-frontend
           port: 80
 YAMLEOF
 
