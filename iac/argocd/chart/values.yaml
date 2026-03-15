@@ -1,0 +1,52 @@
+# Root-app Helm chart values
+# Defaults use example.com placeholders (safe for public repo).
+# Per-cluster overrides (values-kss.yaml, values-kcs.yaml) are generated
+# by scripts/generate-cluster.sh and committed on the deploy branch.
+
+# --- Git repository ---
+repoURL: "ssh://git@gitlab.support.example.com:2222/infra/homelab.git"
+targetRevision: main
+
+# --- Cluster identity ---
+clusterName: CLUSTER_NAME
+clusterDomain: "CLUSTER_NAME.example.com"
+
+# --- Domains ---
+supportDomain: "support.example.com"
+rootDomain: "example.com"
+harborRegistry: "harbor.support.example.com"
+gitlabUrl: "https://gitlab.support.example.com"
+gitlabSshUrl: "ssh://git@gitlab.support.example.com:2222"
+portalPrefix: "portal.homelab"
+letsencryptEmail: "letsencrypt@example.com"
+
+# --- Cluster type flags ---
+# cni: "default" (Canal + MetalLB + nginx) or "cilium" (Cilium + BGP)
+cni: default
+# helmfileEnv: "default", "gateway-bgp", or "istio-mesh"
+helmfileEnv: default
+# OIDC authentication
+oidcEnabled: true
+
+# --- Master node ---
+master:
+  fqdn: ""
+
+# --- Networking ---
+loadBalancer:
+  cidr: ""
+bgp:
+  localAsn: 0
+  peerAsn: 0
+  peerAddress: ""
+
+# --- Vault ---
+vault:
+  server: "https://vault.support.example.com"
+  namespace: ""
+  authMount: kubernetes
+
+# --- OIDC ---
+oidc:
+  issuerUrl: ""
+  clientId: kubernetes

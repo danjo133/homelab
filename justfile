@@ -25,6 +25,10 @@ generate:
 generate-all:
     ./scripts/generate-all.sh
 
+# Sync deploy branch: merge main → regenerate → commit (run from main branch)
+deploy-sync:
+    ./scripts/deploy-sync.sh
+
 # Clean everything
 clean:
     ./stages/0_global/clean.sh

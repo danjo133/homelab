@@ -1,0 +1,287 @@
+# Wave 0: Platform operators
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      ref: values
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argo-cd
+      targetRevision: "9.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/argocd.yaml
+          - $values/iac/argocd/values/{{ .Values.clusterName }}/argocd.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - ServerSideDiff=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-image-updater
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      ref: values
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argocd-image-updater
+      targetRevision: "0.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/argocd-image-updater.yaml
+          - $values/iac/argocd/values/{{ .Values.clusterName }}/argocd-image-updater.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: longhorn
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      ref: values
+    - repoURL: https://charts.longhorn.io
+      chart: longhorn
+      targetRevision: "1.8.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/longhorn.yaml
+          - $values/iac/argocd/values/{{ .Values.clusterName }}/longhorn.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: longhorn-system
+  ignoreDifferences:
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      jqPathExpressions:
+        - .spec.preserveUnknownFields
+        - .spec.conversion
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gatekeeper
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      ref: values
+    - repoURL: https://open-policy-agent.github.io/gatekeeper/charts
+      chart: gatekeeper
+      targetRevision: "3.21.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/gatekeeper.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gatekeeper-system
+  ignoreDifferences:
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      jqPathExpressions:
+        - .spec.preserveUnknownFields
+        - .spec.conversion
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: spire
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      ref: values
+    - repoURL: https://spiffe.github.io/helm-charts-hardened
+      chart: spire-crds
+      targetRevision: "0.5.*"
+    - repoURL: https://spiffe.github.io/helm-charts-hardened
+      chart: spire
+      targetRevision: "0.28.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/spire.yaml
+          - $values/iac/argocd/values/{{ .Values.clusterName }}/spire.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: spire-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cnpg-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      ref: values
+    - repoURL: https://cloudnative-pg.github.io/charts
+      chart: cloudnative-pg
+      targetRevision: "0.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/cnpg-operator.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cnpg-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - ServerSideDiff=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ziti-router
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      ref: values
+    - repoURL: https://openziti.io/helm-charts
+      chart: ziti-router
+      targetRevision: "1.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/ziti-router.yaml
+          - $values/iac/argocd/values/{{ .Values.clusterName }}/ziti-router.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ziti-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: teleport-kube-agent
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      ref: values
+    - repoURL: https://charts.releases.teleport.dev
+      chart: teleport-kube-agent
+      targetRevision: "18.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/teleport-kube-agent.yaml
+          - $values/iac/argocd/values/{{ .Values.clusterName }}/teleport-kube-agent.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: teleport
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+{{- if eq (include "root-app.isCilium" .) "true" }}
+---
+# --- Tetragon policies (Cilium CNI) ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tetragon-policies
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: bootstrap
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: {{ include "root-app.overlayPath" (dict "root" . "overlay" "tetragon-policies") }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - SkipDryRunOnMissingResource=true
+{{- end }}

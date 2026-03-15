@@ -1,0 +1,387 @@
+# Wave 4: Applications
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: headlamp
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: applications
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      ref: values
+    - repoURL: https://kubernetes-sigs.github.io/headlamp/
+      chart: headlamp
+      targetRevision: "0.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/headlamp.yaml
+          - $values/iac/argocd/values/{{ .Values.clusterName }}/headlamp.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: headlamp
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jqPathExpressions:
+        - .spec.template.spec.hostUsers
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: headlamp-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: applications
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: {{ include "root-app.overlayPath" (dict "root" . "overlay" "headlamp") }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: headlamp
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: portal
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd-image-updater.argoproj.io/image-list: "app={{ .Values.harborRegistry }}/apps/portal"
+    argocd-image-updater.argoproj.io/app.update-strategy: newest-build
+    argocd-image-updater.argoproj.io/app.allow-tags: "regexp:^[0-9a-f]{40}$"
+    argocd-image-updater.argoproj.io/app.kustomize.image-name: {{ .Values.harborRegistry }}/apps/portal
+    argocd-image-updater.argoproj.io/write-back-method: argocd
+spec:
+  project: applications
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: {{ include "root-app.overlayPath" (dict "root" . "overlay" "portal") }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-public
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: architecture
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd-image-updater.argoproj.io/image-list: "app={{ .Values.harborRegistry }}/apps/architecture"
+    argocd-image-updater.argoproj.io/app.update-strategy: newest-build
+    argocd-image-updater.argoproj.io/app.allow-tags: "regexp:^[0-9a-f]{40}$"
+    argocd-image-updater.argoproj.io/app.kustomize.image-name: {{ .Values.harborRegistry }}/apps/architecture
+    argocd-image-updater.argoproj.io/write-back-method: argocd
+spec:
+  project: applications
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: {{ include "root-app.overlayPath" (dict "root" . "overlay" "architecture") }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-public
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jit-elevation
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd-image-updater.argoproj.io/image-list: "app={{ .Values.harborRegistry }}/apps/jit-elevation"
+    argocd-image-updater.argoproj.io/app.update-strategy: newest-build
+    argocd-image-updater.argoproj.io/app.allow-tags: "regexp:^[0-9a-f]{40}$"
+    argocd-image-updater.argoproj.io/app.kustomize.image-name: {{ .Values.harborRegistry }}/apps/jit-elevation
+    argocd-image-updater.argoproj.io/write-back-method: argocd
+spec:
+  project: applications
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: {{ include "root-app.overlayPath" (dict "root" . "overlay" "jit-elevation") }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: identity
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cluster-setup
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd-image-updater.argoproj.io/image-list: "app={{ .Values.harborRegistry }}/apps/cluster-setup"
+    argocd-image-updater.argoproj.io/app.update-strategy: newest-build
+    argocd-image-updater.argoproj.io/app.allow-tags: "regexp:^[0-9a-f]{40}$"
+    argocd-image-updater.argoproj.io/app.kustomize.image-name: {{ .Values.harborRegistry }}/apps/cluster-setup
+    argocd-image-updater.argoproj.io/write-back-method: argocd
+spec:
+  project: applications
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: {{ include "root-app.overlayPath" (dict "root" . "overlay" "cluster-setup") }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: identity
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: globalpulse
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: applications
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: {{ include "root-app.overlayPath" (dict "root" . "overlay" "globalpulse") }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: globalpulse
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+# --- Open WebUI ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: open-webui
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    argocd-image-updater.argoproj.io/image-list: "app=ghcr.io/open-webui/open-webui"
+    argocd-image-updater.argoproj.io/app.update-strategy: semver
+    argocd-image-updater.argoproj.io/app.allow-tags: "regexp:^\\d+\\.\\d+\\.\\d+$"
+    argocd-image-updater.argoproj.io/app.helm.image-name: image.repository
+    argocd-image-updater.argoproj.io/app.helm.image-tag: image.tag
+    argocd-image-updater.argoproj.io/write-back-method: argocd
+spec:
+  project: applications
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      ref: values
+    - repoURL: https://helm.openwebui.com/
+      chart: open-webui
+      targetRevision: "12.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/open-webui.yaml
+          - $values/iac/argocd/values/{{ .Values.clusterName }}/open-webui.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: open-webui
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: open-webui-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: applications
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: iac/kustomize/base/open-webui
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: open-webui
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: open-terminal
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: applications
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: iac/kustomize/base/open-terminal
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: open-webui
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: searxng
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: applications
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      path: iac/kustomize/base/searxng
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: open-webui
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mcpo
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: applications
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: iac/kustomize/base/mcpo
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: open-webui
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+{{- if eq (include "root-app.isIstioMesh" .) "true" }}
+---
+# --- Kiali (Istio mesh only) ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kiali
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: applications
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      ref: values
+    - repoURL: https://kiali.org/helm-charts
+      chart: kiali-server
+      targetRevision: "~2"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/{{ .Values.clusterName }}/kiali.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  ignoreDifferences:
+    - kind: ConfigMap
+      jqPathExpressions:
+        - .data["config.yaml"]
+    - group: apps
+      kind: Deployment
+      jqPathExpressions:
+        - .spec.template.metadata.annotations."checksum/config"
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kiali-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: applications
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: {{ include "root-app.overlayPath" (dict "root" . "overlay" "kiali") }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+{{- end }}

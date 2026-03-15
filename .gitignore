@@ -61,6 +61,7 @@ iac/provision/nix/supporting-systems/generated-config.nix
 !iac/provision/nix/supporting-systems/secrets/secrets.yaml
 
 # Generated files (committed on deploy branch, gitignored on main)
+iac/argocd/chart/values-*.yaml
 iac/argocd/clusters/
 iac/argocd/values/kss/
 iac/argocd/values/kcs/

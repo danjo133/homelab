@@ -1,0 +1,261 @@
+# Wave -1: DNS / Ingress
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-dns
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: bootstrap
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      ref: values
+    - repoURL: https://kubernetes-sigs.github.io/external-dns
+      chart: external-dns
+      targetRevision: "1.20.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/external-dns.yaml
+          - $values/iac/argocd/values/{{ .Values.clusterName }}/external-dns.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-dns
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+{{- if eq .Values.cni "default" }}
+---
+# --- nginx ingress (Canal/default CNI) ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nginx-ingress
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: bootstrap
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      ref: values
+    - repoURL: https://kubernetes.github.io/ingress-nginx
+      chart: ingress-nginx
+      targetRevision: "4.14.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/nginx-ingress.yaml
+        parameters:
+          - name: controller.extraArgs.default-ssl-certificate
+            value: cert-manager/wildcard-{{ include "root-app.domainSlug" . }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ingress-nginx
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+{{- end }}
+{{- if eq (include "root-app.isIstioMesh" .) "true" }}
+---
+# --- Istio base ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-base
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: bootstrap
+  source:
+    repoURL: https://istio-release.storage.googleapis.com/charts
+    chart: base
+    targetRevision: "1.28.*"
+    helm:
+      values: |
+        global:
+          istioNamespace: istio-system
+        defaultRevision: "default"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jsonPointers:
+        - /webhooks/0/clientConfig/caBundle
+        - /webhooks/0/failurePolicy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - ServerSideDiff=true
+      - SkipDryRunOnMissingResource=true
+      - RespectIgnoreDifferences=true
+---
+# --- Istio CNI ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-cni
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: bootstrap
+  source:
+    repoURL: https://istio-release.storage.googleapis.com/charts
+    chart: cni
+    targetRevision: "1.28.*"
+    helm:
+      values: |
+        profile: ambient
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 128Mi
+        tolerations:
+          - operator: Exists
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - ServerSideDiff=true
+---
+# --- Istiod ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istiod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: bootstrap
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      ref: values
+    - repoURL: https://istio-release.storage.googleapis.com/charts
+      chart: istiod
+      targetRevision: "1.28.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base-cluster/kcs/istio-istiod.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  ignoreDifferences:
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jsonPointers:
+        - /webhooks/0/clientConfig/caBundle
+        - /webhooks/0/failurePolicy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - ServerSideDiff=true
+      - SkipDryRunOnMissingResource=true
+      - RespectIgnoreDifferences=true
+---
+# --- Istio ztunnel ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-ztunnel
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: bootstrap
+  source:
+    repoURL: https://istio-release.storage.googleapis.com/charts
+    chart: ztunnel
+    targetRevision: "1.28.*"
+    helm:
+      values: |
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 256Mi
+        tolerations:
+          - operator: Exists
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+  ignoreDifferences:
+    - group: apps
+      kind: DaemonSet
+      jqPathExpressions:
+        - .spec.template.metadata.annotations
+        - .spec.template.spec.containers[].env[].valueFrom.resourceFieldRef.divisor
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+---
+# --- Gateway config (Istio Gateway API) ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateway-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: bootstrap
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: {{ include "root-app.overlayPath" (dict "root" . "overlay" "gateway") }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-ingress
+  ignoreDifferences:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      jqPathExpressions:
+        - .spec.listeners[].tls.certificateRefs[].group
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      jqPathExpressions:
+        - .spec.parentRefs[]
+        - .spec.rules[].backendRefs[]
+        - .spec.rules[].matches
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
+      - RespectIgnoreDifferences=true
+{{- end }}

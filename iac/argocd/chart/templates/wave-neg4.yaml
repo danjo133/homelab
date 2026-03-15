@@ -1,0 +1,157 @@
+# Wave -4: CNI / Network
+{{- if eq .Values.cni "default" }}
+# --- MetalLB (Canal/default CNI) ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metallb
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+spec:
+  project: bootstrap
+  source:
+    repoURL: https://metallb.github.io/metallb
+    chart: metallb
+    targetRevision: "0.15.*"
+    helm:
+      values: |
+        speaker:
+          tolerations:
+            - operator: Exists
+        controller:
+          tolerations:
+            - operator: Exists
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: metallb-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
+{{- end }}
+{{- if eq (include "root-app.isCilium" .) "true" }}
+---
+# --- Cilium (Cilium CNI) ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cilium
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+spec:
+  project: bootstrap
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      ref: values
+    - repoURL: https://helm.cilium.io
+      chart: cilium
+      targetRevision: "1.19.0"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/kcs/cilium.yaml
+        parameters:
+          - name: k8sServiceHost
+            value: {{ include "root-app.masterFqdn" . }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  ignoreDifferences:
+    - group: ""
+      kind: Secret
+      jsonPointers:
+        - /data
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - ServerSideDiff=true
+      - SkipDryRunOnMissingResource=true
+---
+# --- Tetragon (Cilium CNI) ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tetragon
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-4"
+spec:
+  project: bootstrap
+  source:
+    repoURL: https://helm.cilium.io
+    chart: tetragon
+    targetRevision: "1.2.*"
+    helm:
+      values: |
+        image:
+          repository: quay.io/cilium/tetragon
+        podSecurityPolicy:
+          enabled: false
+        rbac:
+          create: true
+        serviceAccount:
+          create: true
+          name: tetragon
+        replicas: 1
+        podSecurityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+        securityContext:
+          privileged: true
+          capabilities:
+            add:
+              - SYS_ADMIN
+              - SYS_RESOURCE
+              - SYS_PTRACE
+              - NET_ADMIN
+        tolerations:
+          - operator: Exists
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            memory: 256Mi
+        tetragon:
+          exportEvents: true
+          eventTypes:
+            - ProcessExec
+            - ProcessExit
+            - FileOpen
+            - NetworkConnect
+          prometheus:
+            enabled: true
+            port: 2112
+            serviceMonitor:
+              enabled: true
+              scrapeInterval: 30s
+        tetragonOperator:
+          prometheus:
+            enabled: true
+            serviceMonitor:
+              enabled: true
+              scrapeInterval: 30s
+        logLevel: info
+        updateStrategy:
+          type: RollingUpdate
+          rollingUpdate:
+            maxUnavailable: 1
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+{{- end }}

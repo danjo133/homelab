@@ -1,0 +1,204 @@
+# Wave 5: ApplicationSets (auto-discovered apps)
+{{- if eq .Values.cni "default" }}
+# --- Generic app chart (nginx ingress) ---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: apps-generic-chart
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - scmProvider:
+        gitlab:
+          group: "apps"
+          api: {{ .Values.gitlabUrl }}
+          tokenRef:
+            secretName: gitlab-scm-token
+            key: token
+          insecure: true
+        filters:
+          - pathsExist:
+              - deploy/values.yaml
+            pathsDoNotExist:
+              - chart/Chart.yaml
+        cloneProtocol: ssh
+  ignoreApplicationDifferences:
+    - jsonPointers:
+        - /spec/sources/1/helm/parameters
+  template:
+    metadata:
+      name: '{{ "{{ .repository | normalize }}" }}'
+      namespace: argocd
+      annotations:
+        argocd-image-updater.argoproj.io/image-list: 'app={{ .Values.harborRegistry }}/apps/{{ "{{ .repository | normalize }}" }}'
+        argocd-image-updater.argoproj.io/app.update-strategy: newest-build
+        argocd-image-updater.argoproj.io/app.allow-tags: "regexp:^[0-9a-f]{40}$"
+        argocd-image-updater.argoproj.io/app.helm.image-tag: image.tag
+        argocd-image-updater.argoproj.io/write-back-method: argocd
+    spec:
+      project: applications
+      sources:
+        - repoURL: '{{ "{{ .url }}" }}'
+          targetRevision: '{{ "{{ .branch }}" }}'
+          ref: appvalues
+        - repoURL: {{ .Values.repoURL }}
+          targetRevision: {{ .Values.targetRevision }}
+          path: iac/argocd/charts/generic-app
+          helm:
+            valueFiles:
+              - $appvalues/deploy/values.yaml
+            parameters:
+              - name: image.registry
+                value: {{ .Values.harborRegistry }}
+              - name: image.repository
+                value: 'apps/{{ "{{ .repository | normalize }}" }}'
+              - name: clusterDomain
+                value: {{ .Values.clusterDomain }}
+              - name: portalPrefix
+                value: {{ .Values.portalPrefix }}
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: apps
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+{{- end }}
+{{- if eq (include "root-app.isIstioMesh" .) "true" }}
+---
+# --- Generic app chart (Gateway API / Istio) ---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: apps-generic-chart
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - scmProvider:
+        gitlab:
+          group: "apps"
+          api: {{ .Values.gitlabUrl }}
+          tokenRef:
+            secretName: gitlab-scm-token
+            key: token
+          insecure: true
+        filters:
+          - pathsExist:
+              - deploy/values.yaml
+            pathsDoNotExist:
+              - chart/Chart.yaml
+        cloneProtocol: ssh
+  ignoreApplicationDifferences:
+    - jsonPointers:
+        - /spec/sources/1/helm/parameters
+  template:
+    metadata:
+      name: '{{ "{{ .repository | normalize }}" }}'
+      namespace: argocd
+      annotations:
+        argocd-image-updater.argoproj.io/image-list: 'app={{ .Values.harborRegistry }}/apps/{{ "{{ .repository | normalize }}" }}'
+        argocd-image-updater.argoproj.io/app.update-strategy: newest-build
+        argocd-image-updater.argoproj.io/app.allow-tags: "regexp:^[0-9a-f]{40}$"
+        argocd-image-updater.argoproj.io/app.helm.image-tag: image.tag
+        argocd-image-updater.argoproj.io/write-back-method: argocd
+    spec:
+      project: applications
+      sources:
+        - repoURL: '{{ "{{ .url }}" }}'
+          targetRevision: '{{ "{{ .branch }}" }}'
+          ref: appvalues
+        - repoURL: {{ .Values.repoURL }}
+          targetRevision: {{ .Values.targetRevision }}
+          path: iac/argocd/charts/generic-app
+          helm:
+            valueFiles:
+              - $appvalues/deploy/values.yaml
+            parameters:
+              - name: image.registry
+                value: {{ .Values.harborRegistry }}
+              - name: image.repository
+                value: 'apps/{{ "{{ .repository | normalize }}" }}'
+              - name: clusterDomain
+                value: {{ .Values.clusterDomain }}
+              - name: portalPrefix
+                value: {{ .Values.portalPrefix }}
+              - name: ingressMode
+                value: gateway
+              - name: gateway.name
+                value: main-gateway
+              - name: gateway.namespace
+                value: istio-ingress
+              - name: gateway.sectionName
+                value: https
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: apps
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+{{- end }}
+---
+# --- Own chart apps (both cluster types) ---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: apps-own-chart
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - scmProvider:
+        gitlab:
+          group: "apps"
+          api: {{ .Values.gitlabUrl }}
+          tokenRef:
+            secretName: gitlab-scm-token
+            key: token
+          insecure: true
+        filters:
+          - pathsExist:
+              - chart/Chart.yaml
+        cloneProtocol: ssh
+  ignoreApplicationDifferences:
+    - jsonPointers:
+        - /spec/source/helm/parameters
+  template:
+    metadata:
+      name: '{{ "{{ .repository | normalize }}" }}'
+      namespace: argocd
+      annotations:
+        argocd-image-updater.argoproj.io/image-list: 'app={{ .Values.harborRegistry }}/apps/{{ "{{ .repository | normalize }}" }}'
+        argocd-image-updater.argoproj.io/app.update-strategy: newest-build
+        argocd-image-updater.argoproj.io/app.allow-tags: "regexp:^[0-9a-f]{40}$"
+        argocd-image-updater.argoproj.io/write-back-method: argocd
+    spec:
+      project: applications
+      source:
+        repoURL: '{{ "{{ .url }}" }}'
+        targetRevision: '{{ "{{ .branch }}" }}'
+        path: chart
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: apps
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
