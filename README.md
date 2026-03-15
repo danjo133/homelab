@@ -7,6 +7,7 @@ Two clusters are defined: **kss** (Canal CNI, MetalLB, nginx ingress) and **kcs*
 ## Table of Contents
 
 - [AI Onboarding Prompt](#ai-onboarding-prompt)
+- [Two-Remote Git Workflow](#two-remote-git-workflow)
 - [Architecture](#architecture)
 - [Quick Start](#quick-start)
 - [Command Reference](#command-reference)
@@ -44,6 +45,118 @@ Give this prompt to an AI assistant to get a guided introduction to the project:
 > 7. The `just` command interface and the stage script system
 >
 > Then help me navigate specific areas as I ask questions. The key files to understand are: `justfile`, `stages/lib/common.sh`, `scripts/generate-cluster.sh`, `iac/clusters/*/cluster.yaml`, `iac/argocd/base/kustomization.yaml`, and `iac/provision/nix/`.
+
+---
+
+## Two-Remote Git Workflow
+
+This repository uses two git remotes to separate generic code from personal deployment data:
+
+| Remote | Branch | Content | Purpose |
+|--------|--------|---------|---------|
+| **GitHub** (public) | `main` | Generic code with `example.com` placeholders | Open-source reference |
+| **GitLab** (private) | `main` | Same as GitHub | Kept in sync |
+| **GitLab** (private) | `deploy` | Rebased on `main` + `config.yaml` + generated files with real domains | ArgoCD reads from this branch |
+
+### How It Works
+
+The `main` branch contains all infrastructure code with `example.com` placeholder domains. It is safe to publish on GitHub. No personal domains, IPs, or credentials appear in tracked files.
+
+The `deploy` branch is rebased on `main` and adds:
+- `config.yaml` — your personal domain/host configuration
+- Generated per-cluster files (Helm values, kustomize overlays, ArgoCD Applications) with real domains
+- Modified `.gitignore` to un-ignore generated directories
+
+ArgoCD on each cluster reads from the `deploy` branch on GitLab.
+
+### Initial Setup
+
+```bash
+# 1. Create config.yaml from the example
+cp config.yaml.example config.yaml
+# Edit config.yaml with your domains, IPs, etc.
+
+# 2. Generate all config files
+./scripts/generate-config.sh    # Generates config-local.sh, generated-config.nix, tfvars, etc.
+just generate                   # Generates per-cluster ArgoCD configs, kustomize overlays
+
+# 3. Set up the pre-push hook (blocks personal data from reaching GitHub)
+git config core.hooksPath .githooks
+
+# 4. Add GitHub remote
+git remote add github git@github.com:YOUR_ORG/homelab.git
+```
+
+### Creating the Deploy Branch (one-time)
+
+```bash
+# 1. Start from main
+git checkout main
+
+# 2. Create deploy branch
+git checkout -b deploy
+
+# 3. Edit .gitignore to un-ignore generated directories:
+#    Remove these lines from .gitignore:
+#      config.yaml
+#      stages/lib/config-local.sh
+#      iac/provision/nix/supporting-systems/generated-config.nix
+#      iac/argocd/clusters/
+#      iac/argocd/values/kss/
+#      iac/argocd/values/kcs/
+#      tofu/environments/*/backend.tf
+#      tofu/environments/*/terraform.tfvars
+
+# 4. Generate and commit everything
+./scripts/generate-config.sh
+just generate
+git add -A
+git commit -m "Add deployment configuration"
+
+# 5. Push to GitLab
+git push gitlab deploy
+```
+
+### Day-to-Day Workflow
+
+```bash
+# Development (on main)
+git checkout main
+# ... make changes ...
+git commit
+git push github main       # Public — safe, no personal data
+git push gitlab main       # Keep GitLab in sync
+
+# Deploy changes
+git checkout deploy
+git rebase main            # Trivial — only config.yaml + .gitignore differ
+just generate              # Regenerate per-cluster configs
+git add -A && git commit -m "Regenerate deployment config"
+git push gitlab deploy --force-with-lease    # ArgoCD syncs automatically
+```
+
+### Safety: Pre-Push Hook
+
+A pre-push hook (`.githooks/pre-push`) prevents accidental pushes of personal data to GitHub. It checks the diff against patterns in `.push-guard` (generated from `config.yaml`):
+
+```bash
+# Enable the hook
+git config core.hooksPath .githooks
+
+# .push-guard contains your personal domain patterns (auto-generated):
+#   yourdomain.com
+#   support.yourdomain.com
+#   your@email.com
+```
+
+If any pattern matches the diff being pushed to a `github.com` remote, the push is blocked.
+
+### What Gets Generated
+
+| Generator | Output (gitignored on main) |
+|-----------|----------------------------|
+| `generate-config.sh` | `stages/lib/config-local.sh`, `generated-config.nix`, `terraform.tfvars`, `backend.tf`, `.push-guard` |
+| `generate-cluster.sh` | `iac/argocd/clusters/*/` (ArgoCD Applications, kustomize overlays), `iac/argocd/values/{kss,kcs}/` (per-cluster Helm values), `iac/clusters/*/generated/` (NixOS configs) |
 
 ---
 

@@ -391,9 +391,26 @@ ArgoCD is the primary deployment mechanism. It manages all Kubernetes resources 
 
 Everything else flows through ArgoCD: operator Applications (Helm charts), kustomize overlays, CRs. Changes take effect when code is pushed to GitLab and ArgoCD syncs.
 
-### Git Workflow
+### Two-Remote Git Workflow
 
-Code is pushed to GitLab (`https://github.com/example-user/homelab.git`), which is the source of truth for ArgoCD. **Claude does not have credentials to push** — commit locally and ask the user to push. Never attempt `git push` without being told to.
+This repo uses two git remotes and two branches to separate generic public code from personal deployment data:
+
+- **`main` branch**: All tracked files use `example.com` placeholders. Pushed to both **GitHub** (public) and **GitLab** (private). Contains no personal domains, IPs, or email addresses.
+- **`deploy` branch**: Rebased on `main`. Adds `config.yaml` + all generated files with real domains. Pushed to **GitLab only**. ArgoCD reads from this branch.
+
+**What differs between `main` and `deploy`:**
+- `config.yaml` (personal configuration, ~40 lines)
+- `.gitignore` (un-ignores generated directories)
+- `iac/clusters/*/cluster.yaml` (domain fields updated)
+- Generated directories: `iac/argocd/clusters/`, `iac/argocd/values/{kss,kcs}/`, `tofu/environments/*/backend.tf`, `tofu/environments/*/terraform.tfvars`, `stages/lib/config-local.sh`, `iac/provision/nix/supporting-systems/generated-config.nix`
+
+**Critical rules:**
+- **All code changes happen on `main`** — never edit tracked code directly on `deploy`.
+- **Commit to `main` first**, then rebase `deploy` on `main` and regenerate.
+- **Never push `deploy` to GitHub** — the pre-push hook blocks this, but be aware.
+- When making changes that affect generated output, the workflow is: edit on `main` → commit → checkout `deploy` → rebase main → `just generate` → commit generated files → push to GitLab.
+
+**Claude does not have credentials to push** — commit locally and ask the user to push. Never attempt `git push` without being told to.
 
 ### Key Principles
 
@@ -402,16 +419,18 @@ Code is pushed to GitLab (`https://github.com/example-user/homelab.git`), which 
 3. **ArgoCD manages the cluster** — do not use `kubectl apply` to deploy resources that ArgoCD manages. This causes SSA field ownership conflicts. Instead, modify the source manifests, commit, push, and let ArgoCD sync.
 4. **Use `just` commands** — the justfile is the user-facing interface. Prefer `just <command>` over running stage scripts directly.
 5. **Generate before deploying** — after modifying base kustomize or cluster.yaml, run `just generate` to regenerate per-cluster configs before pushing.
+6. **Main stays clean** — tracked files on `main` must only use `example.com` placeholders. Personal domains belong in generated files (gitignored on `main`, committed on `deploy`).
 
 ### Making Changes
 
 **Adding a new operator/chart:**
-1. Create ArgoCD Application in `iac/argocd/base/<name>.yaml`
-2. Create Helm values in `iac/argocd/values/base/<name>.yaml`
-3. Add to `iac/argocd/base/kustomization.yaml` in the correct wave
-4. Update the relevant ArgoCD AppProject (`iac/argocd/projects/`) with sourceRepos and destination namespaces
-5. If cluster-specific overrides needed, add to `iac/argocd/values/<cluster>/<name>.yaml` and patch the Application in `iac/argocd/clusters/<cluster>/kustomization.yaml`
-6. Commit and push — ArgoCD syncs automatically
+1. Work on the `main` branch
+2. Create ArgoCD Application in `iac/argocd/base/<name>.yaml` (use `example.com` for repoURL)
+3. Create Helm values in `iac/argocd/values/base/<name>.yaml` (use `example.com` for any domain values)
+4. Add to `iac/argocd/base/kustomization.yaml` in the correct wave
+5. Update the relevant ArgoCD AppProject (`iac/argocd/projects/`) with sourceRepos and destination namespaces
+6. If domain-specific per-cluster values are needed, add generation logic to `scripts/generate-cluster.sh`
+7. Commit on `main`, then rebase `deploy`, run `just generate`, commit generated files, push to GitLab
 
 **Adding Kubernetes resources (CRs, secrets, config):**
 1. Add manifests to the appropriate `iac/kustomize/base/<component>/` directory
@@ -433,7 +452,10 @@ Code is pushed to GitLab (`https://github.com/example-user/homelab.git`), which 
 - Do not `helm install/upgrade` — ArgoCD or helmfile manages all releases
 - Do not store secrets in plaintext anywhere in the repo
 - Do not bypass the justfile for operations it covers
-- Do not push to GitLab without the user's explicit approval
+- Do not push to any remote without the user's explicit approval
+- Do not put personal domains in tracked files on `main` — only `example.com` placeholders
+- Do not edit code directly on the `deploy` branch — always edit on `main` and rebase
+- Do not push the `deploy` branch to GitHub — it contains personal data
 
 ## Environment Requirements
 
