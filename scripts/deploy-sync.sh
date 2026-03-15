@@ -55,10 +55,14 @@ info "Building deploy from main: $main_short ($main_subject)"
 
 BUILD_DIR="$(mktemp -d)"
 cleanup() {
-    git worktree remove "$BUILD_DIR" --force 2>/dev/null || true
+    git -C "$PROJECT_ROOT" worktree remove "$BUILD_DIR" --force 2>/dev/null || true
     rm -rf "$BUILD_DIR" 2>/dev/null || true
+    git -C "$PROJECT_ROOT" branch -D deploy-build 2>/dev/null || true
 }
 trap cleanup EXIT
+
+# Clean up any stale deploy-build from a previous failed run
+git branch -D deploy-build 2>/dev/null || true
 
 git worktree add --detach "$BUILD_DIR" main --quiet 2>/dev/null
 

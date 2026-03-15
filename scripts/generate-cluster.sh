@@ -1804,6 +1804,19 @@ patches:
         value: "https://auth.$DOMAIN/realms/broker"
 YAMLEOF
 
+# --- Passthrough overlays (reference base with no modifications) ---
+for overlay in oauth2-proxy teleport-kube-agent ziti-router; do
+    echo "  Generating kustomize/$overlay/..."
+    mkdir -p "$GEN_DIR/kustomize/$overlay"
+    cat > "$GEN_DIR/kustomize/$overlay/kustomization.yaml" << YAMLEOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../../../kustomize/base/$overlay
+YAMLEOF
+done
+
 # ============================================================================
 # 18. Generate per-cluster Helm values (iac/argocd/values/<cluster>/)
 # ============================================================================
