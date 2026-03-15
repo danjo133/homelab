@@ -2268,8 +2268,6 @@ kind: Application
 metadata:
   name: root
   namespace: argocd
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
 spec:
   project: bootstrap
   sources:
