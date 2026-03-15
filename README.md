@@ -48,115 +48,117 @@ Give this prompt to an AI assistant to get a guided introduction to the project:
 
 ---
 
-## Two-Remote Git Workflow
+## Git Workflow & Deployment
 
-This repository uses two git remotes to separate generic code from personal deployment data:
+### Branch Model
+
+All code lives on `main`. The `deploy` branch is an ephemeral build artifact — generated from scratch each time, never edited directly.
 
 | Remote | Branch | Content | Purpose |
 |--------|--------|---------|---------|
-| **GitHub** (public) | `main` | Generic code with `example.com` placeholders | Open-source reference |
+| **GitHub** (public) | `main` | All code with `example.com` placeholders | Open-source reference |
 | **GitLab** (private) | `main` | Same as GitHub | Kept in sync |
-| **GitLab** (private) | `deploy` | Rebased on `main` + `config.yaml` + generated files with real domains | ArgoCD reads from this branch |
+| **GitLab** (private) | `deploy` | `main` + `config.yaml` + all generated files | ArgoCD reads from here |
 
 ### How It Works
 
-The `main` branch contains all infrastructure code with `example.com` placeholder domains. It is safe to publish on GitHub. No personal domains, IPs, or credentials appear in tracked files.
+```
+main branch (tracked)          config.yaml (gitignored)
+├── All infrastructure code    ├── Your domains
+├── Helm charts                ├── Host IPs
+├── Scripts                    └── Git org/project
+├── NixOS modules
+└── example.com placeholders
+         │                              │
+         └──────────┬───────────────────┘
+                    │
+            just deploy-sync
+                    │
+                    ▼
+         deploy branch (ephemeral orphan)
+         ├── Everything from main
+         ├── config.yaml (committed)
+         ├── Generated NixOS configs
+         ├── Generated Helm values
+         ├── Generated kustomize overlays
+         ├── Generated ArgoCD root-app
+         └── Generated OpenTofu tfvars
+                    │
+                    ▼
+         git push gitlab deploy --force
+                    │
+                    ▼
+              ArgoCD syncs
+```
 
-The `deploy` branch is rebased on `main` and adds:
-- `config.yaml` — your personal domain/host configuration
-- Generated per-cluster files (Helm values, kustomize overlays, ArgoCD Applications) with real domains
-- Modified `.gitignore` to un-ignore generated directories
+The `deploy-sync` script works in a temporary git worktree so your main working directory is never touched. It copies `config.yaml` in, runs all generators, commits the result as an orphan branch (no history), and updates the local `deploy` ref.
 
-ArgoCD on each cluster reads from the `deploy` branch on GitLab.
+### The One Untracked File
+
+**`config.yaml`** is the only file that lives outside git. It's gitignored on `main` and contains ~25 lines of personal configuration (domains, IPs, email). Everything else is either tracked on `main` or fully derived from `main` + `config.yaml`.
+
+Back this file up outside the repo. If you lose it, you lose the ability to generate.
 
 ### Initial Setup
 
 ```bash
 # 1. Create config.yaml from the example
 cp config.yaml.example config.yaml
-# Edit config.yaml with your domains, IPs, etc.
+# Edit with your domains, IPs, etc.
 
-# 2. Generate all config files
-./scripts/generate-config.sh    # Generates config-local.sh, generated-config.nix, tfvars, etc.
-just generate                   # Generates per-cluster ArgoCD configs, kustomize overlays
-
-# 3. Set up the pre-push hook (blocks personal data from reaching GitHub)
+# 2. Set up the pre-push hook (blocks personal data from reaching GitHub)
 git config core.hooksPath .githooks
 
-# 4. Add GitHub remote
+# 3. Add remotes
 git remote add github git@github.com:YOUR_ORG/homelab.git
-```
+git remote add gitlab git@your-gitlab:infra/homelab.git
 
-### Creating the Deploy Branch (one-time)
-
-```bash
-# 1. Start from main
-git checkout main
-
-# 2. Create deploy branch
-git checkout -b deploy
-
-# 3. Edit .gitignore to un-ignore generated directories:
-#    Remove these lines from .gitignore:
-#      config.yaml
-#      stages/lib/config-local.sh
-#      iac/provision/nix/supporting-systems/generated-config.nix
-#      iac/argocd/clusters/
-#      iac/argocd/values/kss/
-#      iac/argocd/values/kcs/
-#      tofu/environments/*/backend.tf
-#      tofu/environments/*/terraform.tfvars
-
-# 4. Generate and commit everything
-./scripts/generate-config.sh
-just generate
-git add -A
-git commit -m "Add deployment configuration"
-
-# 5. Push to GitLab
-git push gitlab deploy
+# 4. Build and push the deploy branch
+just deploy-sync                       # Generates everything, creates orphan deploy branch
+git push gitlab deploy --force         # ArgoCD reads from this
 ```
 
 ### Day-to-Day Workflow
 
 ```bash
-# Development (on main)
-git checkout main
-# ... make changes ...
+# 1. Make changes on main
+# ... edit code ...
 git commit
-git push github main       # Public — safe, no personal data
+
+# 2. Push main to both remotes
+git push github main       # Public — safe, only example.com placeholders
 git push gitlab main       # Keep GitLab in sync
 
-# Deploy changes
-git checkout deploy
-git rebase main            # Trivial — only config.yaml + .gitignore differ
-just generate              # Regenerate per-cluster configs
-git add -A && git commit -m "Regenerate deployment config"
-git push gitlab deploy --force-with-lease    # ArgoCD syncs automatically
+# 3. Rebuild deploy and push
+just deploy-sync                       # ~10s — builds in temp worktree
+git push gitlab deploy --force         # ArgoCD syncs automatically
 ```
 
-### Safety: Pre-Push Hook
-
-A pre-push hook (`.githooks/pre-push`) prevents accidental pushes of personal data to GitHub. It checks the diff against patterns in `.push-guard` (generated from `config.yaml`):
-
-```bash
-# Enable the hook
-git config core.hooksPath .githooks
-
-# .push-guard contains your personal domain patterns (auto-generated):
-#   yourdomain.com
-#   support.yourdomain.com
-#   your@email.com
-```
-
-If any pattern matches the diff being pushed to a `github.com` remote, the push is blocked.
+That's it. Three commands to go from code change to deployed.
 
 ### What Gets Generated
 
-| Generator | Output (gitignored on main) |
-|-----------|----------------------------|
-| `generate-config.sh` | `stages/lib/config-local.sh`, `generated-config.nix`, `terraform.tfvars`, `backend.tf`, `.push-guard` |
-| `generate-cluster.sh` | `iac/argocd/clusters/*/` (ArgoCD Applications, kustomize overlays), `iac/argocd/values/{kss,kcs}/` (per-cluster Helm values), `iac/clusters/*/generated/` (NixOS configs) |
+`deploy-sync` runs two generators that produce all deployment files:
+
+| Generator | Reads | Produces |
+|-----------|-------|----------|
+| `generate-config.sh` | `config.yaml` | `stages/lib/config-local.sh`, `generated-config.nix`, `terraform.tfvars`, `backend.tf`, `.push-guard`, updates `cluster.yaml` domains |
+| `generate-cluster.sh` | `cluster.yaml` | `iac/argocd/chart/values-{cluster}.yaml`, `iac/argocd/clusters/*/root-app.yaml`, `iac/argocd/clusters/*/kustomize/` overlays, `iac/argocd/values/{cluster}/` Helm values, `iac/clusters/*/generated/` NixOS + helmfile configs |
+
+### Who Consumes What
+
+| Consumer | Reads from |
+|----------|-----------|
+| **ArgoCD** | GitLab `deploy` branch — Helm chart, kustomize overlays, values files |
+| **NixOS rebuild** (`just cluster-sync`) | Local generated files — `iac/clusters/*/generated/nix/` |
+| **Support VM** (`just support-sync`) | Local generated file — `generated-config.nix` |
+| **OpenTofu** (`just tofu-*`) | Local generated files — `terraform.tfvars`, `backend.tf` |
+| **Bootstrap** (`just bootstrap-argocd`) | Local generated file — `root-app.yaml` |
+| **Stage scripts** | Local generated file — `stages/lib/config-local.sh` |
+
+### Safety: Pre-Push Hook
+
+A pre-push hook (`.githooks/pre-push`) prevents accidental pushes of personal data to GitHub. It checks the diff against patterns in `.push-guard` (auto-generated from `config.yaml`). If any pattern matches content being pushed to a `github.com` remote, the push is blocked.
 
 ---
 

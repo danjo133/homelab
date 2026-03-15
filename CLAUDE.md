@@ -251,11 +251,10 @@ iac/                              # Infrastructure definitions
                                   # apps-discovery, open-webui, teleport-kube-agent,
                                   # ziti-router, kiali, keycloak-operator, gateway-api-crds
   argocd/                         # ArgoCD App-of-Apps
-    projects/                     # AppProject definitions (bootstrap, platform, identity, apps)
-    base/                         # Shared Application YAMLs + kustomization.yaml
+    chart/                        # Helm chart generating all Application CRs
     charts/generic-app/           # Shared Helm chart for ApplicationSet-deployed apps
-    clusters/                     # Per-cluster kustomization overlays + root-app
-    values/                       # Helm values (base/ + kss/ + kcs/ overrides)
+    clusters/                     # Per-cluster root-app.yaml + kustomize overlays (generated)
+    values/                       # Helm values (base/ + per-cluster overrides, generated)
   apps/                           # Custom application source code
     portal/                       # Service discovery landing page (Python)
     jit-elevation/                # JIT role elevation (Python, RFC 8693)
@@ -391,24 +390,18 @@ ArgoCD is the primary deployment mechanism. It manages all Kubernetes resources 
 
 Everything else flows through ArgoCD: operator Applications (Helm charts), kustomize overlays, CRs. Changes take effect when code is pushed to GitLab and ArgoCD syncs.
 
-### Two-Remote Git Workflow
+### Git Workflow
 
-This repo uses two git remotes and two branches to separate generic public code from personal deployment data:
+This repo uses two git remotes. All code lives on `main`. The `deploy` branch is an ephemeral build artifact generated from `main` + `config.yaml`.
 
 - **`main` branch**: All tracked files use `example.com` placeholders. Pushed to both **GitHub** (public) and **GitLab** (private). Contains no personal domains, IPs, or email addresses.
-- **`deploy` branch**: Rebased on `main`. Adds `config.yaml` + all generated files with real domains. Pushed to **GitLab only**. ArgoCD reads from this branch.
-
-**What differs between `main` and `deploy`:**
-- `config.yaml` (personal configuration, ~40 lines)
-- `.gitignore` (un-ignores generated directories)
-- `iac/clusters/*/cluster.yaml` (domain fields updated)
-- Generated directories: `iac/argocd/clusters/`, `iac/argocd/values/{kss,kcs}/`, `tofu/environments/*/backend.tf`, `tofu/environments/*/terraform.tfvars`, `stages/lib/config-local.sh`, `iac/provision/nix/supporting-systems/generated-config.nix`
+- **`deploy` branch**: Ephemeral orphan branch. Built by `just deploy-sync` from `main` + `config.yaml` in a temporary worktree. Force-pushed to **GitLab only**. ArgoCD reads from this branch. Never edit directly.
+- **`config.yaml`**: The only untracked file that matters. Gitignored on `main`, contains ~25 lines of personal config (domains, IPs, email). Back this up outside git.
 
 **Critical rules:**
-- **All code changes happen on `main`** — never edit tracked code directly on `deploy`.
-- **Commit to `main` first**, then rebase `deploy` on `main` and regenerate.
+- **All code changes happen on `main`** — never edit `deploy`, it's regenerated from scratch.
+- **Deploy workflow**: edit on `main` → commit → `just deploy-sync` → `git push gitlab deploy --force`.
 - **Never push `deploy` to GitHub** — the pre-push hook blocks this, but be aware.
-- When making changes that affect generated output, the workflow is: edit on `main` → commit → checkout `deploy` → rebase main → `just generate` → commit generated files → push to GitLab.
 
 **Claude does not have credentials to push** — commit locally and ask the user to push. Never attempt `git push` without being told to.
 
@@ -425,12 +418,11 @@ This repo uses two git remotes and two branches to separate generic public code 
 
 **Adding a new operator/chart:**
 1. Work on the `main` branch
-2. Create ArgoCD Application in `iac/argocd/base/<name>.yaml` (use `example.com` for repoURL)
+2. Add the Application CR to the appropriate wave template in `iac/argocd/chart/templates/wave-N.yaml`
 3. Create Helm values in `iac/argocd/values/base/<name>.yaml` (use `example.com` for any domain values)
-4. Add to `iac/argocd/base/kustomization.yaml` in the correct wave
-5. Update the relevant ArgoCD AppProject (`iac/argocd/projects/`) with sourceRepos and destination namespaces
-6. If domain-specific per-cluster values are needed, add generation logic to `scripts/generate-cluster.sh`
-7. Commit on `main`, then rebase `deploy`, run `just generate`, commit generated files, push to GitLab
+4. If the app needs a per-cluster kustomize overlay, add it to `iac/kustomize/base/<name>/` and add generation logic to `scripts/generate-cluster.sh`
+5. If domain-specific per-cluster Helm values are needed, add generation logic to `scripts/generate-cluster.sh`
+6. Commit on `main`, then `just deploy-sync` and push deploy to GitLab
 
 **Adding Kubernetes resources (CRs, secrets, config):**
 1. Add manifests to the appropriate `iac/kustomize/base/<component>/` directory
@@ -454,7 +446,7 @@ This repo uses two git remotes and two branches to separate generic public code 
 - Do not bypass the justfile for operations it covers
 - Do not push to any remote without the user's explicit approval
 - Do not put personal domains in tracked files on `main` — only `example.com` placeholders
-- Do not edit code directly on the `deploy` branch — always edit on `main` and rebase
+- Do not edit the `deploy` branch — it's an ephemeral orphan rebuilt by `just deploy-sync`
 - Do not push the `deploy` branch to GitHub — it contains personal data
 
 ## Environment Requirements

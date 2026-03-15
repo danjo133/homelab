@@ -137,8 +137,8 @@ resource "keycloak_user_roles" "carol" {
 
 resource "keycloak_user" "dave" {
   realm_id       = keycloak_realm.upstream.id
-  username       = "dave"
-  email          = "dave@${var.email_domain}"
+  username       = "admin"
+  email          = "admin@${var.email_domain}"
   first_name     = "Admin"
   last_name      = "User"
   enabled        = true
