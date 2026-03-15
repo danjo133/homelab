@@ -25,7 +25,7 @@ generate:
 generate-all:
     ./scripts/generate-all.sh
 
-# Sync deploy branch: merge main → regenerate → commit (run from main branch)
+# Build ephemeral deploy branch from main + config.yaml (run from main branch)
 deploy-sync:
     ./scripts/deploy-sync.sh
 

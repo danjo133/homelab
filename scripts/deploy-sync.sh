@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-# Sync deploy branch with main: merge main → regenerate → commit
-# Reduces the manual 8-step workflow to a single command.
+# Build ephemeral deploy branch from main + config.yaml
+#
+# Creates an orphan deploy branch in a temporary git worktree,
+# runs generation, and force-updates the local deploy branch ref.
+# The main working directory is never modified.
+#
+# Usage: ./scripts/deploy-sync.sh
+#        just deploy-sync
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,90 +29,90 @@ warn()    { echo -e "${YELLOW}$*${NC}"; }
 
 cd "$PROJECT_ROOT"
 
-# Must be on main branch
 current_branch="$(git branch --show-current)"
 if [[ "$current_branch" != "main" ]]; then
     error "Must be on the main branch (currently on '$current_branch')"
     exit 1
 fi
 
-# Working tree must be clean
 if ! git diff --quiet || ! git diff --cached --quiet; then
     error "Working tree is not clean. Commit or stash changes first."
     exit 1
 fi
 
-# deploy branch must exist
-if ! git rev-parse --verify deploy &>/dev/null; then
-    error "Branch 'deploy' does not exist"
-    exit 1
-fi
-
-# config.yaml must exist (needed for generation)
 if [[ ! -f "$PROJECT_ROOT/config.yaml" ]]; then
     error "config.yaml not found. Create it from config.yaml.example first."
     exit 1
 fi
 
-# ─── Record State ────────────────────────────────────────────────────────────
-
-main_head="$(git rev-parse --short HEAD)"
+main_sha="$(git rev-parse HEAD)"
+main_short="$(git rev-parse --short HEAD)"
 main_subject="$(git log -1 --format=%s)"
-info "Main HEAD: $main_head ($main_subject)"
 
-# Check if deploy already contains main HEAD
-deploy_contains_main=$(git merge-base --is-ancestor HEAD deploy 2>/dev/null && echo "yes" || echo "no")
-if [[ "$deploy_contains_main" == "yes" ]]; then
-    warn "Deploy branch already contains main HEAD ($main_head)"
-    warn "Running regeneration anyway in case generation logic changed..."
-fi
+info "Building deploy from main: $main_short ($main_subject)"
 
-# ─── Switch to Deploy ────────────────────────────────────────────────────────
+# ─── Create Temporary Worktree ──────────────────────────────────────────────
 
-info "Switching to deploy branch..."
-git checkout deploy --quiet
+BUILD_DIR="$(mktemp -d)"
+cleanup() {
+    git worktree remove "$BUILD_DIR" --force 2>/dev/null || true
+    rm -rf "$BUILD_DIR" 2>/dev/null || true
+}
+trap cleanup EXIT
 
-# ─── Merge Main ──────────────────────────────────────────────────────────────
+git worktree add --detach "$BUILD_DIR" main --quiet 2>/dev/null
 
-if [[ "$deploy_contains_main" != "yes" ]]; then
-    info "Merging main into deploy..."
-    if ! git merge main --no-edit --quiet; then
-        error "Merge conflict! Resolve conflicts, then run this script again."
-        error "Or abort with: git merge --abort && git checkout main"
-        exit 1
-    fi
-    success "Merge successful"
-fi
+# Copy config.yaml into the worktree (gitignored, so not part of main)
+cp "$PROJECT_ROOT/config.yaml" "$BUILD_DIR/"
 
-# ─── Regenerate ──────────────────────────────────────────────────────────────
+# ─── Prepare .gitignore for Deploy ──────────────────────────────────────────
+# Remove entries that exclude generated files — they need to be committed on deploy
 
-info "Regenerating all configs..."
-"$SCRIPT_DIR/generate-all.sh"
+cd "$BUILD_DIR"
+sed -i '/^config\.yaml$/d' .gitignore
+sed -i '/^config\.local\.yaml$/d' .gitignore
+sed -i '/^stages\/lib\/config-local\.sh$/d' .gitignore
+sed -i '/^iac\/provision\/nix\/supporting-systems\/generated-config\.nix$/d' .gitignore
+sed -i '/^iac\/argocd\/chart\/values-\*\.yaml$/d' .gitignore
+sed -i '/^iac\/argocd\/clusters\/$/d' .gitignore
+sed -i '/^iac\/argocd\/values\/kss\/$/d' .gitignore
+sed -i '/^iac\/argocd\/values\/kcs\/$/d' .gitignore
+sed -i '/^iac\/clusters\/\*\/generated\/$/d' .gitignore
+sed -i '/^tofu\/environments\/\*\/backend\.tf$/d' .gitignore
+sed -i '/^tofu\/environments\/\*\/terraform\.tfvars$/d' .gitignore
+sed -i '/^\.push-guard$/d' .gitignore
 
-# ─── Commit if Changed ──────────────────────────────────────────────────────
+# Replace the section header comments
+sed -i 's/^# Generated config (from generate-config.sh)/# Generated files — committed on this branch for ArgoCD/' .gitignore
+sed -i '/^# Generated files (committed on deploy branch, gitignored on main)$/d' .gitignore
+# Clean up blank lines left behind (collapse multiple blank lines to one)
+sed -i '/^$/N;/^\n$/d' .gitignore
 
-if git diff --quiet && git diff --cached --quiet; then
-    if [[ "$deploy_contains_main" == "yes" ]]; then
-        warn "No changes to commit (deploy is already up to date)"
-    else
-        warn "No generated file changes after merge"
-    fi
-else
-    git add -A
-    git commit -m "Regenerate: $main_subject" --quiet
-    success "Committed regenerated files"
-fi
+# ─── Run Generation ─────────────────────────────────────────────────────────
 
-# ─── Switch Back ─────────────────────────────────────────────────────────────
+info "Running generation..."
+"$BUILD_DIR/scripts/generate-all.sh"
 
-deploy_head="$(git rev-parse --short HEAD)"
-git checkout main --quiet
+# ─── Create Orphan Commit ───────────────────────────────────────────────────
+
+info "Creating deploy commit..."
+git checkout --orphan deploy-build --quiet
+git add -A
+git commit -m "Deploy: ${main_subject} (${main_short})" --quiet
+
+deploy_sha="$(git rev-parse HEAD)"
+deploy_short="$(git rev-parse --short HEAD)"
+
+# ─── Update Deploy Branch ───────────────────────────────────────────────────
+
+cd "$PROJECT_ROOT"
+git branch -f deploy "$deploy_sha"
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
 
 echo ""
-success "Deploy branch synced successfully"
-info "  main:   $main_head ($main_subject)"
-info "  deploy: $deploy_head"
+success "Deploy branch built successfully"
+info "  main:   $main_short ($main_subject)"
+info "  deploy: $deploy_short"
 echo ""
-info "To push: git push gitlab deploy"
+info "To push: git push gitlab deploy --force"
