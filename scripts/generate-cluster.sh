@@ -1656,6 +1656,12 @@ fi
         echo "    enabled: false  # Uses Gateway API HTTPRoute"
     fi
     cat << YAMLEOF
+    annotations:
+      ${PORTAL_PREFIX}/name: "Grafana"
+      ${PORTAL_PREFIX}/description: "Dashboards and observability"
+      ${PORTAL_PREFIX}/icon: "\U0001F4CA"
+      ${PORTAL_PREFIX}/category: "Monitoring"
+      ${PORTAL_PREFIX}/order: "10"
     hosts:
       - grafana.${DOMAIN}
     tls:
@@ -1824,6 +1830,12 @@ ingress:
   host: longhorn.${DOMAIN}
   tls: true
   tlsSecret: wildcard-${DOMAIN_SLUG}-tls
+  annotations:
+    ${PORTAL_PREFIX}/name: "Longhorn"
+    ${PORTAL_PREFIX}/description: "Distributed block storage"
+    ${PORTAL_PREFIX}/icon: "\U0001F4BE"
+    ${PORTAL_PREFIX}/category: "Platform"
+    ${PORTAL_PREFIX}/order: "30"
 YAMLEOF
 fi
 
