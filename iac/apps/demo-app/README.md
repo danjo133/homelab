@@ -106,7 +106,7 @@ replicaCount: 1
 | Always | Deployment, Service |
 | `name` + `clusterDomain` | Ingress (nginx) or HTTPRoute (gateway) |
 | `sso: true` | OAuth2-Proxy auth annotations on Ingress |
-| `portal.enabled` | `portal.example.com/*` annotations on Ingress/HTTPRoute |
+| `portal.enabled` | `portal.homelab/*` annotations on Ingress/HTTPRoute |
 | `postgres.enabled` | CNPG `Cluster` CR → auto-creates `{release}-db-app` secret |
 | `storage.enabled` | PVC + volume mount on Deployment |
 
@@ -123,7 +123,7 @@ The Deployment injects these as `DATABASE_URL` and `PG*` environment variables. 
 
 ### Portal Registration
 
-When `portal.enabled: true`, the chart adds `portal.example.com/*` annotations to the Ingress/HTTPRoute. The portal service discovers these automatically.
+When `portal.enabled: true`, the chart adds `portal.homelab/*` annotations to the Ingress/HTTPRoute. The portal service discovers these automatically.
 
 ## Creating a New App
 

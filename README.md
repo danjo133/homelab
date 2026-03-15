@@ -1027,11 +1027,11 @@ Services opt-in to the portal by adding annotations to their Ingress or HTTPRout
 ```yaml
 metadata:
   annotations:
-    portal.example.com/name: "Grafana"
-    portal.example.com/description: "Monitoring dashboards"
-    portal.example.com/icon: "📊"
-    portal.example.com/category: "Monitoring"
-    portal.example.com/order: "10"
+    portal.homelab/name: "Grafana"
+    portal.homelab/description: "Monitoring dashboards"
+    portal.homelab/icon: "📊"
+    portal.homelab/category: "Monitoring"
+    portal.homelab/order: "10"
 ```
 
 The portal queries the Kubernetes API, groups services by category, and serves a searchable dark-themed dashboard. Cached with 30-second TTL. Protected by OAuth2-Proxy SSO.

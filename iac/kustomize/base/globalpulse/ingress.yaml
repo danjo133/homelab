@@ -8,11 +8,11 @@ metadata:
     nginx.ingress.kubernetes.io/auth-url: "http://oauth2-proxy.oauth2-proxy.svc.cluster.local/oauth2/auth"
     nginx.ingress.kubernetes.io/auth-signin: "https://oauth2-proxy.CLUSTER_DOMAIN/oauth2/start?rd=$scheme://$host$escaped_request_uri"
     nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User,X-Auth-Request-Email,X-Auth-Request-Groups,X-Auth-Request-Access-Token"
-    portal.example.com/name: "World Monitor"
-    portal.example.com/description: "Real-time global intelligence dashboard"
-    portal.example.com/icon: "\U0001F30D"
-    portal.example.com/category: "Applications"
-    portal.example.com/order: "60"
+    portal.homelab/name: "World Monitor"
+    portal.homelab/description: "Real-time global intelligence dashboard"
+    portal.homelab/icon: "\U0001F30D"
+    portal.homelab/category: "Applications"
+    portal.homelab/order: "60"
 spec:
   ingressClassName: nginx
   tls:

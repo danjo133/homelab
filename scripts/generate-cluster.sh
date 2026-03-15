@@ -75,7 +75,7 @@ else
         GITLAB_SSH_URL="ssh://git@gitlab.${SUPPORT_DOMAIN}:2222"
         GIT_REPO_URL="ssh://git@gitlab.${SUPPORT_DOMAIN}:2222/infra/homelab.git"
         KEYCLOAK_URL="https://idp.${SUPPORT_DOMAIN}"
-        PORTAL_PREFIX="portal.${_base_domain}"
+        PORTAL_PREFIX="portal.homelab"
         ZITI_DOMAIN=$(yq -r '.domains.ziti // "z.example.com"' "$CONFIG_FILE")
         TARGET_REVISION="deploy"
     else
@@ -90,7 +90,7 @@ else
         GITLAB_SSH_URL="ssh://git@gitlab.support.example.com:2222"
         GIT_REPO_URL="ssh://git@gitlab.support.example.com:2222/infra/homelab.git"
         KEYCLOAK_URL="https://idp.support.example.com"
-        PORTAL_PREFIX="portal.example.com"
+        PORTAL_PREFIX="portal.homelab"
         LETSENCRYPT_EMAIL="letsencrypt@example.com"
         ZITI_DOMAIN="z.example.com"
         TARGET_REVISION="deploy"
@@ -1225,11 +1225,11 @@ metadata:
   namespace: kube-public
   annotations:
     external-dns.alpha.kubernetes.io/exclude: "true"
-    portal.example.com/name: "Vault"
-    portal.example.com/description: "Secrets management & PKI"
-    portal.example.com/icon: "\U0001F510"
-    portal.example.com/category: "Infrastructure"
-    portal.example.com/order: "10"
+    portal.homelab/name: "Vault"
+    portal.homelab/description: "Secrets management & PKI"
+    portal.homelab/icon: "\U0001F510"
+    portal.homelab/category: "Infrastructure"
+    portal.homelab/order: "10"
 spec:
   rules:
     - host: vault.$SUPPORT_DOMAIN
@@ -1241,11 +1241,11 @@ metadata:
   namespace: kube-public
   annotations:
     external-dns.alpha.kubernetes.io/exclude: "true"
-    portal.example.com/name: "Harbor"
-    portal.example.com/description: "Container registry & image scanning"
-    portal.example.com/icon: "\U0001F433"
-    portal.example.com/category: "Infrastructure"
-    portal.example.com/order: "20"
+    portal.homelab/name: "Harbor"
+    portal.homelab/description: "Container registry & image scanning"
+    portal.homelab/icon: "\U0001F433"
+    portal.homelab/category: "Infrastructure"
+    portal.homelab/order: "20"
 spec:
   rules:
     - host: harbor.$SUPPORT_DOMAIN
@@ -1257,11 +1257,11 @@ metadata:
   namespace: kube-public
   annotations:
     external-dns.alpha.kubernetes.io/exclude: "true"
-    portal.example.com/name: "MinIO"
-    portal.example.com/description: "Object storage console"
-    portal.example.com/icon: "\U0001F4E6"
-    portal.example.com/category: "Infrastructure"
-    portal.example.com/order: "30"
+    portal.homelab/name: "MinIO"
+    portal.homelab/description: "Object storage console"
+    portal.homelab/icon: "\U0001F4E6"
+    portal.homelab/category: "Infrastructure"
+    portal.homelab/order: "30"
 spec:
   rules:
     - host: minio-console.$SUPPORT_DOMAIN
@@ -1273,11 +1273,11 @@ metadata:
   namespace: kube-public
   annotations:
     external-dns.alpha.kubernetes.io/exclude: "true"
-    portal.example.com/name: "GitLab"
-    portal.example.com/description: "Git hosting & CI/CD"
-    portal.example.com/icon: "\U0001F98A"
-    portal.example.com/category: "Infrastructure"
-    portal.example.com/order: "40"
+    portal.homelab/name: "GitLab"
+    portal.homelab/description: "Git hosting & CI/CD"
+    portal.homelab/icon: "\U0001F98A"
+    portal.homelab/category: "Infrastructure"
+    portal.homelab/order: "40"
 spec:
   rules:
     - host: gitlab.$SUPPORT_DOMAIN
@@ -1289,11 +1289,11 @@ metadata:
   namespace: kube-public
   annotations:
     external-dns.alpha.kubernetes.io/exclude: "true"
-    portal.example.com/name: "Keycloak"
-    portal.example.com/description: "Upstream identity provider"
-    portal.example.com/icon: "\U0001F511"
-    portal.example.com/category: "Infrastructure"
-    portal.example.com/order: "50"
+    portal.homelab/name: "Keycloak"
+    portal.homelab/description: "Upstream identity provider"
+    portal.homelab/icon: "\U0001F511"
+    portal.homelab/category: "Infrastructure"
+    portal.homelab/order: "50"
 spec:
   rules:
     - host: idp.$SUPPORT_DOMAIN
@@ -1305,11 +1305,11 @@ metadata:
   namespace: kube-public
   annotations:
     external-dns.alpha.kubernetes.io/exclude: "true"
-    portal.example.com/name: "OpenZiti"
-    portal.example.com/description: "Zero-trust network admin console"
-    portal.example.com/icon: "\U0001F310"
-    portal.example.com/category: "Infrastructure"
-    portal.example.com/order: "60"
+    portal.homelab/name: "OpenZiti"
+    portal.homelab/description: "Zero-trust network admin console"
+    portal.homelab/icon: "\U0001F310"
+    portal.homelab/category: "Infrastructure"
+    portal.homelab/order: "60"
 spec:
   rules:
     - host: zac.$SUPPORT_DOMAIN

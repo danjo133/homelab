@@ -3,7 +3,7 @@
 Landing page that discovers services via Kubernetes Ingress and HTTPRoute
 annotations and displays them as a categorized, searchable dashboard.
 
-Services opt in by adding ANNOTATION_PREFIX annotations (e.g. portal.example.com/*)
+Services opt in by adding ANNOTATION_PREFIX annotations (e.g. portal.homelab/*)
 to their Ingress or HTTPRoute resources.
 
 Endpoints:
@@ -33,7 +33,7 @@ _index_html = (STATIC_DIR / "index.html").read_bytes()
 SA_TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 SA_CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 K8S_API = "https://kubernetes.default.svc"
-ANNOTATION_PREFIX = os.environ.get("ANNOTATION_PREFIX", "portal.example.com/")
+ANNOTATION_PREFIX = os.environ.get("ANNOTATION_PREFIX", "portal.homelab/")
 
 CACHE_TTL = 30
 _cache = {"data": None, "timestamp": 0}

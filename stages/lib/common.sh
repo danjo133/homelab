@@ -37,7 +37,7 @@ else
     GIT_REPO_URL="${GIT_REPO_URL:-ssh://git@gitlab.support.example.com:2222/infra/homelab.git}"
     KEYCLOAK_URL="${KEYCLOAK_URL:-https://idp.support.example.com}"
     TELEPORT_ADDR="${TELEPORT_ADDR:-teleport.support.example.com:3080}"
-    PORTAL_PREFIX="${PORTAL_PREFIX:-portal.example.com}"
+    PORTAL_PREFIX="${PORTAL_PREFIX:-portal.homelab}"
     LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-letsencrypt@example.com}"
     TARGET_REVISION="${TARGET_REVISION:-deploy}"
 fi

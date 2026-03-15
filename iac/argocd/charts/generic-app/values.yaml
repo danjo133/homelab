@@ -15,7 +15,7 @@ cpu:
   request: 10m
   limit: 100m
 
-# Portal metadata — rendered as portal.example.com/* annotations on Ingress/HTTPRoute
+# Portal metadata — rendered as portal.homelab/* annotations on Ingress/HTTPRoute
 portal:
   enabled: false
   name: ""            # defaults to .Release.Name
@@ -63,7 +63,7 @@ probes:
 clusterDomain: ""
 
 # Portal annotation prefix, injected by ApplicationSet helm parameter
-portalPrefix: "portal.example.com"
+portalPrefix: "portal.homelab"
 
 # Ingress mode: "nginx" (KSS) or "gateway" (KCS)
 ingressMode: nginx

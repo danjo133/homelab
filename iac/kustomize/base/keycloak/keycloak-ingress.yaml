@@ -10,11 +10,11 @@ metadata:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
     nginx.ingress.kubernetes.io/proxy-buffers-number: "4"
-    portal.example.com/name: "Keycloak"
-    portal.example.com/description: "Identity provider and SSO broker"
-    portal.example.com/icon: "\U0001F510"
-    portal.example.com/category: "Identity"
-    portal.example.com/order: "10"
+    portal.homelab/name: "Keycloak"
+    portal.homelab/description: "Identity provider and SSO broker"
+    portal.homelab/icon: "\U0001F510"
+    portal.homelab/category: "Identity"
+    portal.homelab/order: "10"
 spec:
   ingressClassName: nginx
   tls:
