@@ -51,6 +51,7 @@ apps:
 
 # --- OpenClaw ---
 openclaw:
+  model: "ollama/qwen3.5:27b"          # LLM model for the agent (ollama/<model>)
   signal_account: "+15551234567"        # Signal phone number for bot (E.164 format)
   signal_allow_from:                    # Phone numbers allowed to DM the bot
     - "+15557654321"

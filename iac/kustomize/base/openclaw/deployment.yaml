@@ -58,10 +58,8 @@ spec:
                 secretKeyRef:
                   name: openclaw-gateway-token
                   key: gateway-token
-            - name: OPENAI_BASE_URL
-              value: "http://localhost:11434/v1"
-            - name: OPENAI_API_KEY
-              value: "ollama"
+            - name: OLLAMA_BASE_URL
+              value: "http://localhost:11434"
             - name: OPENCLAW_STATE_DIR
               value: "/home/node/.openclaw"
           volumeMounts:

@@ -110,6 +110,7 @@ _config_file="$PROJECT_ROOT/config.yaml"
 if [ -f "$_config_file" ]; then
     OLLAMA_URL=$(yq -r '.network.ollama_url // "http://localhost:11434"' "$_config_file")
     SUPPORT_VM_IP=$(yq -r '.support.ip // "10.69.50.10"' "$_config_file")
+    OPENCLAW_MODEL=$(yq -r '.openclaw.model // "ollama/qwen3.5:27b"' "$_config_file")
     SIGNAL_ACCOUNT=$(yq -r '.openclaw.signal_account // ""' "$_config_file")
     SIGNAL_ALLOW_FROM=$(yq -r '(.openclaw.signal_allow_from // []) | map("\"" + . + "\"") | join(", ")' "$_config_file")
     APP_OPEN_WEBUI=$(yq -r '.apps.open_webui // true' "$_config_file")
@@ -119,6 +120,7 @@ if [ -f "$_config_file" ]; then
 else
     OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
     SUPPORT_VM_IP="${SUPPORT_VM_IP:-10.69.50.10}"
+    OPENCLAW_MODEL="ollama/qwen3.5:27b"
     SIGNAL_ACCOUNT=""
     SIGNAL_ALLOW_FROM=""
     APP_OPEN_WEBUI=true
@@ -1898,7 +1900,7 @@ patches:
         value: "${HARBOR_REGISTRY}/apps/openclaw:latest"
       - op: replace
         path: /spec/template/spec/containers/0/env/1/value
-        value: "${OLLAMA_URL}/v1"
+        value: "${OLLAMA_URL}"
   - target:
       kind: ConfigMap
       name: openclaw-config
@@ -1917,6 +1919,20 @@ patches:
               "controlUi": {
                 "enabled": true,
                 "allowedOrigins": ["https://claw.${DOMAIN}"]
+              }
+            },
+            "agents": {
+              "defaults": {
+                "model": {
+                  "primary": "${OPENCLAW_MODEL}"
+                }
+              }
+            },
+            "models": {
+              "providers": {
+                "ollama": {
+                  "baseUrl": "${OLLAMA_URL}"
+                }
               }
             },
             "channels": {
