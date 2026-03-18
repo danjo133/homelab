@@ -13,11 +13,6 @@ domains:
   support_prefix: support            # Support VM subdomain prefix → support.lab.example.com
   ziti: ziti.example.com             # OpenZiti controller domain
 
-# --- Infrastructure Hosts ---
-hosts:
-  hypervisor: hypervisor             # Remote host running VMs (SSH alias)
-  remote_project_dir: ~/dev/homelab  # Project path on hypervisor
-
 # --- Support VM ---
 support:
   ip: 10.69.50.10                    # Support VM IP address
@@ -26,10 +21,31 @@ support:
 # --- Identity ---
 identity:
   admin_email: admin@example.com     # ACME/Let's Encrypt contact email
+  # Additional Keycloak upstream realm users (alice/bob/carol are built-in)
+  users:
+    - username: dave
+      email: dave@example.com
+      first_name: Dave
+      last_name: Admin
+      role: admin                    # "admin" or "user"
+
+# --- OpenZiti ---
+ziti:
+  # Client device identities for external Ziti access
+  client_devices:
+    - name: alice-laptop
+      role_attributes: ["admin"]
+    - name: bob-phone
+      role_attributes: ["demo"]
+    - name: dave-tablet
+      role_attributes: ["user"]
 
 # --- Network ---
 network:
   nfs_allowed_network: "10.69.50.0/24"    # CIDR for NFS exports (VM VLAN)
+  gateway_ip: "10.69.50.1"               # VLAN 50 gateway (router)
+  management_cidr: "10.69.10.0/24"        # Management VLAN CIDR (block from pods)
+  pod_cidr: "10.42.0.0/16"               # Kubernetes pod CIDR (RKE2 default)
   ollama_url: "http://10.69.10.10:11434"  # Ollama LLM endpoint (VLAN 10)
 
 # --- Git ---

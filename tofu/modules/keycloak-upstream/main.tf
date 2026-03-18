@@ -3,7 +3,7 @@
 # Manages:
 #   - upstream realm
 #   - admin + user realm roles
-#   - 4 test users (alice, bob, carol, dave) with role mappings
+#   - 3 example users (alice, bob, carol) + configurable extra users
 #   - 3 OIDC clients: broker-client, teleport, gitlab
 #   - realm-roles protocol mapper on the teleport client
 
@@ -54,11 +54,11 @@ resource "keycloak_role" "user" {
 # ============================================================================
 
 locals {
-  users = ["alice", "bob", "carol", "dave"]
+  example_users = ["alice", "bob", "carol"]
 }
 
 resource "random_password" "user" {
-  for_each = toset(local.users)
+  for_each = toset(local.example_users)
   length   = 20
   special  = false
 }
@@ -135,27 +135,39 @@ resource "keycloak_user_roles" "carol" {
   exhaustive = false
 }
 
-resource "keycloak_user" "dave" {
+# ============================================================================
+# Extra users (from config.yaml)
+# ============================================================================
+
+resource "random_password" "extra" {
+  for_each = { for u in var.extra_users : u.username => u }
+  length   = 20
+  special  = false
+}
+
+resource "keycloak_user" "extra" {
+  for_each       = { for u in var.extra_users : u.username => u }
   realm_id       = keycloak_realm.upstream.id
-  username       = "admin"
-  email          = "admin@${var.email_domain}"
-  first_name     = "Admin"
-  last_name      = "User"
+  username       = each.value.username
+  email          = each.value.email
+  first_name     = each.value.first_name
+  last_name      = each.value.last_name
   enabled        = true
   email_verified = true
 
   initial_password {
-    value     = random_password.user["dave"].result
+    value     = random_password.extra[each.key].result
     temporary = false
   }
 
   lifecycle { ignore_changes = [initial_password] }
 }
 
-resource "keycloak_user_roles" "dave" {
+resource "keycloak_user_roles" "extra" {
+  for_each   = { for u in var.extra_users : u.username => u }
   realm_id   = keycloak_realm.upstream.id
-  user_id    = keycloak_user.dave.id
-  role_ids   = [keycloak_role.admin.id]
+  user_id    = keycloak_user.extra[each.key].id
+  role_ids   = [each.value.role == "admin" ? keycloak_role.admin.id : keycloak_role.user.id]
   exhaustive = false
 }
 

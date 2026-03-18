@@ -28,6 +28,9 @@ output "gitlab_client_secret" {
 
 output "user_passwords" {
   description = "Generated initial passwords for upstream realm users"
-  value       = { for u in local.users : u => random_password.user[u].result }
-  sensitive   = true
+  value = merge(
+    { for u in local.example_users : u => random_password.user[u].result },
+    { for u in var.extra_users : u.username => random_password.extra[u.username].result },
+  )
+  sensitive = true
 }

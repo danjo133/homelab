@@ -117,7 +117,7 @@ variable "teleport_identity_file_path" {
 variable "harbor_url" {
   description = "Harbor server URL"
   type        = string
-  default     = "https://harbor.support.example.com"
+  default     = "https://harbor.example.com"
 }
 
 variable "harbor_admin_user" {
@@ -188,6 +188,26 @@ variable "cluster_names" {
   description = "List of cluster names for constructing broker redirect URIs"
   type        = list(string)
   default     = ["kss", "kcs"]
+}
+
+variable "extra_users" {
+  description = "Additional Keycloak upstream users from config.yaml"
+  type = list(object({
+    username   = string
+    email      = string
+    first_name = string
+    last_name  = string
+    role       = string
+  }))
+  default = []
+}
+
+variable "ziti_client_devices" {
+  description = "Ziti client device identities from config.yaml"
+  type = map(object({
+    role_attributes = optional(list(string), ["user"])
+  }))
+  default = {}
 }
 
 # --- Module configuration ---

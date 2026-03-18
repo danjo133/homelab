@@ -20,6 +20,7 @@ module "keycloak_upstream" {
   source         = "../../modules/keycloak-upstream"
   email_domain   = var.email_domain
   support_domain = var.support_domain
+  extra_users    = var.extra_users
   broker_redirect_uris = [
     for name in var.cluster_names :
     "https://auth.${name}.${var.base_domain}/realms/broker/broker/upstream/endpoint"
@@ -232,13 +233,7 @@ module "ziti_config" {
     }
   }
 
-  client_devices = {
-    alice-laptop = { role_attributes = ["admin"] }
-    bob-phone  = { role_attributes = ["demo"] }
-    dave-tablet = { role_attributes = ["user"] }
-    stefan      = { role_attributes = ["user"] }
-    arash       = { role_attributes = ["user"] }
-  }
+  client_devices = var.ziti_client_devices
 
   depends_on = [module.vault_base]
 }
