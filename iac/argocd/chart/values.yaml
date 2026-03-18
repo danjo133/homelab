@@ -46,6 +46,14 @@ vault:
   namespace: ""
   authMount: kubernetes
 
+# --- Optional applications ---
+# Toggle apps on/off via config.yaml; defaults are all enabled.
+apps:
+  openWebui: true
+  openclaw: true
+  globalpulse: true
+  kiali: true
+
 # --- OIDC ---
 oidc:
   issuerUrl: ""

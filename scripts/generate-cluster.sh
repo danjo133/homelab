@@ -112,11 +112,19 @@ if [ -f "$_config_file" ]; then
     SUPPORT_VM_IP=$(yq -r '.support.ip // "10.69.50.10"' "$_config_file")
     SIGNAL_ACCOUNT=$(yq -r '.openclaw.signal_account // ""' "$_config_file")
     SIGNAL_ALLOW_FROM=$(yq -r '(.openclaw.signal_allow_from // []) | map("\"" + . + "\"") | join(", ")' "$_config_file")
+    APP_OPEN_WEBUI=$(yq -r '.apps.open_webui // true' "$_config_file")
+    APP_OPENCLAW=$(yq -r '.apps.openclaw // true' "$_config_file")
+    APP_GLOBALPULSE=$(yq -r '.apps.globalpulse // true' "$_config_file")
+    APP_KIALI=$(yq -r '.apps.kiali // true' "$_config_file")
 else
     OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
     SUPPORT_VM_IP="${SUPPORT_VM_IP:-10.69.50.10}"
     SIGNAL_ACCOUNT=""
     SIGNAL_ALLOW_FROM=""
+    APP_OPEN_WEBUI=true
+    APP_OPENCLAW=true
+    APP_GLOBALPULSE=true
+    APP_KIALI=true
 fi
 # Extract Ollama host IP for network policy exceptions
 OLLAMA_IP=$(echo "$OLLAMA_URL" | sed 's|https\?://||; s|:.*||')
@@ -1950,6 +1958,10 @@ resources:
   - ziti-support.yaml
   - open-webui-ollama.yaml
   - openclaw-ollama.yaml
+  - keycloak-internet.yaml
+  - open-webui-internet.yaml
+  - openclaw-internet.yaml
+  - sldashboard-internet.yaml
 YAMLEOF
 
     # --- Baseline CCNP: default-deny ingress + egress with common allows ---
@@ -2900,6 +2912,13 @@ vault:
 oidc:
   issuerUrl: "${OIDC_ISSUER_URL}"
   clientId: ${OIDC_CLIENT_ID}
+
+# Optional applications
+apps:
+  openWebui: ${APP_OPEN_WEBUI:-true}
+  openclaw: ${APP_OPENCLAW:-true}
+  globalpulse: ${APP_GLOBALPULSE:-true}
+  kiali: ${APP_KIALI:-true}
 YAMLEOF
 
 # --- 19b. Copy kustomize overlays from generated/ to clusters/ ---

@@ -40,6 +40,15 @@ ziti:
     - name: dave-tablet
       role_attributes: ["user"]
 
+# --- Optional Applications ---
+# Toggle optional apps on/off per deployment.
+# Core apps (headlamp, portal, architecture, jit-elevation, cluster-setup) are always deployed.
+apps:
+  open_webui: true        # LLM chat interface (kcs only)
+  openclaw: true          # AI assistant with Signal (kcs only)
+  globalpulse: true       # World dashboard
+  kiali: true             # Istio mesh UI (kcs only)
+
 # --- OpenClaw ---
 openclaw:
   signal_account: "+15551234567"        # Signal phone number for bot (E.164 format)

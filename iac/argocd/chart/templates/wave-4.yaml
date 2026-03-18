@@ -169,6 +169,7 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+{{- if .Values.apps.globalpulse }}
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -192,7 +193,8 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-{{- if eq (include "root-app.isIstioMesh" .) "true" }}
+{{- end }}
+{{- if and (eq (include "root-app.isIstioMesh" .) "true") .Values.apps.openWebui }}
 ---
 # --- Open WebUI (Istio mesh only) ---
 apiVersion: argoproj.io/v1alpha1
@@ -322,6 +324,8 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+{{- end }}
+{{- if and (eq (include "root-app.isIstioMesh" .) "true") .Values.apps.openclaw }}
 ---
 # --- OpenClaw (Istio mesh only) ---
 apiVersion: argoproj.io/v1alpha1
@@ -351,6 +355,8 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+{{- end }}
+{{- if and (eq (include "root-app.isIstioMesh" .) "true") .Values.apps.kiali }}
 ---
 # --- Kiali (Istio mesh only) ---
 apiVersion: argoproj.io/v1alpha1
