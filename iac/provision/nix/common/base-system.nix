@@ -22,11 +22,19 @@
     # This allows the DHCP server (Unifi) to register our hostname
     hostname
 
-    # For the first interface (libvirt NAT), don't set gateway
+    # For the first interface (libvirt NAT), don't set gateway or DNS
+    # nogateway: don't use as default route
+    # nooption domain_name_servers: don't add its DHCP nameservers to resolv.conf
     interface ens6
       nogateway
+      nooption domain_name_servers
+      nooption domain_name
+      nooption domain_search
     interface enp0s6
       nogateway
+      nooption domain_name_servers
+      nooption domain_name
+      nooption domain_search
 
     # Don't manage Cilium/container interfaces - they're managed by the CNI
     denyinterfaces cilium* lxc* veth* cni* docker* br-*

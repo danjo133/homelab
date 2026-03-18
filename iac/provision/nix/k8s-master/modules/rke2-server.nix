@@ -295,6 +295,7 @@ in
     "d /var/log/kubernetes 0755 root root -"
   ];
 
+
   # Create symlinks for kubectl in /usr/local/bin
   system.activationScripts.rke2Links = ''
     mkdir -p /usr/local/bin

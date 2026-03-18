@@ -52,7 +52,7 @@ spec:
           - $values/iac/argocd/values/base/nginx-ingress.yaml
         parameters:
           - name: controller.extraArgs.default-ssl-certificate
-            value: cert-manager/wildcard-{{ include "root-app.domainSlug" . }}
+            value: cert-manager/wildcard-{{ include "root-app.domainSlug" . }}-tls
   destination:
     server: https://kubernetes.default.svc
     namespace: ingress-nginx

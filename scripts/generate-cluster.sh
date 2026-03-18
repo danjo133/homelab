@@ -76,6 +76,10 @@ else
         GIT_REPO_URL="ssh://git@gitlab.${SUPPORT_DOMAIN}:2222/infra/homelab.git"
         KEYCLOAK_URL="https://idp.${SUPPORT_DOMAIN}"
         PORTAL_PREFIX="portal.homelab"
+        NFS_ALLOWED_NETWORK=$(yq -r '.network.nfs_allowed_network // "10.69.50.0/24"' "$CONFIG_FILE")
+        GATEWAY_IP=$(yq -r '.network.gateway_ip // "10.69.50.1"' "$CONFIG_FILE")
+        MANAGEMENT_CIDR=$(yq -r '.network.management_cidr // "10.69.10.0/24"' "$CONFIG_FILE")
+        POD_CIDR=$(yq -r '.network.pod_cidr // "10.42.0.0/16"' "$CONFIG_FILE")
         ZITI_DOMAIN=$(yq -r '.domains.ziti // "z.example.com"' "$CONFIG_FILE")
         TARGET_REVISION="deploy"
     else
@@ -83,19 +87,35 @@ else
         ROOT_DOMAIN="example.com"
         SUPPORT_DOMAIN="support.example.com"
         VAULT_URL="https://vault.support.example.com"
-        HARBOR_URL="https://harbor.support.example.com"
-        HARBOR_REGISTRY="harbor.support.example.com"
+        HARBOR_URL="https://harbor.example.com"
+        HARBOR_REGISTRY="harbor.example.com"
         MINIO_URL="https://minio.support.example.com"
         GITLAB_URL="https://gitlab.support.example.com"
         GITLAB_SSH_URL="ssh://git@gitlab.support.example.com:2222"
         GIT_REPO_URL="ssh://git@gitlab.support.example.com:2222/infra/homelab.git"
         KEYCLOAK_URL="https://idp.support.example.com"
         PORTAL_PREFIX="portal.homelab"
+        NFS_ALLOWED_NETWORK="10.0.0.0/24"
+        GATEWAY_IP="10.0.0.1"
+        MANAGEMENT_CIDR="10.0.0.0/24"
+        POD_CIDR="10.42.0.0/16"
         LETSENCRYPT_EMAIL="letsencrypt@example.com"
         ZITI_DOMAIN="z.example.com"
         TARGET_REVISION="deploy"
     fi
 fi
+
+# Read values from config.yaml not provided by config-local.sh
+_config_file="$PROJECT_ROOT/config.yaml"
+if [ -f "$_config_file" ]; then
+    OLLAMA_URL=$(yq -r '.network.ollama_url // "http://localhost:11434"' "$_config_file")
+    SUPPORT_VM_IP=$(yq -r '.support.ip // "10.69.50.10"' "$_config_file")
+else
+    OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
+    SUPPORT_VM_IP="${SUPPORT_VM_IP:-10.69.50.10}"
+fi
+# Extract Ollama host IP for network policy exceptions
+OLLAMA_IP=$(echo "$OLLAMA_URL" | sed 's|https\?://||; s|:.*||')
 
 # Read optional OIDC config (needed by nix/cluster.nix and helmfile-values.yaml)
 OIDC_ENABLED=$(yq -r '.oidc.enabled // "false"' "$CLUSTER_YAML")
@@ -110,7 +130,7 @@ DOMAIN_SLUG=$(echo "$DOMAIN" | tr '.' '-')
 
 # Create output directories
 GEN_DIR="$CLUSTER_DIR/generated"
-rm -rf "$GEN_DIR/kustomize/metallb" "$GEN_DIR/kustomize/cilium" "$GEN_DIR/kustomize/cert-manager" "$GEN_DIR/kustomize/gateway" "$GEN_DIR/kustomize/oidc-rbac" "$GEN_DIR/kustomize/monitoring" "$GEN_DIR/kustomize/harbor" "$GEN_DIR/kustomize/apps-discovery" "$GEN_DIR/kustomize/portal" "$GEN_DIR/kustomize/architecture" "$GEN_DIR/kustomize/globalpulse" "$GEN_DIR/kustomize/jit-elevation" "$GEN_DIR/kustomize/cluster-setup" "$GEN_DIR/kustomize/kiali" "$GEN_DIR/kustomize/headlamp" "$GEN_DIR/kustomize/mcpo"
+rm -rf "$GEN_DIR/kustomize/metallb" "$GEN_DIR/kustomize/cilium" "$GEN_DIR/kustomize/cert-manager" "$GEN_DIR/kustomize/gateway" "$GEN_DIR/kustomize/oidc-rbac" "$GEN_DIR/kustomize/monitoring" "$GEN_DIR/kustomize/harbor" "$GEN_DIR/kustomize/apps-discovery" "$GEN_DIR/kustomize/portal" "$GEN_DIR/kustomize/architecture" "$GEN_DIR/kustomize/globalpulse" "$GEN_DIR/kustomize/jit-elevation" "$GEN_DIR/kustomize/cluster-setup" "$GEN_DIR/kustomize/kiali" "$GEN_DIR/kustomize/headlamp" "$GEN_DIR/kustomize/mcpo" "$GEN_DIR/kustomize/openclaw" "$GEN_DIR/kustomize/network-egress-policy" "$GEN_DIR/kustomize/istio-ambient"
 mkdir -p "$GEN_DIR/nix" "$GEN_DIR/kustomize/external-secrets"
 
 # ============================================================================
@@ -196,6 +216,10 @@ cat > "$GEN_DIR/nix/cluster.nix" << NIXEOF
     masterHostname = "$NAME-master";
     vaultAuthMount = "$VAULT_AUTH_MOUNT";
     vaultNamespace = "$VAULT_NAMESPACE";
+    gatewayIp = "$GATEWAY_IP";
+    managementCidr = "$MANAGEMENT_CIDR";
+    podCidr = "$POD_CIDR";
+    ollamaIp = "$OLLAMA_IP";
   };
 NIXEOF
 
@@ -524,6 +548,7 @@ if [ "$HELMFILE_ENV" = "gateway-bgp" ] || [ "$HELMFILE_ENV" = "istio-mesh" ]; th
   - httproute-architecture.yaml
   - httproute-globalpulse.yaml
   - httproute-open-webui.yaml
+  - httproute-openclaw.yaml
   - httproute-longhorn.yaml
   - ext-authz-policy.yaml"
     fi
@@ -1002,6 +1027,36 @@ spec:
           port: 80
 YAMLEOF
 
+        cat > "$GEN_DIR/kustomize/gateway/httproute-openclaw.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — OpenClaw HTTPRoute for Gateway API ingress
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: openclaw
+  namespace: openclaw
+  annotations:
+    ${PORTAL_PREFIX}/name: "OpenClaw"
+    ${PORTAL_PREFIX}/description: "AI assistant with Signal"
+    ${PORTAL_PREFIX}/icon: "\U0001F916"
+    ${PORTAL_PREFIX}/category: "Apps"
+    ${PORTAL_PREFIX}/order: "35"
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: $GATEWAY_NS
+  hostnames:
+    - "claw.$DOMAIN"
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: openclaw
+          port: 18789
+YAMLEOF
+
         cat > "$GEN_DIR/kustomize/gateway/httproute-longhorn.yaml" << YAMLEOF
 # Auto-generated from cluster.yaml — do not edit
 # Cluster: $NAME — Longhorn HTTPRoute for Gateway API ingress
@@ -1301,7 +1356,7 @@ echo "  Generating kustomize/harbor/..."
 mkdir -p "$GEN_DIR/kustomize/harbor"
 
 # Copy harbor-pull-secret.yaml with domain substitution
-sed -e "s|harbor\.support\.example\.com|${HARBOR_REGISTRY}|g" \
+sed -e "s|harbor\.example\.com|${HARBOR_REGISTRY}|g" \
     "$PROJECT_ROOT/iac/kustomize/base/harbor/harbor-pull-secret.yaml" \
     > "$GEN_DIR/kustomize/harbor/harbor-pull-secret.yaml"
 
@@ -1324,7 +1379,7 @@ mkdir -p "$GEN_DIR/kustomize/apps-discovery"
 
 # Copy each file with domain substitution
 for f in argocd-repo-creds-apps.yaml harbor-image-updater-secret.yaml harbor-pull-secret-apps.yaml; do
-    sed -e "s|harbor\.support\.example\.com|${HARBOR_REGISTRY}|g" \
+    sed -e "s|harbor\.example\.com|${HARBOR_REGISTRY}|g" \
         -e "s|gitlab\.support\.example\.com|gitlab.${SUPPORT_DOMAIN}|g" \
         "$PROJECT_ROOT/iac/kustomize/base/apps-discovery/$f" \
         > "$GEN_DIR/kustomize/apps-discovery/$f"
@@ -1804,6 +1859,581 @@ patches:
         value: "https://auth.$DOMAIN/realms/broker"
 YAMLEOF
 
+# ============================================================================
+# Generate kustomize/openclaw/ (per-cluster OpenClaw overlay, istio-mesh only)
+# ============================================================================
+if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
+    echo "  Generating kustomize/openclaw/..."
+    mkdir -p "$GEN_DIR/kustomize/openclaw"
+
+    cat > "$GEN_DIR/kustomize/openclaw/kustomization.yaml" << YAMLEOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: $NAME — OpenClaw with per-cluster Ollama URL
+
+resources:
+  - ../../../../../kustomize/base/openclaw
+
+patches:
+  - target:
+      kind: Deployment
+      name: openclaw
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/env/1/value
+        value: "${OLLAMA_URL}/v1"
+YAMLEOF
+fi
+
+# ============================================================================
+# Generate kustomize/network-egress-policy/ (all clusters)
+# ============================================================================
+if [ "$CNI" = "cilium" ]; then
+    echo "  Generating kustomize/network-egress-policy/..."
+    mkdir -p "$GEN_DIR/kustomize/network-egress-policy"
+
+    cat > "$GEN_DIR/kustomize/network-egress-policy/kustomization.yaml" << YAMLEOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - default-policy.yaml
+  - allow-ambient-hostprobes.yaml
+  - ztunnel-mesh.yaml
+  - ingress-external.yaml
+  - coredns-upstream.yaml
+  - argocd-external.yaml
+  - vault-access.yaml
+  - cert-manager-internet.yaml
+  - external-dns-internet.yaml
+  - monitoring-support.yaml
+  - keycloak-support.yaml
+  - longhorn-support.yaml
+  - teleport-support.yaml
+  - ziti-support.yaml
+  - open-webui-ollama.yaml
+  - openclaw-ollama.yaml
+YAMLEOF
+
+    # --- Baseline CCNP: default-deny ingress + egress with common allows ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/default-policy.yaml" << YAMLEOF
+# Auto-generated from cluster.yaml + config.yaml — do not edit
+# Cluster: $NAME — Default-deny ingress/egress with baseline allows
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: default-policy
+spec:
+  description: "Default-deny with baseline allows for all pods"
+  endpointSelector: {}
+  ingress:
+    # Allow from all cluster endpoints, host, and remote nodes
+    - fromEntities:
+        - cluster
+        - host
+        - remote-node
+  egress:
+    # DNS to kube-dns
+    - toEndpoints:
+        - matchLabels:
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+    # Kubernetes API server
+    - toEntities:
+        - kube-apiserver
+    # Intra-cluster: all cluster endpoints, host, and remote nodes.
+    # Uses entity-based rules (not toCIDR) for Istio Ambient compatibility —
+    # ztunnel transparent proxy creates TRAFFIC_DIRECTION_UNKNOWN flows that
+    # CIDR-based rules cannot match.
+    - toEntities:
+        - cluster
+        - host
+        - remote-node
+YAMLEOF
+
+    # --- Istio ambient: allow ztunnel health probe SNAT traffic ---
+    # Istio ambient's ztunnel SNATs kubelet health probes to 169.254.7.127 so
+    # they bypass traffic redirection. Cilium classifies this link-local address
+    # as "world" identity, so the default-policy ingress (cluster/host/remote-node)
+    # doesn't match. This CCNP explicitly allows it.
+    # Harmless on non-Istio clusters (no traffic from that address).
+    # See: https://istio.io/latest/docs/ambient/install/platform-prerequisites/
+    cat > "$GEN_DIR/kustomize/network-egress-policy/allow-ambient-hostprobes.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: allow-ambient-hostprobes
+spec:
+  description: "Allow Istio ambient ztunnel health probe SNAT traffic"
+  endpointSelector: {}
+  ingress:
+    - fromCIDR:
+        - "169.254.7.127/32"
+YAMLEOF
+
+    # --- Istio ztunnel: transparent proxy needs unrestricted mesh access ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/ztunnel-mesh.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: ztunnel-mesh
+  namespace: istio-system
+spec:
+  description: "Allow ztunnel transparent proxy full mesh access"
+  endpointSelector:
+    matchLabels:
+      app: ztunnel
+  ingress:
+    - fromEntities:
+        - cluster
+        - host
+        - remote-node
+        - world
+  egress:
+    - toEntities:
+        - cluster
+        - host
+        - remote-node
+        - world
+YAMLEOF
+
+    # --- Istio ingress gateway: accept external client traffic ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/ingress-external.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-external-ingress
+  namespace: istio-ingress
+spec:
+  description: "Allow external clients to reach the Istio ingress gateway"
+  endpointSelector: {}
+  ingress:
+    - fromEntities:
+        - world
+        - cluster
+        - host
+        - remote-node
+  egress:
+    - toEntities:
+        - cluster
+        - host
+        - remote-node
+YAMLEOF
+
+    # --- CoreDNS: upstream DNS forwarding to router ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/coredns-upstream.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: coredns-upstream
+  namespace: kube-system
+spec:
+  description: "Allow CoreDNS to forward upstream DNS queries to the router"
+  endpointSelector:
+    matchLabels:
+      k8s-app: kube-dns
+  egress:
+    - toCIDR:
+        - "${GATEWAY_IP}/32"
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: ANY
+YAMLEOF
+
+    # --- ArgoCD: GitLab (support VM) + external Helm chart repos ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/argocd-external.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-external
+  namespace: argocd
+spec:
+  description: "Allow ArgoCD access to GitLab, Harbor, and external Helm repos"
+  endpointSelector: {}
+  egress:
+    - toCIDR:
+        - "${SUPPORT_VM_IP}/32"
+    - toCIDRSet:
+        - cidr: "0.0.0.0/0"
+          except:
+            - "10.0.0.0/8"
+            - "172.16.0.0/12"
+            - "192.168.0.0/16"
+YAMLEOF
+
+    # --- External Secrets: Vault on support VM ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/vault-access.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-vault
+  namespace: external-secrets
+spec:
+  description: "Allow external-secrets to reach Vault on support VM"
+  endpointSelector: {}
+  egress:
+    - toCIDR:
+        - "${SUPPORT_VM_IP}/32"
+      toPorts:
+        - ports:
+            - port: "8200"
+              protocol: TCP
+YAMLEOF
+
+    # --- cert-manager: Let's Encrypt ACME + Cloudflare DNS01 ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/cert-manager-internet.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-internet
+  namespace: cert-manager
+spec:
+  description: "Allow cert-manager to reach ACME servers and Cloudflare API"
+  endpointSelector: {}
+  egress:
+    - toCIDRSet:
+        - cidr: "0.0.0.0/0"
+          except:
+            - "10.0.0.0/8"
+            - "172.16.0.0/12"
+            - "192.168.0.0/16"
+YAMLEOF
+
+    # --- external-dns: Cloudflare API ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/external-dns-internet.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-internet
+  namespace: external-dns
+spec:
+  description: "Allow external-dns to reach Cloudflare API"
+  endpointSelector: {}
+  egress:
+    - toCIDRSet:
+        - cidr: "0.0.0.0/0"
+          except:
+            - "10.0.0.0/8"
+            - "172.16.0.0/12"
+            - "192.168.0.0/16"
+YAMLEOF
+
+    # --- Monitoring: MinIO S3 on support VM ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/monitoring-support.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-support-vm
+  namespace: monitoring
+spec:
+  description: "Allow monitoring to reach MinIO S3 on support VM"
+  endpointSelector: {}
+  egress:
+    - toCIDR:
+        - "${SUPPORT_VM_IP}/32"
+      toPorts:
+        - ports:
+            - port: "9000"
+              protocol: TCP
+YAMLEOF
+
+    # --- Keycloak: upstream IdP on support VM ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/keycloak-support.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-support-vm
+  namespace: keycloak
+spec:
+  description: "Allow Keycloak broker to reach upstream IdP on support VM"
+  endpointSelector: {}
+  egress:
+    - toCIDR:
+        - "${SUPPORT_VM_IP}/32"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+YAMLEOF
+
+    # --- Longhorn: NFS backups to support VM ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/longhorn-support.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-support-vm
+  namespace: longhorn-system
+spec:
+  description: "Allow Longhorn to reach NFS on support VM"
+  endpointSelector: {}
+  egress:
+    - toCIDR:
+        - "${SUPPORT_VM_IP}/32"
+      toPorts:
+        - ports:
+            - port: "2049"
+              protocol: TCP
+YAMLEOF
+
+    # --- Teleport: proxy on support VM ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/teleport-support.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-support-vm
+  namespace: teleport
+spec:
+  description: "Allow Teleport agent to reach proxy on support VM"
+  endpointSelector: {}
+  egress:
+    - toCIDR:
+        - "${SUPPORT_VM_IP}/32"
+      toPorts:
+        - ports:
+            - port: "3080"
+              protocol: TCP
+            - port: "443"
+              protocol: TCP
+YAMLEOF
+
+    # --- Ziti router: controller on support VM ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/ziti-support.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-support-vm
+  namespace: ziti-system
+spec:
+  description: "Allow Ziti router to reach controller on support VM"
+  endpointSelector: {}
+  egress:
+    - toCIDR:
+        - "${SUPPORT_VM_IP}/32"
+      toPorts:
+        - ports:
+            - port: "2029"
+              protocol: TCP
+            - port: "2045"
+              protocol: TCP
+            - port: "2046"
+              protocol: TCP
+YAMLEOF
+
+    # --- Open WebUI: Ollama LLM inference ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/open-webui-ollama.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-ollama
+  namespace: open-webui
+spec:
+  description: "Allow Open WebUI to reach Ollama for LLM inference"
+  endpointSelector: {}
+  egress:
+    - toCIDR:
+        - "${OLLAMA_IP}/32"
+      toPorts:
+        - ports:
+            - port: "11434"
+              protocol: TCP
+YAMLEOF
+
+    # --- OpenClaw: Ollama LLM inference ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/openclaw-ollama.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-ollama
+  namespace: openclaw
+spec:
+  description: "Allow OpenClaw to reach Ollama for LLM inference"
+  endpointSelector: {}
+  egress:
+    - toCIDR:
+        - "${OLLAMA_IP}/32"
+      toPorts:
+        - ports:
+            - port: "11434"
+              protocol: TCP
+YAMLEOF
+else
+    # ---- Canal/default CNI: standard Kubernetes NetworkPolicy ----
+    echo "  Generating kustomize/network-egress-policy/ (K8s NetworkPolicy)..."
+    mkdir -p "$GEN_DIR/kustomize/network-egress-policy"
+
+    # Namespaces that need the default-deny + baseline allow policy
+    POLICY_NAMESPACES="kube-system argocd cert-manager external-secrets external-dns metallb-system ingress-nginx monitoring beyla-system longhorn-system gatekeeper-system spire-system cnpg-system ziti-system teleport keycloak keycloak-operator oauth2-proxy identity headlamp globalpulse kube-public vault-auth apps trivy-system"
+
+    KUSTOMIZE_RESOURCES=""
+
+    for ns in $POLICY_NAMESPACES; do
+        FILENAME="default-${ns}.yaml"
+        KUSTOMIZE_RESOURCES="${KUSTOMIZE_RESOURCES}  - ${FILENAME}
+"
+        cat > "$GEN_DIR/kustomize/network-egress-policy/${FILENAME}" << YAMLEOF
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-policy
+  namespace: ${ns}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from all cluster pods
+    - from:
+        - namespaceSelector: {}
+    # Allow from nodes (kubelet probes, metrics)
+    - from:
+        - ipBlock:
+            cidr: ${NFS_ALLOWED_NETWORK}
+  egress:
+    # DNS to kube-dns
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Intra-cluster: all pods in all namespaces
+    - to:
+        - namespaceSelector: {}
+    # Node network (support VM, node services) except router
+    - to:
+        - ipBlock:
+            cidr: ${NFS_ALLOWED_NETWORK}
+            except:
+              - ${GATEWAY_IP}/32
+YAMLEOF
+    done
+
+    # --- nginx ingress: accept external client traffic ---
+    KUSTOMIZE_RESOURCES="${KUSTOMIZE_RESOURCES}  - ingress-external.yaml
+"
+    cat > "$GEN_DIR/kustomize/network-egress-policy/ingress-external.yaml" << YAMLEOF
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-external-ingress
+  namespace: ingress-nginx
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - {}
+YAMLEOF
+
+    # --- CoreDNS: upstream DNS to router ---
+    KUSTOMIZE_RESOURCES="${KUSTOMIZE_RESOURCES}  - coredns-upstream.yaml
+"
+    cat > "$GEN_DIR/kustomize/network-egress-policy/coredns-upstream.yaml" << YAMLEOF
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: coredns-upstream
+  namespace: kube-system
+spec:
+  podSelector:
+    matchLabels:
+      k8s-app: kube-dns
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: ${GATEWAY_IP}/32
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+YAMLEOF
+
+    # --- Namespaces needing internet (cert-manager, external-dns, argocd) ---
+    for ns in cert-manager external-dns argocd; do
+        FILENAME="internet-${ns}.yaml"
+        KUSTOMIZE_RESOURCES="${KUSTOMIZE_RESOURCES}  - ${FILENAME}
+"
+        cat > "$GEN_DIR/kustomize/network-egress-policy/${FILENAME}" << YAMLEOF
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internet
+  namespace: ${ns}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+YAMLEOF
+    done
+
+    cat > "$GEN_DIR/kustomize/network-egress-policy/kustomization.yaml" << YAMLEOF
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+${KUSTOMIZE_RESOURCES}
+YAMLEOF
+fi
+
+# ============================================================================
+# Generate kustomize/istio-ambient/ (Istio mesh clusters only)
+# ============================================================================
+if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
+    echo "  Generating kustomize/istio-ambient/..."
+    mkdir -p "$GEN_DIR/kustomize/istio-ambient"
+
+    # Namespaces to enroll in Istio ambient mesh.
+    # Excludes: kube-system, kube-node-lease, istio-system, istio-ingress,
+    # cilium-secrets, beyla-system, spire-system (hostNetwork / control plane)
+    AMBIENT_NAMESPACES="apps argocd cert-manager cnpg-system default external-dns external-secrets gatekeeper-system globalpulse headlamp identity keycloak keycloak-operator kube-public longhorn-system monitoring oauth2-proxy open-webui openclaw teleport trivy-system vault-auth ziti-system"
+
+    {
+        echo "apiVersion: kustomize.config.k8s.io/v1beta1"
+        echo "kind: Kustomization"
+        echo ""
+        echo "resources:"
+        echo "  - namespaces.yaml"
+    } > "$GEN_DIR/kustomize/istio-ambient/kustomization.yaml"
+
+    {
+        echo "# Auto-generated from cluster.yaml — do not edit"
+        echo "# Cluster: $NAME — Istio ambient mesh namespace enrollment"
+        for ns in $AMBIENT_NAMESPACES; do
+            echo "---"
+            echo "apiVersion: v1"
+            echo "kind: Namespace"
+            echo "metadata:"
+            echo "  name: $ns"
+            echo "  labels:"
+            echo "    istio.io/dataplane-mode: ambient"
+        done
+    } > "$GEN_DIR/kustomize/istio-ambient/namespaces.yaml"
+fi
+
 # --- Passthrough overlays (reference base with no modifications) ---
 for overlay in oauth2-proxy teleport-kube-agent ziti-router; do
     echo "  Generating kustomize/$overlay/..."
@@ -1932,27 +2562,11 @@ ingress:
 YAMLEOF
 fi
 
-# --- open-webui.yaml ---
+# --- open-webui.yaml (Istio mesh only) ---
 if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
     cat > "$VALUES_DIR/open-webui.yaml" << YAMLEOF
 ingress:
   enabled: false  # Uses Istio Gateway API HTTPRoute
-
-sso:
-  oidc:
-    providerUrl: "https://auth.${DOMAIN}/realms/broker/.well-known/openid-configuration"
-YAMLEOF
-else
-    cat > "$VALUES_DIR/open-webui.yaml" << YAMLEOF
-ingress:
-  enabled: true
-  class: nginx
-  annotations:
-    ${PORTAL_PREFIX}/name: "Open WebUI"
-    ${PORTAL_PREFIX}/icon: "chat"
-  host: chat.${DOMAIN}
-  tls: true
-  existingSecret: wildcard-${DOMAIN_SLUG}-tls
 
 sso:
   oidc:

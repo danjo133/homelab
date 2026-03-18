@@ -30,14 +30,14 @@ Two clusters are defined: **kss** (Canal CNI, MetalLB, nginx ingress) and **kcs*
 
 ## AI Onboarding Prompt
 
-Give this prompt to an AI assistant to get a guided introduction to the project:
+You may give this prompt to an AI assistant to get a guided introduction to the project:
 
 > You are helping me understand a Kubernetes homelab infrastructure-as-code project. The project is at `~/mnt/homelab` (an sshfs mount from a remote host called `hypervisor` where VMs actually run).
 >
 > Start by reading `CLAUDE.md` for the full technical context, then `README.md` for the documentation. Help me understand:
 >
 > 1. The overall architecture: NixOS VMs on libvirt/KVM, managed by Vagrant, running RKE2 Kubernetes
-> 2. How `cluster.yaml` is the single source of truth and `just generate` produces all downstream configs
+> 2. How `cluster.yaml` is the single source of truth and `just deploy-sync` generates all downstream configs on the deploy branch
 > 3. The two clusters: kss (simple Canal/MetalLB/nginx) and kcs (advanced Cilium/Istio/Gateway API)
 > 4. How ArgoCD app-of-apps deploys everything via sync waves
 > 5. The support VM services (Vault, Harbor, MinIO, GitLab, Keycloak, Teleport, OpenZiti)
@@ -367,7 +367,7 @@ just help                  # Show all commands
 | Command | Description |
 |---------|-------------|
 | `just status` | Show status of VMs, support services, and cluster |
-| `just generate` | Generate cluster configs from cluster.yaml |
+| `just generate` | Generate cluster configs (use `just deploy-sync` instead — runs generation in deploy branch) |
 | `just validate` | Validate helmfile and kustomize manifests |
 | `just clean` | Destroy all VMs |
 
@@ -512,9 +512,9 @@ oidc:
 | **kss** | Canal (RKE2 default) | nginx ingress controller | MetalLB L2 | `default` |
 | **kcs** | Cilium + Tetragon | Istio Gateway API | Cilium BGP | `istio-mesh` |
 
-### What `just generate` Produces
+### What Generation Produces
 
-Running `just generate` (which calls `scripts/generate-cluster.sh`) transforms `cluster.yaml` into deployment-ready configs in `iac/clusters/<name>/generated/`:
+`just deploy-sync` runs `scripts/generate-cluster.sh` in the deploy branch worktree, transforming `cluster.yaml` + `config.yaml` into deployment-ready configs in `iac/clusters/<name>/generated/`:
 
 | Output | Purpose |
 |--------|---------|
@@ -726,7 +726,7 @@ The support VM (`10.69.50.10`) runs shared infrastructure services as NixOS modu
 | Vault | `https://vault.support.example.com` | Auto-init, auto-unseal, PKI |
 | MinIO API | `https://minio.support.example.com` | S3-compatible storage |
 | MinIO Console | `https://minio-console.support.example.com` | Web UI |
-| Harbor | `https://harbor.support.example.com` | Container registry + Trivy scanning |
+| Harbor | `https://harbor.example.com` | Container registry + Trivy scanning |
 | NFS | `10.69.50.10:2049` | Exports: `kubernetes-rwx`, `backups`, `longhorn` |
 | Teleport | `https://teleport.support.example.com:3080` | SSH/K8s/web access (own TLS, port 3080) |
 | GitLab CE | `https://gitlab.support.example.com` | Git hosting, SSH on port 2222 |
@@ -1199,6 +1199,86 @@ metadata:
   labels:
     istio.io/dataplane-mode: ambient
 ```
+
+Excluded namespaces (hostNetwork or control plane): `kube-system`, `kube-node-lease`, `istio-system`, `istio-ingress`, `cilium-secrets`, `beyla-system`, `spire-system`.
+
+### Network Policy Architecture
+
+Running Cilium as CNI alongside Istio Ambient creates a dual-layer policy model. Each layer has visibility into different parts of the traffic flow.
+
+**What Cilium sees:**
+
+Cilium enforces policy at the eBPF/kernel level. When ztunnel intercepts pod traffic, Cilium sees the outer encrypted HBONE tunnel (port 15008) between ztunnel instances — not the original pod-to-pod connection. This means:
+
+- `toCIDR` rules cannot match ztunnel-proxied traffic (Cilium classifies it as `TRAFFIC_DIRECTION_UNKNOWN`)
+- `toEntities` / `fromEntities` rules work because they match on Cilium identity labels, not packet headers
+- L7 (HTTP) CiliumNetworkPolicy rules are incompatible with ambient — Cilium's HTTP proxy breaks ztunnel's mTLS. To use Cilium L7 policies on a workload, remove it from the ambient mesh
+- Cilium retains full visibility for traffic leaving the mesh (egress to external IPs like the support VM)
+
+**What Istio sees:**
+
+Istio's ztunnel and waypoint proxies see the decrypted inner traffic with full source identity (SPIFFE). Use Istio `AuthorizationPolicy` for:
+
+- L4 identity-based policies between mesh workloads (source/destination by service account)
+- L7 HTTP policies (requires a waypoint proxy deployed for the target workload)
+
+**Policy responsibilities:**
+
+| Traffic type | Policy layer | Rule type |
+|-------------|-------------|-----------|
+| Pod-to-pod within mesh | Istio AuthorizationPolicy | SPIFFE identity-based L4/L7 |
+| Pod egress to external IPs | Cilium CiliumNetworkPolicy | `toCIDR` per-namespace |
+| Intra-cluster baseline | Cilium CiliumClusterwideNetworkPolicy | `toEntities` / `fromEntities` |
+| Ingress from outside cluster | Cilium CiliumNetworkPolicy | `fromEntities: world` on ingress namespace |
+
+### Policy Structure
+
+Generated by `scripts/generate-cluster.sh` into `kustomize/network-egress-policy/`, deployed by ArgoCD at sync wave 0.
+
+**Cluster-wide policies (CCNP):**
+
+| Policy | Purpose |
+|--------|---------|
+| `default-policy` | Default-deny with baseline allows: ingress from `cluster/host/remote-node`, egress to DNS + API server + `cluster/host/remote-node` entities |
+| `allow-ambient-hostprobes` | Allows ingress from `169.254.7.127/32` — ztunnel SNATs kubelet health probes to this link-local address, which Cilium classifies as `world` (see below) |
+
+**Namespace-scoped policies (CNP):**
+
+| Policy | Namespace | Egress to |
+|--------|-----------|-----------|
+| `ztunnel-mesh` | istio-system | Full access (cluster + world) — ztunnel must proxy all traffic |
+| `allow-external-ingress` | istio-ingress | Ingress from world; egress to cluster |
+| `coredns-upstream` | kube-system | Gateway IP port 53 |
+| `argocd-external` | argocd | Support VM + internet |
+| `allow-vault` | external-secrets | Support VM port 8200 |
+| `allow-internet` | cert-manager, external-dns | Internet (except RFC1918) |
+| `allow-support-vm` | monitoring, keycloak, longhorn-system, teleport, ziti-system | Support VM (service-specific ports) |
+| `allow-ollama` | open-webui, openclaw | Ollama host port 11434 |
+
+### Health Probe SNAT (169.254.7.127)
+
+This is the most critical Cilium + Ambient interaction. Without the `allow-ambient-hostprobes` CCNP, every pod in an ambient-enrolled namespace will fail health probes.
+
+The flow:
+
+```
+Normal (no ambient):
+  kubelet (host IP) → pod IP:port → Cilium sees "host" identity → ALLOW
+
+With ambient:
+  kubelet (host IP) → istio-cni iptables → SNAT to 169.254.7.127 → pod
+  Cilium sees source 169.254.7.127 → classifies as "world" identity → DENY
+```
+
+Istio's `istio-cni` agent installs iptables rules in each ambient pod's network namespace that SNAT kubelet probes to `169.254.7.127`. This ensures probes bypass ztunnel's traffic redirection (they're node-local, not mesh traffic). But Cilium doesn't recognize this address as belonging to the host.
+
+The fix is an explicit CCNP allowing ingress from `169.254.7.127/32`. This is documented in [Istio's platform prerequisites](https://istio.io/latest/docs/ambient/install/platform-prerequisites/).
+
+### Known Limitations
+
+- **Cilium [#36022](https://github.com/cilium/cilium/issues/36022)**: Cilium's eBPF native routing may drop the SYN-ACK return packet to `169.254.7.127` because it can't route to that address. If health probes remain flaky after adding the CCNP, `bpf.hostLegacyRouting: true` (already set) mitigates this by falling back to the kernel networking stack.
+- **No Cilium L7 on ambient workloads**: Cilium's HTTP-aware proxy inserts itself into the connection, breaking ztunnel's mTLS. Use Istio waypoint proxies + `AuthorizationPolicy` for L7 rules.
+- **Entity rules only for mesh traffic**: `toCIDR` rules in the default policy don't work for pod-to-pod traffic through ztunnel. Always use `toEntities: [cluster, host, remote-node]` for intra-cluster baseline rules.
 
 ---
 

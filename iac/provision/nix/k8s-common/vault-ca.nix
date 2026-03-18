@@ -81,6 +81,6 @@ in
   # (before DNS is configured, nodes can use IP)
   networking.extraHosts = ''
     # Support VM services - use mDNS or configure DNS
-    # 10.69.50.x vault.support.example.com harbor.support.example.com
+    # 10.69.50.x vault.support.example.com harbor.example.com
   '';
 }

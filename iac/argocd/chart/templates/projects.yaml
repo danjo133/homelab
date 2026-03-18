@@ -66,6 +66,18 @@ spec:
       namespace: globalpulse
     - server: https://kubernetes.default.svc
       namespace: apps
+    - server: https://kubernetes.default.svc
+      namespace: openclaw
+    - server: https://kubernetes.default.svc
+      namespace: spire-system
+    - server: https://kubernetes.default.svc
+      namespace: beyla-system
+    - server: https://kubernetes.default.svc
+      namespace: cnpg-system
+    - server: https://kubernetes.default.svc
+      namespace: keycloak-operator
+    - server: https://kubernetes.default.svc
+      namespace: gatekeeper-system
   clusterResourceWhitelist:
     - group: apiextensions.k8s.io
       kind: CustomResourceDefinition
@@ -157,6 +169,8 @@ spec:
       kind: CSIDriver
     - group: aquasecurity.github.io
       kind: "*"
+    - group: cilium.io
+      kind: CiliumClusterwideNetworkPolicy
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
@@ -215,6 +229,8 @@ spec:
       namespace: open-webui
     - server: https://kubernetes.default.svc
       namespace: globalpulse
+    - server: https://kubernetes.default.svc
+      namespace: openclaw
   clusterResourceWhitelist:
     - group: ""
       kind: Namespace

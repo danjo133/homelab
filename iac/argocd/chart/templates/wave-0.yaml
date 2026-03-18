@@ -259,6 +259,56 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+---
+# --- Network egress policy ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: network-egress-policy
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: bootstrap
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: {{ include "root-app.overlayPath" (dict "root" . "overlay" "network-egress-policy") }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+{{- if eq (include "root-app.isIstioMesh" .) "true" }}
+---
+# --- Istio ambient mesh namespace enrollment ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: istio-ambient
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: {{ include "root-app.overlayPath" (dict "root" . "overlay" "istio-ambient") }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+{{- end }}
 {{- if eq (include "root-app.isCilium" .) "true" }}
 ---
 # --- Tetragon policies (Cilium CNI) ---

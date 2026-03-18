@@ -138,9 +138,9 @@ Traffic flow:
 - VMs (VLAN 50) → Other VLANs: Blocked
 ```
 
-### Remote Execution
+### Execution Model
 
-Code is edited on `workstation` (local workstation) via sshfs mount at `~/mnt/homelab`. Vagrant/libvirt runs on `hypervisor` (remote host) where the project lives at `~/dev/homelab`. All vagrant/SSH commands go through `hypervisor`.
+The project lives on the hypervisor where Vagrant/libvirt/KVM run. All `just` commands run directly on the hypervisor. Code can be edited remotely via sshfs mount at `~/mnt/homelab` on the workstation, but all commands must be executed on the hypervisor (e.g. via SSH or a tmux session).
 
 ### DNS Configuration (Unifi)
 
@@ -205,7 +205,7 @@ README.md                         # Human documentation
 flake.nix                         # Nix dev shell (all CLI tools)
 
 stages/                           # Operational scripts
-  lib/common.sh                   # Shared functions (paths, SSH, colors, cluster config)
+  lib/common.sh                   # Shared functions (paths, colors, cluster config, VM helpers)
   0_global/                       # status, generate, clean, validate
   1_vms/                          # up, down, destroy, status, ssh, build-box
   2_support/                      # sync, rebuild, status, vault-*, ziti-status, generate-env
@@ -267,7 +267,6 @@ iac/                              # Infrastructure definitions
 scripts/                          # Utility scripts
   generate-cluster.sh             # Cluster config generator (~1300 lines)
   fix-keycloak-scopes.sh          # Keycloak scope fix workaround
-  hypervisor-exec.sh                    # Remote execution helper
 
 tofu/                             # OpenTofu IaC
   modules/
@@ -299,7 +298,7 @@ tofu/                             # OpenTofu IaC
 | `iac/nix-box-config.nix` | Base NixOS image (SSH, users, DHCP routing) |
 | `iac/setup-libvirt-network.sh` | Creates VLAN interface, bridge, iptables rules |
 | `iac/build-nix-box.sh` | Builds NixOS qcow2 and packages as Vagrant box |
-| `stages/lib/common.sh` | Shared shell library (paths, SSH, cluster config, helpers) |
+| `stages/lib/common.sh` | Shared shell library (paths, cluster config, VM helpers) |
 | `justfile` | Task runner command definitions |
 | `flake.nix` | Nix dev shell with all CLI tools |
 
@@ -310,7 +309,7 @@ tofu/                             # OpenTofu IaC
 | Vault | 8200 | `https://vault.support.example.com` | Auto-init, auto-unseal, PKI configured |
 | MinIO API | 9000 | `https://minio.support.example.com` | S3-compatible storage |
 | MinIO Console | 9001 | `https://minio-console.support.example.com` | Web UI |
-| Harbor | 8080 | `https://harbor.support.example.com` | Container registry with Trivy |
+| Harbor | 8080 | `https://harbor.example.com` | Container registry with Trivy |
 | NFS | 2049 | N/A (direct) | Exports: `kubernetes-rwx`, `backups`, `longhorn` |
 | Teleport | 3080 | `https://teleport.support.example.com:3080` | SSH/K8s/web access, own TLS (not behind nginx) |
 | GitLab CE | 8929 | `https://gitlab.support.example.com` | Git hosting, behind nginx, Git SSH on port 2222 |
@@ -374,6 +373,9 @@ All cluster-aware scripts require `KSS_CLUSTER` to be set. No defaults. Scripts 
 ### NixOS Module System
 Cluster VMs use layered NixOS modules: `common/` (base) → `k8s-common/` (RKE2 base, CNI, options) → `k8s-master/` or `k8s-worker/` (role) → generated `cluster.nix` (cluster options). The `cluster-options.nix` declares `kss.cluster.*` and `kss.cni` options consumed by other modules. The `cni.nix` module conditionally configures firewall rules for Canal vs Cilium.
 
+### Cilium + Istio Ambient Network Policies
+On kcs (Cilium CNI + Istio Ambient), network policies operate at two layers. **Cilium** enforces L4 at the eBPF level but cannot see inside ztunnel's encrypted HBONE tunnels — use `toEntities`/`fromEntities` (not `toCIDR`) for intra-cluster rules, and `toCIDR` only for external egress. **Istio** sees decrypted traffic with SPIFFE identity — use `AuthorizationPolicy` for L4/L7 between mesh workloads. Critical: the `allow-ambient-hostprobes` CCNP must exist to allow ingress from `169.254.7.127/32` (ztunnel SNATs kubelet health probes to this address, which Cilium classifies as `world`). Without it, all health probes fail in ambient-enrolled namespaces. See README.md "Network Policy Architecture" for full details.
+
 ### OpenZiti
 Zero-trust overlay network. Controller + support router on support VM (Docker Compose). Per-cluster routers as K8s pods in `ziti-system` namespace. OpenTofu manages edge routers, overlay services (support-web, kss-ingress, kcs-ingress), service policies, and client device identities. Enrollment JWTs stored in Vault.
 
@@ -411,7 +413,7 @@ This repo uses two git remotes. All code lives on `main`. The `deploy` branch is
 2. **Security is paramount** — never commit secrets, credentials, or tokens. All secrets flow through Vault + external-secrets. Use SOPS/age for any encrypted values that must live in-repo. Audit changes for accidental secret exposure.
 3. **ArgoCD manages the cluster** — do not use `kubectl apply` to deploy resources that ArgoCD manages. This causes SSA field ownership conflicts. Instead, modify the source manifests, commit, push, and let ArgoCD sync.
 4. **Use `just` commands** — the justfile is the user-facing interface. Prefer `just <command>` over running stage scripts directly.
-5. **Generate before deploying** — after modifying base kustomize or cluster.yaml, run `just generate` to regenerate per-cluster configs before pushing.
+5. **Deploy-sync generates everything** — never run `just generate` on main. Generation is handled by `just deploy-sync` which runs it in the deploy branch worktree. The workflow is: edit on `main` → commit → `just deploy-sync` → push deploy to GitLab.
 6. **Main stays clean** — tracked files on `main` must only use `example.com` placeholders. Personal domains belong in generated files (gitignored on `main`, committed on `deploy`).
 
 ### Making Changes
@@ -427,8 +429,7 @@ This repo uses two git remotes. All code lives on `main`. The `deploy` branch is
 **Adding Kubernetes resources (CRs, secrets, config):**
 1. Add manifests to the appropriate `iac/kustomize/base/<component>/` directory
 2. Update the component's `kustomization.yaml`
-3. Run `just generate` to propagate to per-cluster overlays
-4. Commit and push — ArgoCD syncs via kustomize overlay
+3. Commit on `main`, then `just deploy-sync` and push deploy to GitLab — generation runs automatically in the deploy worktree
 
 **Modifying Helm values:**
 1. Edit `iac/argocd/values/base/<name>.yaml` (or per-cluster override in `iac/argocd/values/<cluster>/`)
@@ -436,7 +437,8 @@ This repo uses two git remotes. All code lives on `main`. The `deploy` branch is
 
 **Adding OpenTofu resources:**
 1. Add to the appropriate module in `tofu/modules/` or environment in `tofu/environments/`
-2. Run `just tofu-plan <env>` to preview, then `just tofu-apply <env>`
+2. Commit on `main`, then `just deploy-sync` to generate tfvars on the deploy branch
+3. Run `just tofu-plan <env>` and `just tofu-apply <env>` from the deploy branch worktree (where generated terraform.tfvars exist)
 
 ### What NOT to Do
 

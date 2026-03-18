@@ -31,11 +31,17 @@
   # Interface names vary (ens6/ens7 or enp0s6/enp0s7), so match by MAC prefix
   # Libvirt generates MACs starting with 52:54:00
   networking.dhcpcd.extraConfig = ''
-    # For the first interface (lower PCI slot = libvirt NAT), don't set gateway
+    # For the first interface (lower PCI slot = libvirt NAT), don't set gateway or DNS
     interface ens6
       nogateway
+      nooption domain_name_servers
+      nooption domain_name
+      nooption domain_search
     interface enp0s6
       nogateway
+      nooption domain_name_servers
+      nooption domain_name
+      nooption domain_search
   '';
 
   # System packages

@@ -51,6 +51,30 @@
       description = "Vault namespace for this cluster (OpenBao namespace isolation)";
     };
 
+    gatewayIp = lib.mkOption {
+      type = lib.types.str;
+      default = "10.0.0.1";
+      description = "VLAN gateway IP (router) — pods are blocked from reaching this on infra ports";
+    };
+
+    managementCidr = lib.mkOption {
+      type = lib.types.str;
+      default = "10.0.0.0/24";
+      description = "Management VLAN CIDR — pods are blocked from reaching this entirely";
+    };
+
+    podCidr = lib.mkOption {
+      type = lib.types.str;
+      default = "10.42.0.0/16";
+      description = "Kubernetes pod CIDR (for iptables egress rules on Canal nodes)";
+    };
+
+    ollamaIp = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "Ollama LLM host IP — exempted from management VLAN egress block";
+    };
+
     oidc = {
       enabled = lib.mkOption {
         type = lib.types.bool;
