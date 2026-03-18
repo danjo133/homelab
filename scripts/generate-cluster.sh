@@ -110,9 +110,13 @@ _config_file="$PROJECT_ROOT/config.yaml"
 if [ -f "$_config_file" ]; then
     OLLAMA_URL=$(yq -r '.network.ollama_url // "http://localhost:11434"' "$_config_file")
     SUPPORT_VM_IP=$(yq -r '.support.ip // "10.69.50.10"' "$_config_file")
+    SIGNAL_ACCOUNT=$(yq -r '.openclaw.signal_account // ""' "$_config_file")
+    SIGNAL_ALLOW_FROM=$(yq -r '(.openclaw.signal_allow_from // []) | map("\"" + . + "\"") | join(", ")' "$_config_file")
 else
     OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
     SUPPORT_VM_IP="${SUPPORT_VM_IP:-10.69.50.10}"
+    SIGNAL_ACCOUNT=""
+    SIGNAL_ALLOW_FROM=""
 fi
 # Extract Ollama host IP for network policy exceptions
 OLLAMA_IP=$(echo "$OLLAMA_URL" | sed 's|https\?://||; s|:.*||')
@@ -1906,9 +1910,12 @@ patches:
             },
             "channels": {
               "signal": {
-                "enabled": true,
+                "enabled": ${SIGNAL_ACCOUNT:+true}${SIGNAL_ACCOUNT:-false},
+                "account": "${SIGNAL_ACCOUNT}",
+                "cliPath": "signal-cli",
                 "autoStart": true,
-                "dmPolicy": "pairing"
+                "dmPolicy": "pairing",
+                "allowFrom": [${SIGNAL_ALLOW_FROM}]
               }
             }
           }

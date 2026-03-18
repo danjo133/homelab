@@ -33,6 +33,7 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /home/node/.openclaw
+              subPath: openclaw
             - name: config
               mountPath: /config
               readOnly: true
@@ -44,7 +45,7 @@ spec:
                 - ALL
       containers:
         - name: gateway
-          image: ghcr.io/openclaw/openclaw:latest
+          image: harbor.example.com/apps/openclaw:latest
           ports:
             - name: http
               containerPort: 18789
@@ -64,6 +65,10 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /home/node/.openclaw
+              subPath: openclaw
+            - name: data
+              mountPath: /home/node/.local/share/signal-cli
+              subPath: signal-cli
             - name: tmp
               mountPath: /tmp
           resources:

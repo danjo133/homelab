@@ -40,6 +40,12 @@ ziti:
     - name: dave-tablet
       role_attributes: ["user"]
 
+# --- OpenClaw ---
+openclaw:
+  signal_account: "+15551234567"        # Signal phone number for bot (E.164 format)
+  signal_allow_from:                    # Phone numbers allowed to DM the bot
+    - "+15557654321"
+
 # --- Network ---
 network:
   nfs_allowed_network: "10.69.50.0/24"    # CIDR for NFS exports (VM VLAN)
