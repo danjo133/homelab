@@ -7,7 +7,7 @@
 #
 # Prerequisites:
 #   - Support VM running with all services healthy
-#   - SSH access to support VM via iter
+#   - SSH access to support VM
 #
 # Usage: just support-generate-env
 #        # or: ./stages/2_support/generate-env.sh
@@ -88,38 +88,22 @@ fi
 info "Checking for GitLab admin PAT..."
 GL_ADMIN_PASS=$(ssh_vm "$SUPPORT_VM_IP" 'sudo cat /etc/gitlab/admin_password')
 
-# Create a PAT via GitLab OAuth flow. Write a temp script to the shared
-# filesystem (~/mnt/kss on foundation = ~/dev/kss on iter) and execute it
-# on iter, avoiding all shell escaping issues with nested SSH/curl.
+# Create a PAT via GitLab OAuth flow
 EXPIRY=$(date -d "+365 days" +%Y-%m-%d)
-GITLAB_PAT_SCRIPT="${PROJECT_ROOT}/.tmp-gitlab-pat.sh"
-cat > "${GITLAB_PAT_SCRIPT}" << 'GLEOF'
-#!/bin/bash
-set -eu
-VM_KEY="$1"
-VM_IP="$2"
-EXPIRY="$3"
-
-PASS=$(ssh -o StrictHostKeyChecking=no -i "$VM_KEY" "vagrant@$VM_IP" 'sudo cat /etc/gitlab/admin_password')
-TOKEN=$(ssh -o StrictHostKeyChecking=no -i "$VM_KEY" "vagrant@$VM_IP" \
+OAUTH_TOKEN=$(ssh_vm "$SUPPORT_VM_IP" \
   "curl -sf -X POST http://localhost:8929/oauth/token \
     -H 'X-Forwarded-Proto: https' \
-    -d 'grant_type=password&username=root&password=$PASS'" | jq -r '.access_token // empty')
+    -d 'grant_type=password&username=root&password=${GL_ADMIN_PASS}'" | jq -r '.access_token // empty')
 
-if [ -z "$TOKEN" ]; then
-  exit 1
+GITLAB_TOKEN=""
+if [[ -n "$OAUTH_TOKEN" ]]; then
+  GITLAB_TOKEN=$(ssh_vm "$SUPPORT_VM_IP" \
+    "curl -sf -X POST http://localhost:8929/api/v4/users/1/personal_access_tokens \
+      -H 'Authorization: Bearer ${OAUTH_TOKEN}' \
+      -H 'X-Forwarded-Proto: https' \
+      -H 'Content-Type: application/json' \
+      -d '{\"name\": \"tofu-admin\", \"scopes\": [\"api\"], \"expires_at\": \"${EXPIRY}\"}'" | jq -r '.token // empty')
 fi
-
-ssh -o StrictHostKeyChecking=no -i "$VM_KEY" "vagrant@$VM_IP" \
-  "curl -sf -X POST http://localhost:8929/api/v4/users/1/personal_access_tokens \
-    -H 'Authorization: Bearer $TOKEN' \
-    -H 'X-Forwarded-Proto: https' \
-    -H 'Content-Type: application/json' \
-    -d '{\"name\": \"tofu-admin\", \"scopes\": [\"api\"], \"expires_at\": \"$EXPIRY\"}'" | jq -r '.token // empty'
-GLEOF
-chmod +x "${GITLAB_PAT_SCRIPT}"
-GITLAB_TOKEN=$(ssh "${REMOTE_HOST}" "bash ${REMOTE_PROJECT_DIR}/.tmp-gitlab-pat.sh '${VAGRANT_SSH_KEY}' '${SUPPORT_VM_IP}' '${EXPIRY}'")
-rm -f "${GITLAB_PAT_SCRIPT}"
 
 if [[ -z "$GITLAB_TOKEN" ]]; then
   warn "Could not create GitLab PAT — is GitLab healthy?"

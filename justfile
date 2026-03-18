@@ -29,6 +29,19 @@ generate-all:
 deploy-sync:
     ./scripts/deploy-sync.sh
 
+# Run a just command in a temporary deploy branch worktree (for tofu, validate, etc.)
+# Usage: just deploy-exec tofu-plan kcs
+deploy-exec +args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    WORKTREE=$(mktemp -d "${TMPDIR:-/tmp}/deploy-exec.XXXXXX")
+    cleanup() { git worktree remove --force "$WORKTREE" 2>/dev/null || rm -rf "$WORKTREE"; }
+    trap cleanup EXIT
+    git worktree add --quiet "$WORKTREE" deploy
+    echo "Running 'just {{args}}' in deploy worktree..."
+    cd "$WORKTREE"
+    just {{args}}
+
 # Clean everything
 clean:
     ./stages/0_global/clean.sh
@@ -221,6 +234,19 @@ platform-status:
     ./stages/6_platform/status.sh
 
 # ─── OpenTofu ─────────────────────────────────
+
+# Init + apply OpenTofu in a deploy worktree (env: base, kss, kcs)
+tofu env:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    WORKTREE=$(mktemp -d "${TMPDIR:-/tmp}/deploy-tofu.XXXXXX")
+    cleanup() { git worktree remove --force "$WORKTREE" 2>/dev/null || rm -rf "$WORKTREE"; }
+    trap cleanup EXIT
+    git worktree add --quiet "$WORKTREE" deploy
+    echo "Running tofu init + apply for {{env}} in deploy worktree..."
+    cd "$WORKTREE"
+    tofu -chdir=tofu/environments/{{env}} init
+    tofu -chdir=tofu/environments/{{env}} apply
 
 # Initialize OpenTofu environment (env: base, kss, kcs)
 tofu-init env:

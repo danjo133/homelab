@@ -22,15 +22,13 @@ if [ -f "$CONFIG_LOCAL" ]; then
 else
     echo -e "\033[0;33mWARNING: $CONFIG_LOCAL not found. Run 'just generate-config' first.\033[0m" >&2
     # Fallback defaults so scripts don't crash immediately
-    REMOTE_HOST="${REMOTE_HOST:-localhost}"
-    REMOTE_PROJECT_DIR="${REMOTE_PROJECT_DIR:-\$HOME/dev/homelab}"
     SUPPORT_VM_IP="${SUPPORT_VM_IP:-10.69.50.10}"
     SUPPORT_DOMAIN="${SUPPORT_DOMAIN:-support.example.com}"
     ROOT_DOMAIN="${ROOT_DOMAIN:-example.com}"
     BASE_DOMAIN="${BASE_DOMAIN:-example.com}"
     VAULT_URL="${VAULT_URL:-https://vault.support.example.com}"
-    HARBOR_URL="${HARBOR_URL:-https://harbor.support.example.com}"
-    HARBOR_REGISTRY="${HARBOR_REGISTRY:-harbor.support.example.com}"
+    HARBOR_URL="${HARBOR_URL:-https://harbor.example.com}"
+    HARBOR_REGISTRY="${HARBOR_REGISTRY:-harbor.example.com}"
     MINIO_URL="${MINIO_URL:-https://minio.support.example.com}"
     GITLAB_URL="${GITLAB_URL:-https://gitlab.support.example.com}"
     GITLAB_SSH_URL="${GITLAB_SSH_URL:-ssh://git@gitlab.support.example.com:2222}"
@@ -42,9 +40,7 @@ else
     TARGET_REVISION="${TARGET_REVISION:-deploy}"
 fi
 
-# ─── Remote Execution ─────────────────────────────────────────────────────────
-
-REMOTE_VAGRANT_DIR="${REMOTE_PROJECT_DIR}/iac"
+# ─── Execution Helpers ────────────────────────────────────────────────────────
 
 VAGRANT_SSH_KEY="~/.vagrant.d/ecdsa_private_key"
 
@@ -121,41 +117,40 @@ load_cluster_vars() {
 
   CLUSTER_ALL_VMS="${MASTER_VM} ${CLUSTER_WORKER_VMS[*]}"
 
-  REMOTE_CLUSTER_GEN_DIR="${REMOTE_PROJECT_DIR}/iac/clusters/${KSS_CLUSTER}/generated"
 }
 
-# ─── Remote Execution Helpers ─────────────────────────────────────────────────
+# ─── VM Execution Helpers ────────────────────────────────────────────────────
+# All commands run directly on the hypervisor where vagrant/libvirt live.
 
-# Run a command on iter
-ssh_vm_host() {
-  ssh "${REMOTE_HOST}" "$@"
-}
+# Vagrant state (.vagrant/) lives in the main project root, not in worktrees.
+# Resolve the main worktree so vagrant can always find its VMs.
+VAGRANT_IAC_DIR="$(git -C "${PROJECT_ROOT}" worktree list --porcelain | head -1 | sed 's/^worktree //')/iac"
 
-# Run vagrant command on iter (in iac/ directory)
+# Run vagrant command (in main project iac/ directory)
 vagrant_cmd() {
-  ssh "${REMOTE_HOST}" "cd ${REMOTE_VAGRANT_DIR} && /usr/bin/vagrant $*"
+  (cd "${VAGRANT_IAC_DIR}" && vagrant "$@")
 }
 
 # Run vagrant ssh to a VM and execute a command
 vagrant_ssh() {
   local vm="$1"
   shift
-  vagrant_cmd "ssh ${vm} -c '$*'"
+  vagrant_cmd ssh "${vm}" -c "$*"
 }
 
-# SSH directly to a VM via its IP (through iter)
+# SSH directly to a VM via its IP
 ssh_vm() {
   local ip="$1"
   shift
-  ssh "${REMOTE_HOST}" "ssh -o StrictHostKeyChecking=no -i ${VAGRANT_SSH_KEY} vagrant@${ip} '$*'"
+  ssh -o StrictHostKeyChecking=no -i "${VAGRANT_SSH_KEY}" "vagrant@${ip}" "$*"
 }
 
-# rsync from iter to a VM
+# rsync files to a VM
 rsync_to_vm() {
   local ip="$1"
   local src="$2"
   local dst="$3"
-  ssh "${REMOTE_HOST}" "rsync -avz -e 'ssh -o StrictHostKeyChecking=no -i ${VAGRANT_SSH_KEY}' ${src} vagrant@${ip}:${dst}"
+  rsync -avz -e "ssh -o StrictHostKeyChecking=no -i ${VAGRANT_SSH_KEY}" "${src}" "vagrant@${ip}:${dst}"
 }
 
 # ─── Validation Helpers ───────────────────────────────────────────────────────
