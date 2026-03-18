@@ -2129,6 +2129,8 @@ spec:
         - "${SUPPORT_VM_IP}/32"
       toPorts:
         - ports:
+            - port: "443"
+              protocol: TCP
             - port: "8200"
               protocol: TCP
 YAMLEOF
