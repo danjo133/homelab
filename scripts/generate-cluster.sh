@@ -1948,16 +1948,6 @@ patches:
                 }
               }
             },
-            "tools": {
-              "web": {
-                "search": {
-                  "provider": "searxng",
-                  "searxng": {
-                    "baseUrl": "http://searxng.open-webui.svc.cluster.local:8080"
-                  }
-                }
-              }
-            },
             "channels": {
               "signal": {
                 "enabled": $([ -n "$SIGNAL_ACCOUNT" ] && echo true || echo false),
