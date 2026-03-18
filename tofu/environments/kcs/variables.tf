@@ -17,7 +17,7 @@ variable "vault_token" {
 variable "harbor_url" {
   description = "Harbor server URL"
   type        = string
-  default     = "https://harbor.support.example.com"
+  default     = "https://harbor.example.com"
 }
 
 variable "harbor_admin_user" {

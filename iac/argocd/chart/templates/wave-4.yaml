@@ -192,8 +192,9 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+{{- if eq (include "root-app.isIstioMesh" .) "true" }}
 ---
-# --- Open WebUI ---
+# --- Open WebUI (Istio mesh only) ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -321,7 +322,30 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-{{- if eq (include "root-app.isIstioMesh" .) "true" }}
+---
+# --- OpenClaw (Istio mesh only) ---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: openclaw
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+spec:
+  project: applications
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: {{ include "root-app.overlayPath" (dict "root" . "overlay" "openclaw") }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openclaw
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
 ---
 # --- Kiali (Istio mesh only) ---
 apiVersion: argoproj.io/v1alpha1

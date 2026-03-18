@@ -5,7 +5,7 @@
 vault_addr  = "https://vault.support.example.com"
 vault_token = ""
 
-harbor_url            = "https://harbor.support.example.com"
+harbor_url            = "https://harbor.example.com"
 harbor_admin_user     = "admin"
 harbor_admin_password = ""
 

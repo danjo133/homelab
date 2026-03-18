@@ -151,3 +151,21 @@ resource "vault_kv_secret_v2" "keycloak_open_webui_client" {
     "client-secret" = module.keycloak_broker.open_webui_client_secret
   })
 }
+
+# ============================================================================
+# OpenClaw gateway token
+# ============================================================================
+
+resource "random_password" "openclaw_gateway_token" {
+  length  = 64
+  special = false
+}
+
+resource "vault_kv_secret_v2" "openclaw_gateway_token" {
+  mount = module.vault_cluster.kv_mount_path
+  name  = "openclaw/gateway-token"
+
+  data_json = jsonencode({
+    "gateway-token" = random_password.openclaw_gateway_token.result
+  })
+}
