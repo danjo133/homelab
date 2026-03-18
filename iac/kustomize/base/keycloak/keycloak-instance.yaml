@@ -31,3 +31,10 @@ spec:
   # Ingress managed separately (keycloak-ingress.yaml) for proper TLS/cert-manager support
   ingress:
     enabled: false
+  unsupported:
+    podTemplate:
+      spec:
+        containers:
+          - env:
+              - name: JAVA_OPTS_APPEND
+                value: "-Djava.net.preferIPv4Stack=true"
