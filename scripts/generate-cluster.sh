@@ -1931,7 +1931,20 @@ patches:
             "models": {
               "providers": {
                 "ollama": {
-                  "baseUrl": "${OLLAMA_URL}"
+                  "baseUrl": "${OLLAMA_URL}",
+                  "apiKey": "ollama",
+                  "api": "ollama",
+                  "models": [
+                    {
+                      "id": "$(echo "$OPENCLAW_MODEL" | sed 's|^ollama/||')",
+                      "name": "$(echo "$OPENCLAW_MODEL" | sed 's|^ollama/||')",
+                      "reasoning": true,
+                      "input": ["text", "image", "video"],
+                      "cost": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0 },
+                      "contextWindow": 262144,
+                      "maxTokens": 32768
+                    }
+                  ]
                 }
               }
             },
