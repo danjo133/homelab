@@ -1921,7 +1921,7 @@ patches:
             },
             "channels": {
               "signal": {
-                "enabled": ${SIGNAL_ACCOUNT:+true}${SIGNAL_ACCOUNT:-false},
+                "enabled": $([ -n "$SIGNAL_ACCOUNT" ] && echo true || echo false),
                 "account": "${SIGNAL_ACCOUNT}",
                 "cliPath": "signal-cli",
                 "autoStart": true,
