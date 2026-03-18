@@ -2209,6 +2209,29 @@ spec:
               protocol: TCP
 YAMLEOF
 
+    # --- Keycloak: external IdP federation (internet HTTPS) ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/keycloak-internet.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-internet
+  namespace: keycloak
+spec:
+  description: "Allow Keycloak broker to reach external IdPs over HTTPS"
+  endpointSelector: {}
+  egress:
+    - toCIDRSet:
+        - cidr: "0.0.0.0/0"
+          except:
+            - "10.0.0.0/8"
+            - "172.16.0.0/12"
+            - "192.168.0.0/16"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+YAMLEOF
+
     # --- Longhorn: NFS backups to support VM ---
     cat > "$GEN_DIR/kustomize/network-egress-policy/longhorn-support.yaml" << YAMLEOF
 apiVersion: cilium.io/v2
@@ -2309,6 +2332,67 @@ spec:
             - port: "11434"
               protocol: TCP
 YAMLEOF
+
+    # --- Open WebUI: internet access (model downloads, web search, etc.) ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/open-webui-internet.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-internet
+  namespace: open-webui
+spec:
+  description: "Allow Open WebUI internet access"
+  endpointSelector: {}
+  egress:
+    - toCIDRSet:
+        - cidr: "0.0.0.0/0"
+          except:
+            - "10.0.0.0/8"
+            - "172.16.0.0/12"
+            - "192.168.0.0/16"
+YAMLEOF
+
+    # --- OpenClaw: internet access (tool use, web browsing, etc.) ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/openclaw-internet.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-internet
+  namespace: openclaw
+spec:
+  description: "Allow OpenClaw internet access"
+  endpointSelector: {}
+  egress:
+    - toCIDRSet:
+        - cidr: "0.0.0.0/0"
+          except:
+            - "10.0.0.0/8"
+            - "172.16.0.0/12"
+            - "192.168.0.0/16"
+YAMLEOF
+
+    # --- SLDashboard: FQDN-based access to SL transport APIs ---
+    cat > "$GEN_DIR/kustomize/network-egress-policy/sldashboard-internet.yaml" << YAMLEOF
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-sl-apis
+  namespace: apps
+spec:
+  description: "Allow SLDashboard to reach SL transport and GTFS APIs"
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: sldashboard
+  egress:
+    - toFQDNs:
+        - matchName: "transport.integration.sl.se"
+        - matchName: "opendata.samtrafiken.se"
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+YAMLEOF
+
 else
     # ---- Canal/default CNI: standard Kubernetes NetworkPolicy ----
     echo "  Generating kustomize/network-egress-policy/ (K8s NetworkPolicy)..."
