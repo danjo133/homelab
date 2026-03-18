@@ -4,6 +4,10 @@ Infrastructure-as-code for provisioning RKE2 Kubernetes clusters on NixOS VMs, m
 
 Two clusters are defined: **kss** (Canal CNI, MetalLB, nginx ingress) and **kcs** (Cilium CNI + BGP, Istio Ambient mesh, Gateway API ingress). Both share a common support VM providing Vault, Harbor, MinIO, NFS, GitLab, Teleport, Keycloak, and OpenZiti.
 
+The easiest way forward is to ask DeepWiki, but the documentation in this repo is also pretty ok.
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/danjo133/homelab)
+
 ## Table of Contents
 
 - [AI Onboarding Prompt](#ai-onboarding-prompt)
