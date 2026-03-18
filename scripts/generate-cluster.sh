@@ -1884,6 +1884,34 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/env/1/value
         value: "${OLLAMA_URL}/v1"
+  - target:
+      kind: ConfigMap
+      name: openclaw-config
+    patch: |
+      - op: replace
+        path: /data/openclaw.json
+        value: |
+          {
+            "gateway": {
+              "mode": "local",
+              "bind": "lan",
+              "port": 18789,
+              "auth": {
+                "mode": "token"
+              },
+              "controlUi": {
+                "enabled": true,
+                "allowedOrigins": ["https://claw.${DOMAIN}"]
+              }
+            },
+            "channels": {
+              "signal": {
+                "enabled": true,
+                "autoStart": true,
+                "dmPolicy": "pairing"
+              }
+            }
+          }
 YAMLEOF
 fi
 
