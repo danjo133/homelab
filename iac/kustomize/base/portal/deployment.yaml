@@ -23,7 +23,7 @@ spec:
         - name: harbor-pull-secret
       containers:
         - name: portal
-          image: harbor.support.example.com/apps/portal:latest
+          image: harbor.example.com/apps/portal:latest
           ports:
             - containerPort: 8080
               protocol: TCP

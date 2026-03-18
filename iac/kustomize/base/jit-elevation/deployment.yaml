@@ -23,7 +23,7 @@ spec:
         - name: harbor-pull-secret
       containers:
         - name: jit-elevation
-          image: harbor.support.example.com/apps/jit-elevation:latest
+          image: harbor.example.com/apps/jit-elevation:latest
           ports:
             - containerPort: 8080
               protocol: TCP

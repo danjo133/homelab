@@ -14,7 +14,7 @@ clusterDomain: "CLUSTER_NAME.example.com"
 # --- Domains ---
 supportDomain: "support.example.com"
 rootDomain: "example.com"
-harborRegistry: "harbor.support.example.com"
+harborRegistry: "harbor.example.com"
 gitlabUrl: "https://gitlab.support.example.com"
 gitlabSshUrl: "ssh://git@gitlab.support.example.com:2222"
 portalPrefix: "portal.homelab"

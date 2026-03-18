@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: globalpulse
-          image: harbor.support.example.com/library/globalpulse:latest
+          image: harbor.example.com/library/globalpulse:latest
           ports:
             - name: http
               containerPort: 3000

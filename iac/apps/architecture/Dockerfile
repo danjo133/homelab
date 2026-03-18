@@ -19,7 +19,8 @@ EXPOSE 8080
 RUN chown -R nginx:nginx /usr/share/nginx/html && \
     chown -R nginx:nginx /var/cache/nginx && \
     chown -R nginx:nginx /var/log/nginx && \
-    touch /var/run/nginx.pid && \
-    chown -R nginx:nginx /var/run/nginx.pid
+    mkdir -p /run && \
+    touch /run/nginx.pid && \
+    chown -R nginx:nginx /run/nginx.pid
 
 USER nginx
