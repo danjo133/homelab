@@ -3,8 +3,8 @@
 config:
   registries:
     - name: Harbor
-      api_url: https://harbor.support.example.com
-      prefix: harbor.support.example.com
+      api_url: https://harbor.example.com
+      prefix: harbor.example.com
       credentials: pullsecret:argocd/harbor-image-updater-secret
       defaultns: library
       default: true

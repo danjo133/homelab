@@ -38,7 +38,7 @@ if [[ ! -f "$CLUSTER_YAML" ]]; then
 fi
 
 PROJECT=$(yq -r '.name' "$CLUSTER_YAML")
-REGISTRY="${HARBOR_REGISTRY:-harbor.support.example.com}"
+REGISTRY="${HARBOR_REGISTRY:-harbor.example.com}"
 FULL_IMAGE="${REGISTRY}/${PROJECT}/${IMAGE}:${TAG}"
 
 # ─── Harbor login ─────────────────────────────────────────────────────────────

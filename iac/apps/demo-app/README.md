@@ -90,7 +90,7 @@ gateway:                   # Gateway API settings (KCS)
   namespace: istio-ingress
   sectionName: https
 image:
-  registry: harbor.support.example.com
+  registry: harbor.example.com
   repository: apps/app
   tag: latest
   pullPolicy: IfNotPresent

@@ -33,7 +33,7 @@ fi
 
 PROJECT=$(yq -r '.name' "$CLUSTER_YAML")
 # HARBOR_REGISTRY is set by harbor-login.sh (sourced below) via config-local.sh
-REGISTRY="${HARBOR_REGISTRY:-harbor.support.example.com}"
+REGISTRY="${HARBOR_REGISTRY:-harbor.example.com}"
 FULL_IMAGE="${REGISTRY}/${PROJECT}/${IMAGE}:${TAG}"
 
 # ─── Harbor login ─────────────────────────────────────────────────────────────

@@ -147,8 +147,13 @@ let
         PUSH_USER=$(echo "$PUSH_CREDS" | jq -r '.username')
         PUSH_PASS=$(echo "$PUSH_CREDS" | jq -r '.password')
 
-        for VAR_KEY in HARBOR_PUSH_USER HARBOR_PUSH_PASSWORD; do
-          if [ "$VAR_KEY" = "HARBOR_PUSH_USER" ]; then
+        HARBOR_REGISTRY="${deployConfig.harborRegistry}"
+
+        for VAR_KEY in HARBOR_REGISTRY HARBOR_PUSH_USER HARBOR_PUSH_PASSWORD; do
+          if [ "$VAR_KEY" = "HARBOR_REGISTRY" ]; then
+            VAR_VAL="$HARBOR_REGISTRY"
+            MASKED="false"
+          elif [ "$VAR_KEY" = "HARBOR_PUSH_USER" ]; then
             VAR_VAL="$PUSH_USER"
             MASKED="false"
           else
@@ -270,7 +275,7 @@ let
             --arg name "$REPO_NAME" \
             --arg path "$REPO_NAME" \
             --argjson nsid "$APPS_GROUP_ID" \
-            --arg ci_config "ci/mirror-build.gitlab-ci.yml@infra/kss" \
+            --arg ci_config "ci/mirror-build.gitlab-ci.yml@infra/${deployConfig.gitProjectName}" \
             '{
               name: $name,
               path: $path,
@@ -278,6 +283,13 @@ let
               ci_config_path: $ci_config,
               visibility: "internal"
             }')" >/dev/null && echo "    Created" || { echo "    WARNING: Failed to create"; continue; }
+      else
+        # Ensure ci_config_path is up to date on existing projects
+        CI_CONFIG="ci/mirror-build.gitlab-ci.yml@infra/${deployConfig.gitProjectName}"
+        curl -sf -X PUT "$GITLAB_API/projects/$EXISTING_ID" \
+          -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "X-Forwarded-Proto: https" \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n --arg ci "$CI_CONFIG" '{ci_config_path: $ci}')" >/dev/null || true
       fi
 
       # Git mirror: bare clone from GitHub, push to GitLab

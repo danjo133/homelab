@@ -3,7 +3,7 @@
 # ArgoCD Image Updater detects new SHA tags and auto-deploys.
 #
 # Required CI variables (set in GitLab project settings):
-#   HARBOR_REGISTRY     - Harbor hostname (e.g., harbor.support.example.com)
+#   HARBOR_REGISTRY     - Harbor hostname (e.g., harbor.example.com)
 #   HARBOR_PUSH_USER    - Harbor robot account username
 #   HARBOR_PUSH_PASSWORD - Harbor robot account password
 
@@ -34,7 +34,7 @@ stages:
     - docker
     - kaniko
   rules:
-    - if: '$CI_COMMIT_BRANCH == "deploy"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
       changes:
         - ${APP_DIR}/**/*
 

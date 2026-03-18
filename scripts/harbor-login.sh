@@ -19,7 +19,7 @@ CONFIG_LOCAL="${PROJECT_ROOT}/stages/lib/config-local.sh"
 if [ -f "$CONFIG_LOCAL" ]; then
   source "$CONFIG_LOCAL"
 fi
-HARBOR_REGISTRY="${HARBOR_REGISTRY:-harbor.support.example.com}"
+HARBOR_REGISTRY="${HARBOR_REGISTRY:-harbor.example.com}"
 VAULT_URL="${VAULT_URL:-https://vault.support.example.com}"
 VAULT_KEYS_BACKUP="${PROJECT_ROOT}/iac/.vault-keys-backup.json"
 

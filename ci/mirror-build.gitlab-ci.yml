@@ -1,6 +1,11 @@
 # CI pipeline for mirrored GitHub repos
-# Referenced via ci_config_path: "ci/mirror-build.gitlab-ci.yml@infra/kss"
+# Referenced via ci_config_path in GitLab project settings (set by github-mirror sync)
 # Builds container images with Kaniko and pushes to Harbor apps/ project
+#
+# Required group CI/CD variables (set by github-mirror-sync):
+#   HARBOR_REGISTRY      - Harbor hostname
+#   HARBOR_PUSH_USER     - Harbor robot account username
+#   HARBOR_PUSH_PASSWORD - Harbor robot account password
 
 stages:
   - build
@@ -8,7 +13,7 @@ stages:
 build:
   stage: build
   image:
-    name: harbor.support.example.com/gcr.io/kaniko-project/executor:debug
+    name: ${HARBOR_REGISTRY}/gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
   rules:
     - exists:
@@ -18,16 +23,16 @@ build:
     - mkdir -p /kaniko/.docker
     - >-
       AUTH=$(printf '%s:%s' "${HARBOR_PUSH_USER}" "${HARBOR_PUSH_PASSWORD}" | base64 | tr -d '\n')
-      && printf '{"auths":{"harbor.support.example.com":{"auth":"%s"}}}' "$AUTH"
+      && printf '{"auths":{"%s":{"auth":"%s"}}}' "${HARBOR_REGISTRY}" "$AUTH"
       > /kaniko/.docker/config.json
     - >-
       /kaniko/executor
       --context "${CI_PROJECT_DIR}"
       --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
-      --destination "harbor.support.example.com/apps/${IMAGE_NAME}:${CI_COMMIT_SHA}"
-      --destination "harbor.support.example.com/apps/${IMAGE_NAME}:latest"
+      --destination "${HARBOR_REGISTRY}/apps/${IMAGE_NAME}:${CI_COMMIT_SHA}"
+      --destination "${HARBOR_REGISTRY}/apps/${IMAGE_NAME}:latest"
       --cache=true
-      --cache-repo "harbor.support.example.com/apps/${IMAGE_NAME}/cache"
+      --cache-repo "${HARBOR_REGISTRY}/apps/${IMAGE_NAME}/cache"
       --snapshot-mode=redo
   tags:
     - docker

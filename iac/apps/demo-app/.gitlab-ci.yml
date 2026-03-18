@@ -4,7 +4,7 @@ stages:
 build:
   stage: build
   image:
-    name: harbor.support.example.com/gcr.io/kaniko-project/executor:debug
+    name: harbor.example.com/gcr.io/kaniko-project/executor:debug
     entrypoint: [""]
   rules:
     - exists:
@@ -14,16 +14,16 @@ build:
     - mkdir -p /kaniko/.docker
     - >-
       AUTH=$(printf '%s:%s' "${HARBOR_PUSH_USER}" "${HARBOR_PUSH_PASSWORD}" | base64 | tr -d '\n')
-      && printf '{"auths":{"harbor.support.example.com":{"auth":"%s"}}}' "$AUTH"
+      && printf '{"auths":{"harbor.example.com":{"auth":"%s"}}}' "$AUTH"
       > /kaniko/.docker/config.json
     - >-
       /kaniko/executor
       --context "${CI_PROJECT_DIR}"
       --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
-      --destination "harbor.support.example.com/apps/${IMAGE_NAME}:${CI_COMMIT_SHA}"
-      --destination "harbor.support.example.com/apps/${IMAGE_NAME}:latest"
+      --destination "harbor.example.com/apps/${IMAGE_NAME}:${CI_COMMIT_SHA}"
+      --destination "harbor.example.com/apps/${IMAGE_NAME}:latest"
       --cache=true
-      --cache-repo "harbor.support.example.com/apps/${IMAGE_NAME}/cache"
+      --cache-repo "harbor.example.com/apps/${IMAGE_NAME}/cache"
       --snapshot-mode=redo
   tags:
     - docker
