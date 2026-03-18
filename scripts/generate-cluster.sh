@@ -1894,6 +1894,9 @@ patches:
       name: openclaw
     patch: |
       - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: "${HARBOR_REGISTRY}/apps/openclaw:latest"
+      - op: replace
         path: /spec/template/spec/containers/0/env/1/value
         value: "${OLLAMA_URL}/v1"
   - target:
