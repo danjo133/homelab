@@ -1,0 +1,9 @@
+{
+  "name": "openclaw-plugin-searxng-search",
+  "version": "1.0.0",
+  "description": "Web search via self-hosted SearXNG metasearch engine",
+  "main": "searxng-search.js",
+  "openclaw": {
+    "extensions": ["./searxng-search.js"]
+  }
+}

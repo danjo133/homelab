@@ -16,4 +16,7 @@ RUN apt-get update \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
 
+# Install custom plugins
+COPY plugins/ /opt/openclaw-plugins/
+
 USER 1000

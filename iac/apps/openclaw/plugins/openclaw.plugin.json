@@ -1,0 +1,14 @@
+{
+  "id": "searxng-search",
+  "name": "SearXNG Search",
+  "version": "1.0.0",
+  "description": "Web search via self-hosted SearXNG metasearch engine",
+  "entry": "searxng-search.js",
+  "configSchema": {
+    "jsonSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    }
+  }
+}
