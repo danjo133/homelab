@@ -1948,6 +1948,15 @@ patches:
                 }
               }
             },
+            "mcpServers": {
+              "searxng": {
+                "command": "npx",
+                "args": ["-y", "mcporter", "run", "searxng"],
+                "env": {
+                  "SEARXNG_URL": "http://searxng.open-webui.svc.cluster.local:8080"
+                }
+              }
+            },
             "channels": {
               "signal": {
                 "enabled": $([ -n "$SIGNAL_ACCOUNT" ] && echo true || echo false),
