@@ -27,11 +27,14 @@ spec:
         - name: harbor-pull-secret
       initContainers:
         - name: init-config
-          image: busybox:1.36
+          image: harbor.example.com/apps/openclaw:latest
           command:
             - sh
             - -c
-            - cp /config/openclaw.json /home/node/.openclaw/openclaw.json
+            - |
+              cp /config/openclaw.json /home/node/.openclaw/openclaw.json
+              mkdir -p /home/node/.openclaw/extensions/searxng-search
+              cp /opt/openclaw-plugins/* /home/node/.openclaw/extensions/searxng-search/
           volumeMounts:
             - name: data
               mountPath: /home/node/.openclaw
