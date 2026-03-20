@@ -1,0 +1,70 @@
+# kube-bench CIS Kubernetes Benchmark — daily node-level compliance checks
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kube-bench
+  namespace: trivy-system
+  labels:
+    app: kube-bench
+spec:
+  schedule: "0 2 * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app: kube-bench
+        spec:
+          hostPID: true
+          restartPolicy: Never
+          tolerations:
+            - key: node-role.kubernetes.io/control-plane
+              operator: Exists
+              effect: NoSchedule
+          nodeSelector:
+            node-role.kubernetes.io/master: "true"
+          containers:
+            - name: kube-bench
+              image: harbor.example.com/docker.io/aquasec/kube-bench:v0.9.3
+              command:
+                - kube-bench
+                - run
+                - --targets
+                - master,node,policies
+                - --json
+              volumeMounts:
+                - name: var-lib-kubelet
+                  mountPath: /var/lib/kubelet
+                  readOnly: true
+                - name: etc-rancher
+                  mountPath: /etc/rancher
+                  readOnly: true
+                - name: var-lib-rancher
+                  mountPath: /var/lib/rancher
+                  readOnly: true
+                - name: var-log-kubernetes
+                  mountPath: /var/log/kubernetes
+                  readOnly: true
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 256Mi
+          volumes:
+            - name: var-lib-kubelet
+              hostPath:
+                path: /var/lib/kubelet
+            - name: etc-rancher
+              hostPath:
+                path: /etc/rancher
+            - name: var-lib-rancher
+              hostPath:
+                path: /var/lib/rancher
+            - name: var-log-kubernetes
+              hostPath:
+                path: /var/log/kubernetes

@@ -1,11 +1,11 @@
-# Trivy operator — container vulnerability scanning
+# Trivy operator — container vulnerability + compliance scanning
 operator:
   scanJobsConcurrentLimit: 3
   vulnerabilityScannerEnabled: true
-  configAuditScannerEnabled: false
-  rbacAssessmentScannerEnabled: false
-  infraAssessmentScannerEnabled: false
-  clusterComplianceEnabled: false
+  configAuditScannerEnabled: true
+  rbacAssessmentScannerEnabled: true
+  infraAssessmentScannerEnabled: true
+  clusterComplianceEnabled: true
 
 trivy:
   severity: CRITICAL,HIGH
@@ -27,4 +27,4 @@ resources:
     cpu: 20m
     memory: 128Mi
   limits:
-    memory: 256Mi
+    memory: 512Mi

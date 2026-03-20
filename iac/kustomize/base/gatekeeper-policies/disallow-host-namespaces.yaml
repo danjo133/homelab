@@ -1,0 +1,49 @@
+# Disallow hostNetwork, hostPID, and hostIPC
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8sdisallowhostnamespaces
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sDisallowHostNamespaces
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8sdisallowhostnamespaces
+
+        violation[{"msg": msg}] {
+          input.review.object.spec.hostNetwork == true
+          msg := "hostNetwork is not allowed"
+        }
+
+        violation[{"msg": msg}] {
+          input.review.object.spec.hostPID == true
+          msg := "hostPID is not allowed"
+        }
+
+        violation[{"msg": msg}] {
+          input.review.object.spec.hostIPC == true
+          msg := "hostIPC is not allowed"
+        }
+---
+# Enforce: no host namespace sharing in user namespaces
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sDisallowHostNamespaces
+metadata:
+  name: no-host-namespaces
+spec:
+  enforcementAction: deny
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    excludedNamespaces:
+      - kube-system
+      - gatekeeper-system
+      - longhorn-system
+      - spire-system
+      - monitoring
+      - beyla-system
+      - trivy-system

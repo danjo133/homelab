@@ -13,5 +13,7 @@ data:
   MAX_DURATION: "300"
   # Cooldown between elevations in seconds (default 15 minutes)
   COOLDOWN: "900"
+  # Allowed CORS origin (set to JIT UI domain)
+  ALLOWED_ORIGIN: "https://jit.example.com"
   # Log level
   LOG_LEVEL: "info"

@@ -4,8 +4,41 @@ resource "vault_policy" "external_secrets" {
   name = "external-secrets"
 
   policy = <<-EOT
-    # Policy for external-secrets operator
-    path "secret/data/*" {
+    # Policy for external-secrets operator — scoped to known secret paths
+    path "secret/data/keycloak/*" {
+      capabilities = ["read"]
+    }
+    path "secret/data/oauth2-proxy" {
+      capabilities = ["read"]
+    }
+    path "secret/data/harbor/*" {
+      capabilities = ["read"]
+    }
+    path "secret/data/grafana/*" {
+      capabilities = ["read"]
+    }
+    path "secret/data/minio/*" {
+      capabilities = ["read"]
+    }
+    path "secret/data/cloudflare" {
+      capabilities = ["read"]
+    }
+    path "secret/data/teleport/*" {
+      capabilities = ["read"]
+    }
+    path "secret/data/ziti/*" {
+      capabilities = ["read"]
+    }
+    path "secret/data/open-webui/*" {
+      capabilities = ["read"]
+    }
+    path "secret/data/open-terminal/*" {
+      capabilities = ["read"]
+    }
+    path "secret/data/openclaw/*" {
+      capabilities = ["read"]
+    }
+    path "secret/data/mcpo/*" {
       capabilities = ["read"]
     }
     path "secret/metadata/*" {

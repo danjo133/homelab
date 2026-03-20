@@ -5,3 +5,8 @@ resources:
   - require-labels.yaml
   - disallow-privileged.yaml
   - require-resource-limits.yaml
+  - disallow-host-path.yaml
+  - disallow-host-namespaces.yaml
+  - require-non-root.yaml
+  - disallow-latest-tag.yaml
+  - require-readonly-rootfs.yaml

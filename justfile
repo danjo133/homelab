@@ -305,6 +305,40 @@ tofu-bootstrap-cluster:
     tofu -chdir="tofu/environments/${KSS_CLUSTER}" apply
     success "Bootstrap complete for ${KSS_CLUSTER}"
 
+# ─── Security ─────────────────────────────────
+
+# Run full security audit (all scanners)
+security-audit:
+    ./stages/7_security/audit.sh
+
+# IaC misconfiguration scan (Trivy config)
+security-iac:
+    ./stages/7_security/trivy-iac.sh
+
+# Application vulnerability scan (Trivy fs)
+security-vulns:
+    ./stages/7_security/trivy-fs.sh
+
+# OpenTofu linting (tflint)
+security-tflint:
+    ./stages/7_security/tflint.sh
+
+# Shell script analysis (ShellCheck)
+security-shellcheck:
+    ./stages/7_security/shellcheck-all.sh
+
+# SBOM vulnerability scan (Grype)
+security-grype:
+    ./stages/7_security/grype-sbom.sh
+
+# Secrets detection scan
+security-secrets:
+    ./stages/7_security/secrets-scan.sh
+
+# CIS compliance check against live cluster (requires KUBECONFIG)
+security-compliance:
+    ./stages/7_security/compliance-local.sh
+
 # ─── Debug ────────────────────────────────────
 
 # Cilium debugging (status, health, endpoints, services, config, bpf, logs, restart)

@@ -23,6 +23,7 @@ The easiest way forward is to ask DeepWiki, but the documentation in this repo i
 - [Zero-Trust Networking (OpenZiti)](#zero-trust-networking-openziti)
 - [Remote Access (Teleport)](#remote-access-teleport)
 - [Platform Services](#platform-services)
+  - [Security & Compliance](#security--compliance)
 - [Custom Applications](#custom-applications)
 - [OpenTofu IaC](#opentofu-iac)
 - [Istio Ambient Mesh (kcs cluster)](#istio-ambient-mesh-kcs-cluster)
@@ -1013,6 +1014,64 @@ LLM chat interface with OIDC authentication and PostgreSQL storage.
 - **Database:** CNPG PostgreSQL cluster
 - **Helm values:** `iac/argocd/values/{base,kss,kcs}/open-webui.yaml`
 - **Kustomize config:** `iac/kustomize/base/open-webui/` (DB cluster, OIDC + DB external secrets)
+
+### Security & Compliance
+
+Multi-layered security framework covering static analysis, admission control, runtime monitoring, and continuous compliance scoring.
+
+#### Local Security Scanning (`just security-*`)
+
+Repeatable local scanning framework using tools from the Nix dev shell:
+
+| Command | Tool | What it scans |
+|---------|------|---------------|
+| `just security-audit` | All | Full audit — runs all scanners below |
+| `just security-iac` | Trivy config | IaC misconfigurations (kustomize, Helm values, NixOS, OpenTofu) |
+| `just security-vulns` | Trivy fs | Application vulnerabilities (Python deps, Dockerfiles) |
+| `just security-tflint` | tflint | OpenTofu linting (modules + environments) |
+| `just security-shellcheck` | ShellCheck | Shell script analysis (stages, scripts, tofu) |
+| `just security-grype` | Grype | SBOM vulnerability analysis (app source) |
+| `just security-secrets` | Trivy + pre-commit | Secrets detection (full repo) |
+| `just security-compliance` | Trivy k8s | CIS + NSA compliance vs live cluster (requires KUBECONFIG) |
+
+Results are written to `security-audit-results/` (gitignored). Scripts live in `stages/7_security/`.
+
+#### Admission Control (OPA Gatekeeper)
+
+8 policies enforced via OPA Gatekeeper (`iac/kustomize/base/gatekeeper-policies/`):
+
+| Policy | Action | What it prevents |
+|--------|--------|-----------------|
+| `disallow-privileged` | **deny** | Privileged containers |
+| `disallow-host-path` | **deny** | hostPath volume mounts |
+| `disallow-host-namespaces` | **deny** | hostNetwork/hostPID/hostIPC |
+| `require-resource-limits` | warn | Missing CPU/memory limits |
+| `require-labels` | warn | Namespaces without `owner` label |
+| `require-non-root` | warn | Containers not running as non-root |
+| `disallow-latest-tag` | warn | Images using `:latest` or no tag |
+| `require-readonly-rootfs` | warn | Writable root filesystem |
+
+System namespaces (kube-system, gatekeeper-system, longhorn-system, etc.) are excluded. Warn policies can be graduated to deny once all workloads comply.
+
+#### In-Cluster Continuous Compliance
+
+- **Trivy Operator** (`trivy-system`): Continuously generates `ConfigAuditReport`, `RbacAssessmentReport`, `InfraAssessmentReport`, and `ClusterComplianceReport` CRDs. Metrics scraped by Prometheus via ServiceMonitor.
+- **kube-bench** (`trivy-system`): Daily CronJob running CIS Kubernetes Benchmark against master/node/policy targets. Results available via `kubectl logs -n trivy-system -l app=kube-bench`.
+- **Grafana Dashboard**: "Security Compliance" dashboard auto-provisioned via sidecar, showing config audit pass rates, RBAC findings, infra assessment findings, and per-namespace breakdowns.
+
+#### Runtime Security (kcs cluster)
+
+- **Tetragon:** eBPF runtime security with 4 TracingPolicies monitoring privilege escalation, kernel module loading, sensitive file access, and process execution. Prometheus alerts for critical events.
+- **Cilium Network Policies:** Default-deny with per-service egress allowlists. Uses entity-based rules for Istio Ambient compatibility.
+- **Istio AuthorizationPolicy:** L4/L7 access control with SPIFFE identity for mesh workloads.
+
+#### CI/CD Security (GitLab)
+
+GitLab CI pipeline (`.gitlab-ci.yml`) includes:
+- SAST (static application security testing)
+- Secret detection
+- Container image scanning
+- IaC scanning
 
 ---
 

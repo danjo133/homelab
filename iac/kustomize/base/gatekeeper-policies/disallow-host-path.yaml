@@ -1,0 +1,38 @@
+# Disallow hostPath volumes
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8sdisallowhostpath
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sDisallowHostPath
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8sdisallowhostpath
+
+        violation[{"msg": msg}] {
+          volume := input.review.object.spec.volumes[_]
+          volume.hostPath
+          msg := sprintf("hostPath volume not allowed: %v", [volume.name])
+        }
+---
+# Enforce: no hostPath volumes in user namespaces
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sDisallowHostPath
+metadata:
+  name: no-host-path-volumes
+spec:
+  enforcementAction: deny
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    excludedNamespaces:
+      - kube-system
+      - gatekeeper-system
+      - longhorn-system
+      - spire-system
+      - trivy-system

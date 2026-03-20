@@ -6,7 +6,7 @@
 resource "harbor_project" "cluster" {
   name                   = var.cluster_name
   public                 = false
-  vulnerability_scanning = false
+  vulnerability_scanning = true
   force_destroy          = false
   storage_quota          = -1
 }

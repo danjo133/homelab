@@ -73,6 +73,9 @@ tofu/environments/*/backend.tf
 trivy-results.json
 trivy-results.*.json
 
+# Security audit results
+security-audit-results/
+
 # Logs
 *.log
 logs/

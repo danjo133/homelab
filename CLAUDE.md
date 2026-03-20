@@ -14,7 +14,7 @@ Kubernetes homelab infrastructure-as-code: RKE2 clusters on NixOS VMs, managed b
 - kcs cluster (1 master + 3 workers, Cilium CNI + BGP, Istio Ambient mesh, Gateway API ingress)
 - Keycloak broker with upstream IdP federation, ArgoCD OIDC, cert-manager, external-secrets
 - Monitoring (Prometheus, Grafana, Loki, Alloy, Alertmanager)
-- OPA Gatekeeper — admission control with privileged deny + resource/label warnings
+- OPA Gatekeeper — admission control with 8 policies (3 deny: privileged, hostPath, hostNamespaces; 5 warn: resource limits, labels, non-root, latest tag, read-only rootfs)
 - OAuth2-Proxy — OIDC SSO via broker Keycloak, nginx auth_request (kss) / ext-authz (kcs)
 - SPIRE — SPIFFE workload identity, OIDC discovery, CSI driver
 - OpenZiti — zero-trust overlay network with per-cluster routers and client enrollment
@@ -108,6 +108,16 @@ just tofu-seed-broker         # Seed broker IdP secrets into Vault
 just tofu-migrate-broker      # Migrate broker realm to OpenTofu (requires KSS_CLUSTER)
 just tofu-migrate-secrets     # Remove placeholder secrets from state (requires KSS_CLUSTER)
 just tofu-bootstrap-cluster   # Full cluster bootstrap: seed → init → import → apply
+
+# Security
+just security-audit           # Run all security scanners
+just security-iac             # IaC misconfiguration scan (Trivy config)
+just security-vulns           # App vulnerability scan (Trivy fs)
+just security-tflint          # OpenTofu linting
+just security-shellcheck      # Shell script analysis
+just security-grype           # SBOM vulnerability scan (Grype)
+just security-secrets         # Secrets detection scan
+just security-compliance      # CIS compliance vs live cluster (requires KUBECONFIG)
 
 # Debug
 just debug-cilium [cmd]       # status/health/endpoints/services/config/bpf/logs/restart
@@ -213,6 +223,7 @@ stages/                           # Operational scripts
   4_bootstrap/                    # ArgoCD bootstrap, vault-auth, secrets, status
   5_identity/                     # keycloak, oidc, spire, gatekeeper, oauth2-proxy, jit, setup
   6_platform/                     # longhorn, monitoring, trivy
+  7_security/                     # security audit scanners (trivy, tflint, shellcheck, grype)
   debug/                          # cilium, network, cluster-diag
 
 iac/                              # Infrastructure definitions

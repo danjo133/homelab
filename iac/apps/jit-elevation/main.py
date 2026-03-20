@@ -30,6 +30,7 @@ CLIENT_SECRET = os.environ["CLIENT_SECRET"]
 ELIGIBLE_GROUPS = os.environ.get("ELIGIBLE_GROUPS", "platform-admins,k8s-admins").split(",")
 MAX_DURATION = int(os.environ.get("MAX_DURATION", "300"))
 COOLDOWN = int(os.environ.get("COOLDOWN", "900"))
+ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "")
 
 TOKEN_ENDPOINT = f"{KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/token"
 USERINFO_ENDPOINT = f"{KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/userinfo"
@@ -172,13 +173,15 @@ class JITHandler(BaseHTTPRequestHandler):
     def send_json(self, status, data):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        if ALLOWED_ORIGIN:
+            self.send_header("Access-Control-Allow-Origin", ALLOWED_ORIGIN)
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
 
     def do_OPTIONS(self):
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        if ALLOWED_ORIGIN:
+            self.send_header("Access-Control-Allow-Origin", ALLOWED_ORIGIN)
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
         self.end_headers()

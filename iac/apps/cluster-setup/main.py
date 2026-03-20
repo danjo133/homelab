@@ -24,6 +24,7 @@ CLUSTER_NAME = os.environ["CLUSTER_NAME"]
 CLUSTER_DOMAIN = os.environ["CLUSTER_DOMAIN"]
 KEYCLOAK_URL = os.environ["KEYCLOAK_URL"]
 API_SERVER = os.environ["API_SERVER"]
+CLUSTER_CA_DATA = os.environ.get("CLUSTER_CA_DATA", "")
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -49,12 +50,16 @@ def decode_jwt_payload(token):
 
 def generate_kubeconfig():
     """Generate OIDC kubeconfig YAML from environment variables."""
+    if CLUSTER_CA_DATA:
+        cluster_tls = f"    certificate-authority-data: {CLUSTER_CA_DATA}"
+    else:
+        cluster_tls = "    insecure-skip-tls-verify: true"
     return f"""apiVersion: v1
 kind: Config
 clusters:
 - cluster:
     server: {API_SERVER}
-    insecure-skip-tls-verify: true
+{cluster_tls}
   name: {CLUSTER_NAME}-oidc
 contexts:
 - context:
@@ -115,7 +120,6 @@ class SetupHandler(BaseHTTPRequestHandler):
             "email": email,
             "groups": groups.split(",") if groups else [],
             "claims": claims,
-            "raw_token": access_token,
         })
 
     def handle_kubeconfig(self):
