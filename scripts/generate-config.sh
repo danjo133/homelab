@@ -190,7 +190,7 @@ harbor_url       = "${HARBOR_URL}"
 base_domain      = "${BASE_DOMAIN}"
 support_domain   = "${SUPPORT_DOMAIN}"
 email_domain     = "${BASE_DOMAIN}"
-cluster_names    = ["$(echo $(get_clusters) | sed 's/ /", "/g')"]
+cluster_names    = ["$(echo "$(get_clusters)" | sed 's/ /", "/g')"]
 EOF
 
 # Append extra_users from config.yaml identity.users

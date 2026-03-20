@@ -3,6 +3,7 @@
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 
 RESULTS_DIR="${PROJECT_ROOT}/security-audit-results"
+rm -rf "$RESULTS_DIR"
 mkdir -p "$RESULTS_DIR"
 
 header "Security Audit — $(date -Iseconds)"

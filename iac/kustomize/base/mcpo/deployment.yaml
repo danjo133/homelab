@@ -19,6 +19,10 @@ spec:
         app.kubernetes.io/component: mcp-proxy
         app.kubernetes.io/part-of: open-webui
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10006
+        fsGroup: 10006
       containers:
         - name: mcpo
           image: ghcr.io/open-webui/mcpo:latest
@@ -37,10 +41,19 @@ spec:
                   key: gitlab-token
             - name: GITLAB_API_URL
               value: "https://gitlab.support.example.com/api/v4"
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           volumeMounts:
             - name: config
               mountPath: /app/config
               readOnly: true
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 50m
@@ -63,3 +76,6 @@ spec:
         - name: config
           configMap:
             name: mcpo-config
+        - name: tmp
+          emptyDir:
+            sizeLimit: 10Mi

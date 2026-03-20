@@ -42,7 +42,7 @@ fi
 
 # ─── Execution Helpers ────────────────────────────────────────────────────────
 
-VAGRANT_SSH_KEY="~/.vagrant.d/ecdsa_private_key"
+VAGRANT_SSH_KEY="$HOME/.vagrant.d/ecdsa_private_key"
 
 VAULT_KEYS_BACKUP="${IAC_DIR}/.vault-keys-backup.json"
 

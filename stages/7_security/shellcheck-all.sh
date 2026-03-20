@@ -22,7 +22,6 @@ for dir in "${search_dirs[@]}"; do
     [[ -d "$dir" ]] || continue
     while IFS= read -r -d '' script; do
         file_count=$((file_count + 1))
-        rel_path="${script#${PROJECT_ROOT}/}"
         if ! shellcheck --severity=warning "$script" 2>&1 | tee -a "${RESULTS_DIR}/shellcheck.txt"; then
             fail_count=$((fail_count + 1))
             exit_code=1

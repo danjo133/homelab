@@ -18,6 +18,10 @@ spec:
       labels:
         app: portal
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10002
+        fsGroup: 10002
       serviceAccountName: portal
       imagePullSecrets:
         - name: harbor-pull-secret

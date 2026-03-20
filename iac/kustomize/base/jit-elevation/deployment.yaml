@@ -18,6 +18,10 @@ spec:
       labels:
         app: jit-elevation
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10003
+        fsGroup: 10003
       serviceAccountName: default
       imagePullSecrets:
         - name: harbor-pull-secret

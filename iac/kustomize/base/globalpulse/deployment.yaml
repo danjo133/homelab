@@ -15,6 +15,10 @@ spec:
       labels:
         app: globalpulse
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10005
+        fsGroup: 10005
       containers:
         - name: globalpulse
           image: harbor.example.com/library/globalpulse:latest
@@ -29,6 +33,16 @@ spec:
               value: "3000"
             - name: VITE_VARIANT
               value: full
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 50m
@@ -47,3 +61,7 @@ spec:
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 10Mi

@@ -36,6 +36,10 @@ spec:
                 - --targets
                 - master,node,policies
                 - --json
+              securityContext:
+                runAsNonRoot: false
+                runAsUser: 0
+                readOnlyRootFilesystem: true
               volumeMounts:
                 - name: var-lib-kubelet
                   mountPath: /var/lib/kubelet

@@ -22,6 +22,9 @@
 
 set -euo pipefail
 
+# TF_VAR_* variables are provided via environment before script invocation
+# shellcheck disable=SC2154
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 source "$PROJECT_ROOT/stages/lib/common.sh"

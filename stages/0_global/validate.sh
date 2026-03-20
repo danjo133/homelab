@@ -15,7 +15,8 @@ fi
 # Validate Kustomize
 header "Kustomize Validation"
 if command -v kustomize &>/dev/null; then
-  for overlay in base; do
+  overlays=(base)
+  for overlay in "${overlays[@]}"; do
     dir="${KUSTOMIZE_DIR}/${overlay}"
     if [[ -d "$dir" ]]; then
       if kustomize build "$dir" > /dev/null 2>&1; then

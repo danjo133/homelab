@@ -18,6 +18,10 @@ spec:
       labels:
         app: cluster-setup
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10004
+        fsGroup: 10004
       serviceAccountName: default
       imagePullSecrets:
         - name: harbor-pull-secret

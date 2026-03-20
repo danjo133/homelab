@@ -15,6 +15,10 @@ spec:
       labels:
         app: architecture
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
       imagePullSecrets:
         - name: harbor-pull-secret
       containers:
@@ -23,6 +27,16 @@ spec:
           ports:
             - containerPort: 8080
               protocol: TCP
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 5m
@@ -42,3 +56,7 @@ spec:
               port: 8080
             initialDelaySeconds: 3
             periodSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 10Mi
