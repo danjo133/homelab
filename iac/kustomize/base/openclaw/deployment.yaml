@@ -33,8 +33,10 @@ spec:
             - -c
             - |
               cp /config/openclaw.json /home/node/.openclaw/openclaw.json
-              mkdir -p /home/node/.openclaw/extensions/searxng-search
-              cp /opt/openclaw-plugins/* /home/node/.openclaw/extensions/searxng-search/
+              if [ -d /opt/openclaw-plugins ]; then
+                mkdir -p /home/node/.openclaw/extensions/searxng-search
+                cp /opt/openclaw-plugins/* /home/node/.openclaw/extensions/searxng-search/
+              fi
           volumeMounts:
             - name: data
               mountPath: /home/node/.openclaw
