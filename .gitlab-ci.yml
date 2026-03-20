@@ -75,15 +75,34 @@ build-openclaw:
     APP_NAME: openclaw
     APP_DIR: iac/apps/openclaw
 
-# --- Container scanning (per-image) ---
-# SAST, IaC scanning, and secret detection auto-detect from repo contents.
-# Container scanning requires one job per image.
+# --- Container scanning ---
+# Disable the default container_scanning job (requires CI_REGISTRY_IMAGE
+# which doesn't exist since we use Harbor, not GitLab's registry).
+# Override with per-app jobs that set CS_IMAGE explicitly.
+container_scanning:
+  rules:
+    - when: never
 
 .container-scan:
-  extends: container_scanning
+  stage: test
+  image:
+    name: registry.gitlab.com/security-products/container-scanning:8
+    entrypoint: [""]
   variables:
+    GIT_STRATEGY: none
     CS_REGISTRY_USER: ${HARBOR_PUSH_USER}
     CS_REGISTRY_PASSWORD: ${HARBOR_PUSH_PASSWORD}
+  script:
+    - gtcs scan
+  artifacts:
+    reports:
+      container_scanning: gl-container-scanning-report.json
+      cyclonedx: "**/gl-sbom-*.cdx.json"
+    paths:
+      - gl-container-scanning-report.json
+    when: always
+  tags:
+    - docker
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       changes:
