@@ -7,8 +7,15 @@
 #   HARBOR_PUSH_USER    - Harbor robot account username
 #   HARBOR_PUSH_PASSWORD - Harbor robot account password
 
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+  - template: Security/Container-Scanning.gitlab-ci.yml
+  - template: Security/SAST-IaC.gitlab-ci.yml
+
 stages:
   - build
+  - test
 
 .kaniko-build:
   stage: build
@@ -66,4 +73,48 @@ build-openclaw:
   extends: .kaniko-build
   variables:
     APP_NAME: openclaw
+    APP_DIR: iac/apps/openclaw
+
+# --- Container scanning (per-image) ---
+# SAST, IaC scanning, and secret detection auto-detect from repo contents.
+# Container scanning requires one job per image.
+
+.container-scan:
+  extends: container_scanning
+  variables:
+    CS_REGISTRY_USER: ${HARBOR_PUSH_USER}
+    CS_REGISTRY_PASSWORD: ${HARBOR_PUSH_PASSWORD}
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      changes:
+        - ${APP_DIR}/**/*
+
+scan-portal:
+  extends: .container-scan
+  variables:
+    CS_IMAGE: ${HARBOR_REGISTRY}/apps/portal:latest
+    APP_DIR: iac/apps/portal
+
+scan-jit-elevation:
+  extends: .container-scan
+  variables:
+    CS_IMAGE: ${HARBOR_REGISTRY}/apps/jit-elevation:latest
+    APP_DIR: iac/apps/jit-elevation
+
+scan-cluster-setup:
+  extends: .container-scan
+  variables:
+    CS_IMAGE: ${HARBOR_REGISTRY}/apps/cluster-setup:latest
+    APP_DIR: iac/apps/cluster-setup
+
+scan-architecture:
+  extends: .container-scan
+  variables:
+    CS_IMAGE: ${HARBOR_REGISTRY}/apps/architecture:latest
+    APP_DIR: iac/apps/architecture
+
+scan-openclaw:
+  extends: .container-scan
+  variables:
+    CS_IMAGE: ${HARBOR_REGISTRY}/apps/openclaw:latest
     APP_DIR: iac/apps/openclaw
