@@ -1,0 +1,208 @@
+# HTTPRoute definitions for Gateway API ingress
+# Auto-discovered by gateway templates — each entry generates an HTTPRoute resource
+#
+# Fields:
+#   name:        HTTPRoute metadata.name and resource filename stem
+#   filename:    Output filename (overrides default of "<name>-httproute.yaml")
+#   namespace:   Kubernetes namespace for the HTTPRoute
+#   hostname:    Subdomain prefix (prepended to cluster domain)
+#   serviceName: Backend service name
+#   servicePort: Backend service port
+#   pathPrefix:  URL path prefix (default: /)
+#   portal:      Portal annotations (omit to skip portal annotations)
+#     name:        Display name
+#     description: Short description
+#     icon:        Unicode emoji
+#     category:    Portal category
+#     order:       Sort order within category
+
+routes:
+  - name: argocd
+    filename: argocd-httproute.yaml
+    namespace: argocd
+    hostname: argocd
+    serviceName: argocd-server
+    servicePort: 80
+    portal:
+      name: "ArgoCD"
+      description: "GitOps continuous delivery"
+      icon: "\U0001F680"
+      category: "Platform"
+      order: "10"
+
+  - name: keycloak
+    filename: keycloak-httproute.yaml
+    namespace: keycloak
+    hostname: auth
+    serviceName: broker-keycloak-service
+    servicePort: 8080
+    portal:
+      name: "Keycloak"
+      description: "Broker identity provider"
+      icon: "\U0001F511"
+      category: "Identity"
+      order: "10"
+
+  - name: grafana
+    filename: grafana-httproute.yaml
+    namespace: monitoring
+    hostname: grafana
+    serviceName: kube-prometheus-stack-grafana
+    servicePort: 80
+    portal:
+      name: "Grafana"
+      description: "Dashboards and observability"
+      icon: "\U0001F4CA"
+      category: "Monitoring"
+      order: "10"
+
+  - name: oauth2-proxy
+    filename: oauth2-proxy-httproute.yaml
+    namespace: oauth2-proxy
+    hostname: oauth2-proxy
+    serviceName: oauth2-proxy
+    servicePort: 80
+    pathPrefix: /oauth2
+
+  - name: jit-elevation
+    filename: jit-httproute.yaml
+    namespace: identity
+    hostname: jit
+    serviceName: jit-elevation
+    servicePort: 80
+    portal:
+      name: "JIT Elevation"
+      description: "Temporary privilege escalation"
+      icon: "\U0001F6E1"
+      category: "Identity"
+      order: "20"
+
+  - name: cluster-setup
+    filename: setup-httproute.yaml
+    namespace: identity
+    hostname: setup
+    serviceName: cluster-setup
+    servicePort: 80
+    portal:
+      name: "Cluster Setup"
+      description: "OIDC kubeconfig download"
+      icon: "\U00002699"
+      category: "Identity"
+      order: "30"
+
+  - name: hubble-ui
+    filename: hubble-httproute.yaml
+    namespace: kube-system
+    hostname: hubble
+    serviceName: hubble-ui
+    servicePort: 80
+    portal:
+      name: "Hubble"
+      description: "Cilium network observability"
+      icon: "\U0001F52D"
+      category: "Monitoring"
+      order: "30"
+
+  - name: kiali
+    filename: kiali-httproute.yaml
+    namespace: istio-system
+    hostname: kiali
+    serviceName: kiali
+    servicePort: 20001
+    portal:
+      name: "Kiali"
+      description: "Istio service mesh console"
+      icon: "\U0001F578"
+      category: "Monitoring"
+      order: "20"
+
+  - name: headlamp
+    filename: headlamp-httproute.yaml
+    namespace: headlamp
+    hostname: k8s
+    serviceName: headlamp
+    servicePort: 80
+    portal:
+      name: "Headlamp"
+      description: "Kubernetes dashboard"
+      icon: "\U0001F4BB"
+      category: "Platform"
+      order: "20"
+
+  - name: portal
+    filename: httproute-portal.yaml
+    namespace: kube-public
+    hostname: portal
+    serviceName: portal
+    servicePort: 80
+    portal:
+      name: "Cluster Portal"
+      description: "Service discovery landing page"
+      icon: "\U0001F9ED"
+      category: "Platform"
+      order: "0"
+
+  - name: architecture
+    filename: httproute-architecture.yaml
+    namespace: kube-public
+    hostname: architecture
+    serviceName: architecture
+    servicePort: 80
+    portal:
+      name: "Architecture"
+      description: "C4 infrastructure diagrams"
+      icon: "\U0001F3D7"
+      category: "Apps"
+      order: "10"
+
+  - name: globalpulse
+    filename: httproute-globalpulse.yaml
+    namespace: globalpulse
+    hostname: world
+    serviceName: globalpulse
+    servicePort: 80
+    portal:
+      name: "World Monitor"
+      description: "Global infrastructure status"
+      icon: "\U0001F30D"
+      category: "Apps"
+      order: "20"
+
+  - name: open-webui
+    filename: httproute-open-webui.yaml
+    namespace: open-webui
+    hostname: chat
+    serviceName: open-webui
+    servicePort: 80
+    portal:
+      name: "Open WebUI"
+      description: "LLM chat interface"
+      icon: "\U0001F4AC"
+      category: "Apps"
+      order: "30"
+
+  - name: openclaw
+    filename: httproute-openclaw.yaml
+    namespace: openclaw
+    hostname: claw
+    serviceName: openclaw
+    servicePort: 18789
+    portal:
+      name: "OpenClaw"
+      description: "AI assistant with Signal"
+      icon: "\U0001F916"
+      category: "Apps"
+      order: "35"
+
+  - name: longhorn
+    filename: httproute-longhorn.yaml
+    namespace: longhorn-system
+    hostname: longhorn
+    serviceName: longhorn-frontend
+    servicePort: 80
+    portal:
+      name: "Longhorn"
+      description: "Distributed block storage"
+      icon: "\U0001F4BE"
+      category: "Platform"
+      order: "30"

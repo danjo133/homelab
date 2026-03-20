@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - default-policy.yaml
+  - allow-ambient-hostprobes.yaml
+  - ztunnel-mesh.yaml
+  - ingress-external.yaml
+  - policies.yaml

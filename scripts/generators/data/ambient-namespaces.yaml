@@ -1,0 +1,28 @@
+# Namespaces to enroll in Istio ambient mesh.
+# Excludes: kube-system, kube-node-lease, istio-system, istio-ingress,
+# cilium-secrets, beyla-system, spire-system (hostNetwork / control plane)
+
+namespaces:
+  - apps
+  - argocd
+  - cert-manager
+  - cnpg-system
+  - default
+  - external-dns
+  - external-secrets
+  - gatekeeper-system
+  - globalpulse
+  - headlamp
+  - identity
+  - keycloak
+  - keycloak-operator
+  - kube-public
+  - longhorn-system
+  - monitoring
+  - oauth2-proxy
+  - open-webui
+  - openclaw
+  - teleport
+  - trivy-system
+  - vault-auth
+  - ziti-system

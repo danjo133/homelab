@@ -37,9 +37,10 @@
             sops
             age
 
-            # Data wrangling
+            # Data wrangling & templating
             jq
             yq-go
+            gomplate
 
             # Container tools
             skopeo

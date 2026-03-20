@@ -1,0 +1,43 @@
+services:
+  - id: vault
+    name: Vault
+    description: "Secrets management & PKI"
+    icon: "\U0001F510"
+    category: Infrastructure
+    order: "10"
+    subdomain: vault
+  - id: harbor
+    name: Harbor
+    description: "Container registry & image scanning"
+    icon: "\U0001F433"
+    category: Infrastructure
+    order: "20"
+    subdomain: harbor
+  - id: minio
+    name: MinIO
+    description: "Object storage console"
+    icon: "\U0001F4E6"
+    category: Infrastructure
+    order: "30"
+    subdomain: minio-console
+  - id: gitlab
+    name: GitLab
+    description: "Git hosting & CI/CD"
+    icon: "\U0001F98A"
+    category: Infrastructure
+    order: "40"
+    subdomain: gitlab
+  - id: keycloak
+    name: Keycloak
+    description: "Upstream identity provider"
+    icon: "\U0001F511"
+    category: Infrastructure
+    order: "50"
+    subdomain: idp
+  - id: ziti
+    name: OpenZiti
+    description: "Zero-trust network admin console"
+    icon: "\U0001F310"
+    category: Infrastructure
+    order: "60"
+    subdomain: zac

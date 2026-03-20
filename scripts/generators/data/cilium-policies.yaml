@@ -1,0 +1,170 @@
+# Cilium per-namespace egress policy definitions
+# Each entry generates a CiliumNetworkPolicy resource
+# Used by: templates/kustomize/network-egress/cilium/policies.yaml.tpl
+#
+# The supportVmIp, gatewayIp, and ollamaIp fields use the placeholder
+# "SUPPORT_VM_IP", "GATEWAY_IP", or "OLLAMA_IP" which are replaced by
+# the template with actual values from the context.
+
+policies:
+  - name: coredns-upstream
+    filename: coredns-upstream.yaml
+    namespace: kube-system
+    description: "Allow CoreDNS to forward upstream DNS queries to the router"
+    endpointSelector:
+      matchLabels:
+        k8s-app: kube-dns
+    egress:
+      - toCIDR: "GATEWAY_IP"
+        ports:
+          - port: "53"
+            protocol: ANY
+
+  - name: allow-external
+    filename: argocd-external.yaml
+    namespace: argocd
+    description: "Allow ArgoCD access to GitLab, Harbor, and external Helm repos"
+    egress:
+      - toCIDR: "SUPPORT_VM_IP"
+      - internet: true
+
+  - name: allow-vault
+    filename: vault-access.yaml
+    namespace: external-secrets
+    description: "Allow external-secrets to reach Vault on support VM"
+    egress:
+      - toCIDR: "SUPPORT_VM_IP"
+        ports:
+          - port: "443"
+            protocol: TCP
+          - port: "8200"
+            protocol: TCP
+
+  - name: allow-internet
+    filename: cert-manager-internet.yaml
+    namespace: cert-manager
+    description: "Allow cert-manager to reach ACME servers and Cloudflare API"
+    egress:
+      - internet: true
+
+  - name: allow-internet
+    filename: external-dns-internet.yaml
+    namespace: external-dns
+    description: "Allow external-dns to reach Cloudflare API"
+    egress:
+      - internet: true
+
+  - name: allow-support-vm
+    filename: monitoring-support.yaml
+    namespace: monitoring
+    description: "Allow monitoring to reach MinIO S3 on support VM"
+    egress:
+      - toCIDR: "SUPPORT_VM_IP"
+        ports:
+          - port: "9000"
+            protocol: TCP
+
+  - name: allow-support-vm
+    filename: keycloak-support.yaml
+    namespace: keycloak
+    description: "Allow Keycloak broker to reach upstream IdP on support VM"
+    egress:
+      - toCIDR: "SUPPORT_VM_IP"
+        ports:
+          - port: "443"
+            protocol: TCP
+
+  - name: allow-internet
+    filename: keycloak-internet.yaml
+    namespace: keycloak
+    description: "Allow Keycloak broker to reach external IdPs over HTTPS"
+    egress:
+      - internet: true
+        ports:
+          - port: "443"
+            protocol: TCP
+
+  - name: allow-support-vm
+    filename: longhorn-support.yaml
+    namespace: longhorn-system
+    description: "Allow Longhorn to reach NFS on support VM"
+    egress:
+      - toCIDR: "SUPPORT_VM_IP"
+        ports:
+          - port: "2049"
+            protocol: TCP
+
+  - name: allow-support-vm
+    filename: teleport-support.yaml
+    namespace: teleport
+    description: "Allow Teleport agent to reach proxy on support VM"
+    egress:
+      - toCIDR: "SUPPORT_VM_IP"
+        ports:
+          - port: "3080"
+            protocol: TCP
+          - port: "443"
+            protocol: TCP
+
+  - name: allow-support-vm
+    filename: ziti-support.yaml
+    namespace: ziti-system
+    description: "Allow Ziti router to reach controller on support VM"
+    egress:
+      - toCIDR: "SUPPORT_VM_IP"
+        ports:
+          - port: "2029"
+            protocol: TCP
+          - port: "2045"
+            protocol: TCP
+          - port: "2046"
+            protocol: TCP
+
+  - name: allow-ollama
+    filename: open-webui-ollama.yaml
+    namespace: open-webui
+    description: "Allow Open WebUI to reach Ollama for LLM inference"
+    egress:
+      - toCIDR: "OLLAMA_IP"
+        ports:
+          - port: "11434"
+            protocol: TCP
+
+  - name: allow-ollama
+    filename: openclaw-ollama.yaml
+    namespace: openclaw
+    description: "Allow OpenClaw to reach Ollama for LLM inference"
+    egress:
+      - toCIDR: "OLLAMA_IP"
+        ports:
+          - port: "11434"
+            protocol: TCP
+
+  - name: allow-internet
+    filename: open-webui-internet.yaml
+    namespace: open-webui
+    description: "Allow Open WebUI internet access"
+    egress:
+      - internet: true
+
+  - name: allow-internet
+    filename: openclaw-internet.yaml
+    namespace: openclaw
+    description: "Allow OpenClaw internet access"
+    egress:
+      - internet: true
+
+  - name: allow-sl-apis
+    filename: sldashboard-internet.yaml
+    namespace: apps
+    description: "Allow SLDashboard to reach SL transport and GTFS APIs"
+    endpointSelector:
+      matchLabels:
+        app.kubernetes.io/name: sldashboard
+    egress:
+      - fqdns:
+          - "transport.integration.sl.se"
+          - "opendata.samtrafiken.se"
+        ports:
+          - port: "443"
+            protocol: TCP

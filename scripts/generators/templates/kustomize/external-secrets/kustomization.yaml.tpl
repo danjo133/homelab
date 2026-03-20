@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Auto-generated from cluster.yaml — do not edit
+# Cluster: {{ (ds "ctx").computed.name }} — External Secrets with per-cluster Vault auth mount
+
+resources:
+  - cluster-secret-store.yaml
+  - cloudflare-secret.yaml
+  - keycloak-db-secret.yaml
+  - argocd-oidc-secret.yaml
