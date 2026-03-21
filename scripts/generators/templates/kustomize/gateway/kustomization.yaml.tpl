@@ -7,10 +7,8 @@ kind: Kustomization
 resources:
   - gateway.yaml
   - http-redirect.yaml
-  - reference-grant.yaml
 {{- if (ds "ctx").computed.isIstioMesh }}
-{{- range (ds "routes").routes }}
-  - {{ .filename }}
-{{- end }}
+  - reference-grant.yaml
+  - httproutes.yaml
   - ext-authz-policy.yaml
 {{- end }}

@@ -110,11 +110,15 @@ else
     fi
 fi
 
-# Read additional config.yaml values
+# Read additional config.yaml values (not all are in config-local.sh)
 _config_file="$PROJECT_ROOT/config.yaml"
 if [ -f "$_config_file" ]; then
+    NFS_ALLOWED_NETWORK="${NFS_ALLOWED_NETWORK:-$(yq -r '.network.nfs_allowed_network // "10.69.50.0/24"' "$_config_file")}"
+    GATEWAY_IP="${GATEWAY_IP:-$(yq -r '.network.gateway_ip // "10.69.50.1"' "$_config_file")}"
+    MANAGEMENT_CIDR="${MANAGEMENT_CIDR:-$(yq -r '.network.management_cidr // "10.69.10.0/24"' "$_config_file")}"
+    POD_CIDR="${POD_CIDR:-$(yq -r '.network.pod_cidr // "10.42.0.0/16"' "$_config_file")}"
     OLLAMA_URL=$(yq -r '.network.ollama_url // "http://localhost:11434"' "$_config_file")
-    SUPPORT_VM_IP=$(yq -r '.support.ip // "10.69.50.10"' "$_config_file")
+    SUPPORT_VM_IP="${SUPPORT_VM_IP:-$(yq -r '.support.ip // "10.69.50.10"' "$_config_file")}"
     OPENCLAW_MODEL=$(yq -r '.openclaw.model // "ollama/qwen3.5:27b"' "$_config_file")
     SIGNAL_ACCOUNT=$(yq -r '.openclaw.signal_account // ""' "$_config_file")
     SIGNAL_ALLOW_FROM=$(yq -r '(.openclaw.signal_allow_from // []) | map("\"" + . + "\"") | join(", ")' "$_config_file")
@@ -322,7 +326,7 @@ fi
 echo "  Generating kustomize/cert-manager/..."
 render "kustomize/cert-manager/kustomization.yaml.tpl" "$GEN_DIR/kustomize/cert-manager/kustomization.yaml"
 render "kustomize/cert-manager/cluster-issuer.yaml.tpl" "$GEN_DIR/kustomize/cert-manager/cluster-issuer.yaml"
-render "kustomize/cert-manager/wildcard-cert.yaml.tpl" "$GEN_DIR/kustomize/cert-manager/wildcard-cert.yaml"
+render "kustomize/cert-manager/wildcard-certificate.yaml.tpl" "$GEN_DIR/kustomize/cert-manager/wildcard-certificate.yaml"
 
 # ── Section 8: Gateway API (non-default helmfile_env only) ────────────────────
 if [ "$HELMFILE_ENV" != "default" ]; then
@@ -343,12 +347,14 @@ echo "  Generating kustomize/external-secrets/..."
 render "kustomize/external-secrets/kustomization.yaml.tpl" "$GEN_DIR/kustomize/external-secrets/kustomization.yaml"
 render "kustomize/external-secrets/cluster-secret-store.yaml.tpl" "$GEN_DIR/kustomize/external-secrets/cluster-secret-store.yaml"
 
-# Copy ExternalSecret files with domain substitution
-for f in cloudflare-secret.yaml; do
-    sed -e "s|example\.com|${ROOT_DOMAIN}|g" \
-        "$PROJECT_ROOT/iac/kustomize/base/external-secrets/$f" \
-        > "$GEN_DIR/kustomize/external-secrets/$f"
-done
+# Copy shared ExternalSecrets into generated dir
+sed -e "s|example\.com|${ROOT_DOMAIN:-example.com}|g" \
+    "$PROJECT_ROOT/iac/kustomize/base/external-secrets/cloudflare-secret.yaml" \
+    > "$GEN_DIR/kustomize/external-secrets/cloudflare-secret.yaml"
+cp "$PROJECT_ROOT/iac/kustomize/base/keycloak/keycloak-db-secret.yaml" \
+   "$GEN_DIR/kustomize/external-secrets/keycloak-db-secret.yaml"
+cp "$PROJECT_ROOT/iac/kustomize/base/keycloak/argocd-oidc-secret.yaml" \
+   "$GEN_DIR/kustomize/external-secrets/argocd-oidc-secret.yaml"
 
 # ── Section 10: keycloak ──────────────────────────────────────────────────────
 echo "  Generating kustomize/keycloak/..."

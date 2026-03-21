@@ -6,4 +6,4 @@ ingress:
 sso:
   oidc:
     providerUrl: "https://auth.{{ $ctx.computed.domain }}/realms/broker/.well-known/openid-configuration"
-{{- end -}}
+{{ end -}}

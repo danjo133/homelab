@@ -14,7 +14,7 @@ spec:
       localASN: {{ (ds "ctx").cluster.bgp.asn }}
       peers:
         - name: "peer-router"
-          peerAddress: "{{ (ds "ctx").computed.masterSubnet }}"
+          peerAddress: "{{ (ds "ctx").config.gatewayIp }}"
           peerASN: 64512
           peerConfigRef:
             name: "{{ (ds "ctx").computed.name }}-peer"

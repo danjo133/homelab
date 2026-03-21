@@ -9,6 +9,11 @@ server:
 {{- end }}
 
 configs:
+{{- if $ctx.config.gitlabSshHostkey }}
+  ssh:
+    extraHosts: |
+      {{ $ctx.config.gitlabSshHostkey }}
+{{- end }}
   cm:
     url: "https://argocd.{{ $ctx.computed.domain }}"
     oidc.config: |
