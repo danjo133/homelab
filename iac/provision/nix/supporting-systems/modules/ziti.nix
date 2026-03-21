@@ -16,9 +16,9 @@ let
   zitiDir = "/var/lib/ziti";
   controllerDir = "${zitiDir}/controller";
   routerDir = "${zitiDir}/router";
-  controllerImage = "openziti/ziti-controller:1.5.12";
-  routerImage = "openziti/ziti-router:1.5.12";
-  zacImage = "openziti/zac:4.0.3";
+  controllerImage = "openziti/ziti-controller:1.6.14";
+  routerImage = "openziti/ziti-router:1.6.14";
+  zacImage = "openziti/zac:4.1.1";
   vaultAddr = "http://127.0.0.1:8200";
   keysFile = "/var/lib/openbao/init-keys.json";
   setupMarker = "${controllerDir}/.setup-complete";
@@ -159,6 +159,7 @@ ROUTEREOF
           "bindPoints": [{"interface": "0.0.0.0:2029", "address": "${deployConfig.zitiDomain}:2029"}],
           "apis": [
             {"binding": "edge-management"},
+            {"binding": "edge-client"},
             {"binding": "fabric"},
             {"binding": "health-checks"}
           ]
