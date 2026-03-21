@@ -25,7 +25,7 @@
 
   kss.cluster.oidc = {
     enabled = true;
-    issuerUrl = "{{ (ds "ctx").cluster.oidc.issuer_url }}";
+    issuerUrl = "{{ (ds "ctx").computed.oidcIssuerUrl }}";
     clientId = "{{ (ds "ctx").cluster.oidc.client_id }}";
   };
 {{- end }}

@@ -8,8 +8,7 @@
 #   - tofu/environments/*/backend.tf                    (MinIO S3 backend)
 #   - .push-guard                                       (pre-push hook patterns)
 #
-# Also updates the ONLY tracked files that change:
-#   - iac/clusters/*/cluster.yaml                       (domain + OIDC URLs)
+# No tracked files are modified — safe to run on the main branch at any time.
 #
 # Usage: ./scripts/generate-config.sh [--check]
 #   --check: verify config.yaml exists without generating
@@ -42,12 +41,6 @@ fi
 # ─── Read config.yaml ────────────────────────────────────────────────────────
 
 cfg() { yq -r "$1" "$CONFIG_FILE"; }
-
-# sed-based YAML value replacement — preserves comments and formatting
-yaml_sed_set() {
-    local file="$1" key="$2" value="$3"
-    sed -i "s|^\(\s*${key}:\s*\).*|\1${value}|" "$file"
-}
 
 ROOT_DOMAIN=$(cfg '.domains.root')
 BASE_DOMAIN=$(cfg '.domains.base')
@@ -160,20 +153,7 @@ cat > "$PROJECT_ROOT/iac/provision/nix/supporting-systems/generated-config.nix" 
 EOF
 
 # ============================================================================
-# 3. Update cluster.yaml files (only tracked file modification)
-# ============================================================================
-for CLUSTER in $(get_clusters); do
-    CDOMAIN=$(cluster_domain "$CLUSTER")
-    CLUSTER_YAML="$PROJECT_ROOT/iac/clusters/$CLUSTER/cluster.yaml"
-
-    echo "  Updating $CLUSTER/cluster.yaml..."
-    yaml_sed_set "$CLUSTER_YAML" "domain" "\"$CDOMAIN\""
-    yaml_sed_set "$CLUSTER_YAML" "issuer_url" "\"https://auth.${CDOMAIN}/realms/broker\""
-    yaml_sed_set "$CLUSTER_YAML" "root_idp_url" "\"https://idp.${SUPPORT_DOMAIN}\""
-done
-
-# ============================================================================
-# 4. Generate OpenTofu terraform.tfvars
+# 3. Generate OpenTofu terraform.tfvars
 # ============================================================================
 echo "  Generating tofu/environments/*/terraform.tfvars..."
 
@@ -280,8 +260,5 @@ echo "  iac/provision/nix/supporting-systems/generated-config.nix"
 echo "  tofu/environments/*/terraform.tfvars"
 echo "  tofu/environments/*/backend.tf"
 echo "  .push-guard"
-echo ""
-echo "Updated tracked files:"
-echo "  iac/clusters/*/cluster.yaml"
 echo ""
 echo "Next: run 'just generate' to generate per-cluster configs."

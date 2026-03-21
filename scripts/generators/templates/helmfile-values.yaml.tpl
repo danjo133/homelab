@@ -13,6 +13,6 @@ bgpAsn: {{ (ds "ctx").cluster.bgp.asn }}
 
 # OIDC configuration
 oidcEnabled: true
-oidcIssuerUrl: "{{ (ds "ctx").cluster.oidc.issuer_url }}"
+oidcIssuerUrl: "{{ (ds "ctx").computed.oidcIssuerUrl }}"
 oidcClientId: "{{ (ds "ctx").cluster.oidc.client_id }}"
 {{- end }}

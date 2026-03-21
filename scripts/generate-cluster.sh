@@ -47,7 +47,6 @@ echo "Generating config for cluster '$CLUSTER_NAME' from $CLUSTER_YAML..."
 # ── Read cluster.yaml ────────────────────────────────────────────────────────
 
 NAME=$(yq -r '.name' "$CLUSTER_YAML")
-DOMAIN=$(yq -r '.domain' "$CLUSTER_YAML")
 MASTER_IP=$(yq -r '.master.ip' "$CLUSTER_YAML")
 CNI=$(yq -r '.cni // "default"' "$CLUSTER_YAML")
 HELMFILE_ENV=$(yq -r '.helmfile_env // "default"' "$CLUSTER_YAML")
@@ -56,10 +55,8 @@ VAULT_AUTH_MOUNT=$(yq -r '.vault.auth_mount' "$CLUSTER_YAML")
 VAULT_NAMESPACE=$(yq -r '.vault.namespace // ""' "$CLUSTER_YAML")
 BGP_ASN=$(yq -r '.bgp.asn' "$CLUSTER_YAML")
 OIDC_ENABLED=$(yq -r '.oidc.enabled // "false"' "$CLUSTER_YAML")
-OIDC_ISSUER_URL=$(yq -r '.oidc.issuer_url // ""' "$CLUSTER_YAML")
 OIDC_CLIENT_ID=$(yq -r '.oidc.client_id // "kubernetes"' "$CLUSTER_YAML")
 WORKER_COUNT=$(yq '.workers | length' "$CLUSTER_YAML")
-DOMAIN_SLUG=$(echo "$DOMAIN" | tr '.' '-')
 
 # ── Read config-local.sh / config.yaml ───────────────────────────────────────
 
@@ -138,6 +135,14 @@ else
     APP_KIALI=true
 fi
 OLLAMA_IP=$(echo "$OLLAMA_URL" | sed 's|https\?://||; s|:.*||')
+
+# Domain and OIDC URLs are derived from config.yaml base_domain + cluster name
+# (not stored in cluster.yaml — avoids real domains in tracked files on main)
+BASE_DOMAIN="${BASE_DOMAIN:-example.com}"
+SUPPORT_DOMAIN="${SUPPORT_DOMAIN:-support.example.com}"
+DOMAIN="${NAME}.${BASE_DOMAIN}"
+DOMAIN_SLUG=$(echo "$DOMAIN" | tr '.' '-')
+OIDC_ISSUER_URL="https://auth.${DOMAIN}/realms/broker"
 
 # Get GitLab SSH host key for ArgoCD known_hosts
 GITLAB_HOST=$(echo "$GITLAB_SSH_URL" | sed 's|ssh://git@||; s|/.*||')
