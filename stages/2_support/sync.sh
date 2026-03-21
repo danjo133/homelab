@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 
+# Regenerate local config from config.yaml to ensure generated-config.nix is current
+info "Regenerating local config from config.yaml..."
+"${PROJECT_ROOT}/scripts/generate-config.sh"
+
 info "Syncing NixOS config to support VM (${SUPPORT_VM_IP})..."
 
 ssh_vm "${SUPPORT_VM_IP}" "mkdir -p /tmp/nix-config"

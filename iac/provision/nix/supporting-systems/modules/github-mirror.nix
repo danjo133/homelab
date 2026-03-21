@@ -1,6 +1,6 @@
 # GitHub → GitLab mirror sync
 # Systemd timer that discovers repos in a GitHub org and mirrors them to GitLab
-# Runs every 10 minutes, creates GitLab projects with CI config from kss repo
+# Runs every 10 minutes, creates GitLab projects with CI config from homelab repo
 
 { config, pkgs, lib, ... }:
 
