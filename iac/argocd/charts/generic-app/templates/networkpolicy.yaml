@@ -15,6 +15,10 @@ spec:
     - from:
         - ipBlock:
             cidr: 10.69.50.0/24
+    # kube-apiserver (hostNetwork) uses flannel.1 IP in pod CIDR for webhook calls
+    - from:
+        - ipBlock:
+            cidr: 10.42.0.0/16
   egress:
     - ports:
         - port: 53

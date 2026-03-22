@@ -23,6 +23,11 @@ spec:
     - from:
         - ipBlock:
             cidr: {{ $nfsAllowedNetwork }}
+    # Allow from kube-apiserver (hostNetwork pods use flannel.1 IP in pod CIDR
+    # for webhook calls — not matched by namespaceSelector or node CIDR)
+    - from:
+        - ipBlock:
+            cidr: {{ $ctx.config.podCidr }}
   egress:
     # DNS to kube-dns
     - to:
