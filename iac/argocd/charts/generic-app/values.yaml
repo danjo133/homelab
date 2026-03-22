@@ -40,6 +40,9 @@ storage:
 # Enable OAuth2 Proxy SSO (Keycloak via nginx auth_request)
 sso: false
 
+# Allow internet egress (creates NetworkPolicy allowing external IPs)
+internet: false
+
 # Extra annotations added to Ingress/HTTPRoute (e.g. portal metadata)
 ingressAnnotations: {}
 

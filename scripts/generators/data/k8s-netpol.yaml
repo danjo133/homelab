@@ -26,7 +26,6 @@ defaultPolicyNamespaces:
   - globalpulse
   - kube-public
   - vault-auth
-  - apps
   - trivy-system
 
 # Namespaces that get internet egress access

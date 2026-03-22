@@ -1,0 +1,57 @@
+# Default-deny with baseline allows (DNS, intra-cluster, VM VLAN)
+# Each app gets its own namespace with this policy for isolation
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-policy
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector: {}
+    - from:
+        - ipBlock:
+            cidr: 10.69.50.0/24
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+      to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+    - to:
+        - namespaceSelector: {}
+    - to:
+        - ipBlock:
+            cidr: 10.69.50.0/24
+            except:
+              - 10.69.50.1/32
+{{- if .Values.internet }}
+---
+# Internet egress for this app
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internet
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+{{- end }}

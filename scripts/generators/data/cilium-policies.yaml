@@ -154,17 +154,3 @@ policies:
     egress:
       - internet: true
 
-  - name: allow-sl-apis
-    filename: sldashboard-internet.yaml
-    namespace: apps
-    description: "Allow SLDashboard to reach SL transport and GTFS APIs"
-    endpointSelector:
-      matchLabels:
-        app.kubernetes.io/name: sldashboard
-    egress:
-      - fqdns:
-          - "transport.integration.sl.se"
-          - "opendata.samtrafiken.se"
-        ports:
-          - port: "443"
-            protocol: TCP

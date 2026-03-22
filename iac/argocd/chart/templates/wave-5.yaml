@@ -62,11 +62,18 @@ spec:
                 value: {{ .Values.portalPrefix }}
       destination:
         server: https://kubernetes.default.svc
-        namespace: apps
+        namespace: 'apps-{{ "{{ .repository | normalize }}" }}'
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
+        managedNamespaceMetadata:
+          labels:
+            app.kubernetes.io/managed-by: argocd-appset
+            homelab.dev/origin: github-mirror
+          annotations:
+            homelab.dev/source-repo: '{{ "{{ .url }}" }}'
+            homelab.dev/source-branch: '{{ "{{ .branch }}" }}'
         syncOptions:
           - CreateNamespace=true
 {{- end }}
@@ -142,11 +149,18 @@ spec:
                 value: https
       destination:
         server: https://kubernetes.default.svc
-        namespace: apps
+        namespace: 'apps-{{ "{{ .repository | normalize }}" }}'
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
+        managedNamespaceMetadata:
+          labels:
+            app.kubernetes.io/managed-by: argocd-appset
+            homelab.dev/origin: github-mirror
+          annotations:
+            homelab.dev/source-repo: '{{ "{{ .url }}" }}'
+            homelab.dev/source-branch: '{{ "{{ .branch }}" }}'
         syncOptions:
           - CreateNamespace=true
 {{- end }}
@@ -195,10 +209,17 @@ spec:
         path: chart
       destination:
         server: https://kubernetes.default.svc
-        namespace: apps
+        namespace: 'apps-{{ "{{ .repository | normalize }}" }}'
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
+        managedNamespaceMetadata:
+          labels:
+            app.kubernetes.io/managed-by: argocd-appset
+            homelab.dev/origin: github-mirror
+          annotations:
+            homelab.dev/source-repo: '{{ "{{ .url }}" }}'
+            homelab.dev/source-branch: '{{ "{{ .branch }}" }}'
         syncOptions:
           - CreateNamespace=true

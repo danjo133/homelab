@@ -65,7 +65,7 @@ spec:
     - server: https://kubernetes.default.svc
       namespace: globalpulse
     - server: https://kubernetes.default.svc
-      namespace: apps
+      namespace: apps-*
     - server: https://kubernetes.default.svc
       namespace: openclaw
     - server: https://kubernetes.default.svc
@@ -222,7 +222,7 @@ spec:
     - server: https://kubernetes.default.svc
       namespace: istio-system
     - server: https://kubernetes.default.svc
-      namespace: apps
+      namespace: apps-*
     - server: https://kubernetes.default.svc
       namespace: kube-public
     - server: https://kubernetes.default.svc
