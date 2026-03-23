@@ -27,8 +27,8 @@ spec:
               - chart/Chart.yaml
         cloneProtocol: ssh
   ignoreApplicationDifferences:
-    - jsonPointers:
-        - /spec/sources/1/helm/parameters
+    - jqPathExpressions:
+        - .spec.sources[1].helm.parameters[] | select(.name == "image.tag" or .name == "image.name")
   template:
     metadata:
       name: '{{ "{{ .repository | normalize }}" }}'
@@ -106,8 +106,8 @@ spec:
               - chart/Chart.yaml
         cloneProtocol: ssh
   ignoreApplicationDifferences:
-    - jsonPointers:
-        - /spec/sources/1/helm/parameters
+    - jqPathExpressions:
+        - .spec.sources[1].helm.parameters[] | select(.name == "image.tag" or .name == "image.name")
   template:
     metadata:
       name: '{{ "{{ .repository | normalize }}" }}'
@@ -190,8 +190,8 @@ spec:
               - chart/Chart.yaml
         cloneProtocol: ssh
   ignoreApplicationDifferences:
-    - jsonPointers:
-        - /spec/source/helm/parameters
+    - jqPathExpressions:
+        - .spec.source.helm.parameters[] | select(.name == "image.tag" or .name == "image.name")
   template:
     metadata:
       name: '{{ "{{ .repository | normalize }}" }}'
