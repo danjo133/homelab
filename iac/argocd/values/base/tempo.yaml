@@ -12,6 +12,17 @@ tempo:
         insecure: false
         forcepathstyle: true
   retention: 168h
+  extraEnv:
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: tempo-minio-secret
+          key: access-key
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: tempo-minio-secret
+          key: secret-key
   receivers:
     otlp:
       protocols:
@@ -33,17 +44,6 @@ singleBinary:
   persistence:
     enabled: true
     size: 10Gi
-  extraEnv:
-    - name: AWS_ACCESS_KEY_ID
-      valueFrom:
-        secretKeyRef:
-          name: tempo-minio-secret
-          key: access-key
-    - name: AWS_SECRET_ACCESS_KEY
-      valueFrom:
-        secretKeyRef:
-          name: tempo-minio-secret
-          key: secret-key
 
 backend:
   replicas: 0
