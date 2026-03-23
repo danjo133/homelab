@@ -61,6 +61,8 @@ policies:
     egress:
       - toCIDR: "SUPPORT_VM_IP"
         ports:
+          - port: "443"
+            protocol: TCP
           - port: "9000"
             protocol: TCP
 
