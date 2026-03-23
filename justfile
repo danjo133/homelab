@@ -249,19 +249,36 @@ tofu env:
     tofu -chdir=tofu/environments/{{env}} apply
 
 # Initialize OpenTofu environment (env: base, kss, kcs)
+# Requires: just support-generate-env && source .env.kss (or .env.kcs)
 tofu-init env:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ./scripts/generate-config.sh
+    [[ -z "${AWS_ACCESS_KEY_ID:-}" ]] && echo "Error: source .env.kss (or .env.kcs) first — run 'just support-generate-env' if missing" && exit 1
     tofu -chdir=tofu/environments/{{env}} init
 
 # Plan OpenTofu changes (env: base, kss, kcs)
 tofu-plan env:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ./scripts/generate-config.sh
+    [[ -z "${AWS_ACCESS_KEY_ID:-}" ]] && echo "Error: source .env.kss (or .env.kcs) first — run 'just support-generate-env' if missing" && exit 1
     tofu -chdir=tofu/environments/{{env}} plan
 
 # Apply OpenTofu changes (env: base, kss, kcs)
 tofu-apply env:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ./scripts/generate-config.sh
+    [[ -z "${AWS_ACCESS_KEY_ID:-}" ]] && echo "Error: source .env.kss (or .env.kcs) first — run 'just support-generate-env' if missing" && exit 1
     tofu -chdir=tofu/environments/{{env}} apply
 
 # Show OpenTofu state (env: base, kss, kcs)
 tofu-state env:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ./scripts/generate-config.sh
+    [[ -z "${AWS_ACCESS_KEY_ID:-}" ]] && echo "Error: source .env.kss (or .env.kcs) first — run 'just support-generate-env' if missing" && exit 1
     tofu -chdir=tofu/environments/{{env}} state list
 
 # Setup MinIO bucket for OpenTofu state
