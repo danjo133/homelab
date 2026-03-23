@@ -401,6 +401,20 @@ resource "vault_kv_secret_v2" "minio_loki" {
   depends_on = [module.vault_base]
 }
 
+resource "vault_kv_secret_v2" "minio_tempo" {
+  for_each  = toset(var.vault_namespaces)
+  namespace = each.value
+  mount     = module.vault_base.cluster_kv_mount_paths[each.value]
+  name      = "minio/tempo-${each.value}"
+
+  data_json = jsonencode({
+    "access-key" = var.minio_access_key
+    "secret-key" = var.minio_secret_key
+  })
+
+  depends_on = [module.vault_base]
+}
+
 # ============================================================================
 # Convenience namespace — admin/operational reference secrets
 # ============================================================================

@@ -472,6 +472,7 @@ render "helm-values/longhorn.yaml.tpl" "$VALUES_DIR/longhorn.yaml"
 render "helm-values/argocd-image-updater.yaml.tpl" "$VALUES_DIR/argocd-image-updater.yaml"
 render "helm-values/ziti-router.yaml.tpl" "$VALUES_DIR/ziti-router.yaml"
 render "helm-values/loki.yaml.tpl" "$VALUES_DIR/loki.yaml"
+render "helm-values/tempo.yaml.tpl" "$VALUES_DIR/tempo.yaml"
 render "helm-values/teleport-kube-agent.yaml.tpl" "$VALUES_DIR/teleport-kube-agent.yaml"
 render "helm-values/external-dns.yaml.tpl" "$VALUES_DIR/external-dns.yaml"
 

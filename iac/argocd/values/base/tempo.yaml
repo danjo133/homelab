@@ -1,0 +1,67 @@
+# Grafana Tempo — distributed tracing (SingleBinary mode)
+tempo:
+  metricsGenerator:
+    enabled: true
+    remoteWriteUrl: "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+  storage:
+    trace:
+      backend: s3
+      s3:
+        endpoint: minio.support.example.com
+        bucket: tempo-kss
+        insecure: false
+        forcepathstyle: true
+  retention: 168h
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "0.0.0.0:4317"
+        http:
+          endpoint: "0.0.0.0:4318"
+
+fullnameOverride: tempo
+
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 1Gi
+  persistence:
+    enabled: true
+    size: 10Gi
+  extraEnv:
+    - name: AWS_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: tempo-minio-secret
+          key: access-key
+    - name: AWS_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: tempo-minio-secret
+          key: secret-key
+
+backend:
+  replicas: 0
+read:
+  replicas: 0
+write:
+  replicas: 0
+
+gateway:
+  enabled: false
+
+monitoring:
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+  serviceMonitor:
+    enabled: true
+
+test:
+  enabled: false

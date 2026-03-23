@@ -221,5 +221,5 @@ variable "vault_namespaces" {
 variable "minio_buckets" {
   description = "MinIO buckets to manage"
   type        = list(string)
-  default     = ["harbor", "loki-kss", "loki-kcs", "tofu-state"]
+  default     = ["harbor", "loki-kss", "loki-kcs", "tempo-kss", "tempo-kcs", "tofu-state"]
 }

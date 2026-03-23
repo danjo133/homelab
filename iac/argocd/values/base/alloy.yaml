@@ -57,6 +57,34 @@ alloy:
           url = "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
         }
       }
+
+      // ── Traces: OTLP receiver → Tempo ──
+      otelcol.receiver.otlp "default" {
+        grpc {
+          endpoint = "0.0.0.0:4317"
+        }
+        http {
+          endpoint = "0.0.0.0:4318"
+        }
+        output {
+          traces = [otelcol.exporter.otlphttp.tempo.input]
+        }
+      }
+
+      otelcol.exporter.otlphttp "tempo" {
+        client {
+          endpoint = "http://tempo.monitoring.svc.cluster.local:4318"
+        }
+      }
+  extraPorts:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+      protocol: TCP
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+      protocol: TCP
   resources:
     requests:
       cpu: 10m

@@ -65,6 +65,36 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
+  name: tempo
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: platform
+  sources:
+    - repoURL: {{ .Values.repoURL }}
+      targetRevision: {{ .Values.targetRevision }}
+      ref: values
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: tempo
+      targetRevision: "1.*"
+      helm:
+        valueFiles:
+          - $values/iac/argocd/values/base/tempo.yaml
+          - $values/iac/argocd/values/{{ .Values.clusterName }}/tempo.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
   name: alloy
   namespace: argocd
   annotations:

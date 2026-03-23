@@ -42,6 +42,8 @@ config:
     prometheus_export:
       port: 9090
       path: /metrics
+    otel_traces_export:
+      endpoint: http://alloy.monitoring.svc.cluster.local:4318
     attributes:
       kubernetes:
         enable: true

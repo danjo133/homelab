@@ -16,6 +16,7 @@ prometheus:
         memory: 1Gi
       limits:
         memory: 2Gi
+    enableRemoteWriteReceiver: true
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false
     ruleSelectorNilUsesHelmValues: false
@@ -61,6 +62,38 @@ grafana:
       url: http://loki.monitoring.svc.cluster.local:3100
       access: proxy
       isDefault: false
+      jsonData:
+        derivedFields:
+          - datasourceUid: tempo
+            matcherRegex: '"traceID":"(\w+)"'
+            name: TraceID
+            url: "$${__value.raw}"
+    - name: Tempo
+      uid: tempo
+      type: tempo
+      url: http://tempo.monitoring.svc.cluster.local:3100
+      access: proxy
+      isDefault: false
+      jsonData:
+        tracesToLogsV2:
+          datasourceUid: loki
+          filterByTraceID: true
+          filterBySpanID: false
+        tracesToMetrics:
+          datasourceUid: prometheus
+          queries:
+            - name: Request rate
+              query: "sum(rate(http_server_request_duration_seconds_count{$$__tags}[$$__rate_interval]))"
+            - name: Error rate
+              query: "sum(rate(http_server_request_duration_seconds_count{$$__tags, http_response_status_code=~\"5..\"}[$$__rate_interval]))"
+        serviceMap:
+          datasourceUid: prometheus
+        nodeGraph:
+          enabled: true
+        search:
+          hide: false
+        lokiSearch:
+          datasourceUid: loki
   defaultDashboardsEnabled: true
   defaultDashboardsTimezone: utc
 

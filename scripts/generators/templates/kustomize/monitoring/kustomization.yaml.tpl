@@ -19,3 +19,14 @@ patches:
       - op: replace
         path: /spec/data/1/remoteRef/key
         value: minio/loki-{{ (ds "ctx").computed.name }}
+  # Per-cluster Vault path for Tempo MinIO credentials
+  - target:
+      kind: ExternalSecret
+      name: tempo-minio-secret
+    patch: |
+      - op: replace
+        path: /spec/data/0/remoteRef/key
+        value: minio/tempo-{{ (ds "ctx").computed.name }}
+      - op: replace
+        path: /spec/data/1/remoteRef/key
+        value: minio/tempo-{{ (ds "ctx").computed.name }}
