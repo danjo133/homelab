@@ -18,11 +18,30 @@ controller:
   metrics:
     enabled: true
     serviceMonitor:
-      enabled: false
+      enabled: true
   config:
     server-tokens: "false"
     proxy-body-size: "50m"
     proxy-buffer-size: "8k"
+    # ModSecurity WAF with OWASP Core Rule Set
+    enable-modsecurity: "true"
+    enable-owasp-modsecurity-crs: "true"
+    modsecurity-snippet: |
+      SecRuleEngine On
+      SecAuditEngine RelevantOnly
+      SecAuditLogFormat JSON
+      SecAuditLog /dev/stdout
+      SecRequestBodyAccess On
+      SecRequestBodyLimit 50000000
+      SecRequestBodyNoFilesLimit 131072
+      SecResponseBodyAccess Off
+      # Paranoia level 1 (least false positives)
+      SecAction "id:900000,phase:1,nolog,pass,t:none,setvar:tx.paranoia_level=1"
+      # Anomaly scoring thresholds
+      SecAction "id:900110,phase:1,nolog,pass,t:none,setvar:tx.inbound_anomaly_score_threshold=5,setvar:tx.outbound_anomaly_score_threshold=4"
+      # Allow health probes
+      SecRule REQUEST_URI "@beginsWith /healthz" "id:1000,phase:1,allow,nolog"
+      SecRule REQUEST_URI "@beginsWith /readyz" "id:1001,phase:1,allow,nolog"
   tolerations:
     - operator: Exists
   admissionWebhooks:

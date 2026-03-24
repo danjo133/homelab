@@ -27,9 +27,11 @@ defaultPolicyNamespaces:
   - kube-public
   - vault-auth
   - trivy-system
+  - crowdsec
 
 # Namespaces that get internet egress access
 internetNamespaces:
   - cert-manager
   - external-dns
   - argocd
+  - crowdsec

@@ -26,6 +26,16 @@ loki:
     ingestion_rate_mb: 10
     ingestion_burst_size_mb: 20
     max_query_series: 5000
+  rulerConfig:
+    alertmanager_url: http://kube-prometheus-stack-alertmanager.monitoring.svc.cluster.local:9093
+    enable_api: true
+    ring:
+      kvstore:
+        store: inmemory
+    storage:
+      type: local
+      local:
+        directory: /var/loki/rules
   storage_config:
     tsdb_shipper:
       active_index_directory: /var/loki/tsdb-index
@@ -33,6 +43,14 @@ loki:
 
 singleBinary:
   replicas: 1
+  extraVolumes:
+    - name: loki-alert-rules
+      configMap:
+        name: loki-alert-rules
+  extraVolumeMounts:
+    - name: loki-alert-rules
+      mountPath: /var/loki/rules/fake
+      readOnly: true
   resources:
     requests:
       cpu: 50m

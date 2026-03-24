@@ -1,0 +1,25 @@
+# Coraza WAF — OWASP CRS via Envoy WASM plugin on Istio Gateway
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: coraza-waf
+  namespace: istio-ingress
+spec:
+  targetRefs:
+    - kind: Gateway
+      group: gateway.networking.k8s.io
+      name: main-gateway
+  url: oci://ghcr.io/corazawaf/coraza-proxy-wasm
+  phase: AUTHN
+  pluginConfig:
+    directives_map:
+      default:
+        - SecRuleEngine On
+        - SecRequestBodyAccess On
+        - SecResponseBodyAccess Off
+        - SecAction "id:900000,phase:1,nolog,pass,t:none,setvar:tx.paranoia_level=1"
+        - SecAction "id:900110,phase:1,nolog,pass,t:none,setvar:tx.inbound_anomaly_score_threshold=5,setvar:tx.outbound_anomaly_score_threshold=4"
+        - Include @owasp_crs
+        - SecRule REQUEST_URI "@beginsWith /healthz" "id:1000,phase:1,allow,nolog"
+        - SecRule REQUEST_URI "@beginsWith /readyz" "id:1001,phase:1,allow,nolog"
+    default_directives: default

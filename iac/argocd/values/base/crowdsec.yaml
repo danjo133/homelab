@@ -1,0 +1,39 @@
+# CrowdSec — community-driven intrusion detection
+container_runtime: containerd
+
+lapi:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+  persistentVolume:
+    enabled: true
+    size: 1Gi
+  dashboard:
+    enabled: false
+  env:
+    - name: COLLECTIONS
+      value: "crowdsecurity/nginx crowdsecurity/http-cve crowdsecurity/base-http-scenarios crowdsecurity/whitelist-good-actors"
+
+agent:
+  # Agent parses logs from ingress controllers
+  acquisition:
+    - namespace: ingress-nginx
+      podName: ingress-nginx-controller-*
+      program: nginx
+    - namespace: istio-ingress
+      podName: "*"
+      program: envoy
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule

@@ -15,6 +15,7 @@ spec:
     - https://prometheus-community.github.io/helm-charts
     - https://istio-release.storage.googleapis.com/charts
     - https://helm.cilium.io
+    - https://crowdsecurity.github.io/helm-charts
   destinations:
     - server: https://kubernetes.default.svc
       namespace: cert-manager
@@ -78,6 +79,10 @@ spec:
       namespace: keycloak-operator
     - server: https://kubernetes.default.svc
       namespace: gatekeeper-system
+    - server: https://kubernetes.default.svc
+      namespace: crowdsec
+    - server: https://kubernetes.default.svc
+      namespace: istio-ingress
   clusterResourceWhitelist:
     - group: apiextensions.k8s.io
       kind: CustomResourceDefinition

@@ -1,0 +1,66 @@
+# Loki alerting rules — log-based intrusion detection
+# Mounted by Loki ruler at /var/loki/rules/fake/
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-alert-rules
+  namespace: monitoring
+data:
+  security-alerts.yaml: |
+    groups:
+      - name: security-log-alerts
+        rules:
+          - alert: PathTraversalAttempt
+            expr: |
+              sum by (namespace, pod) (
+                count_over_time({namespace=~"ingress-nginx|istio-ingress"} |~ `\.\./|\.\.\\|%2e%2e` [5m])
+              ) > 5
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Path traversal attempts detected"
+
+          - alert: SQLInjectionAttempt
+            expr: |
+              sum by (namespace, pod) (
+                count_over_time({namespace=~"ingress-nginx|istio-ingress"} |~ `(?i)(union\s+select|or\s+1\s*=\s*1|drop\s+table|;--\s)` [5m])
+              ) > 3
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "SQL injection attempts detected"
+
+          - alert: XSSAttempt
+            expr: |
+              sum by (namespace, pod) (
+                count_over_time({namespace=~"ingress-nginx|istio-ingress"} |~ `(?i)(<script|javascript:|on(error|load|click)\s*=)` [5m])
+              ) > 3
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "XSS attempts detected"
+
+          - alert: ScannerToolDetected
+            expr: |
+              sum by (namespace, pod) (
+                count_over_time({namespace=~"ingress-nginx|istio-ingress"} |~ `(?i)(nikto|sqlmap|nmap|dirbuster|gobuster|wpscan|masscan)` [5m])
+              ) > 0
+            for: 0m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Known scanner tool detected"
+
+          - alert: ModSecurityBlockSpike
+            expr: |
+              sum by (pod) (
+                count_over_time({namespace="ingress-nginx", container="controller"} |~ `ModSecurity.*Access denied` [5m])
+              ) > 10
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "ModSecurity blocking spike: {{ $value }} blocks in 5 min"

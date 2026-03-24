@@ -126,6 +126,13 @@ alertmanager:
         - receiver: webhook
           matchers:
             - severity="critical"
+        - receiver: webhook
+          matchers:
+            - alertname=~"BruteForce.*|CredentialStuffing.*|SQLInjection.*|XSSAttempt.*|Scanner.*|ModSecurity.*|PathTraversal.*"
+          group_by: ["alertname", "service_name"]
+          group_wait: 10s
+          group_interval: 1m
+          repeat_interval: 1h
     receivers:
       - name: "null"
       - name: webhook

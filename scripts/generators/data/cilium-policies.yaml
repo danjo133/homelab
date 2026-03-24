@@ -54,6 +54,13 @@ policies:
     egress:
       - internet: true
 
+  - name: allow-internet
+    filename: crowdsec-internet.yaml
+    namespace: crowdsec
+    description: "Allow CrowdSec to reach community threat intelligence API"
+    egress:
+      - internet: true
+
   - name: allow-support-vm
     filename: monitoring-support.yaml
     namespace: monitoring
