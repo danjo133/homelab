@@ -13,7 +13,7 @@ Kubernetes homelab infrastructure-as-code: RKE2 clusters on NixOS VMs, managed b
 - kss cluster (1 master + 3 workers, Canal CNI, MetalLB L2, nginx ingress)
 - kcs cluster (1 master + 3 workers, Cilium CNI + BGP, Istio Ambient mesh, Gateway API ingress)
 - Keycloak broker with upstream IdP federation, ArgoCD OIDC, cert-manager, external-secrets
-- Monitoring (Prometheus, Grafana, Loki, Alloy, Alertmanager)
+- Monitoring (Prometheus, Grafana, Loki, Alloy, Alertmanager, Tempo, Beyla)
 - OPA Gatekeeper — admission control with 8 policies (3 deny: privileged, hostPath, hostNamespaces; 5 warn: resource limits, labels, non-root, latest tag, read-only rootfs)
 - OAuth2-Proxy — OIDC SSO via broker Keycloak, nginx auth_request (kss) / ext-authz (kcs)
 - SPIRE — SPIFFE workload identity, OIDC discovery, CSI driver
@@ -21,9 +21,14 @@ Kubernetes homelab infrastructure-as-code: RKE2 clusters on NixOS VMs, managed b
 - Custom apps — Portal (service discovery), JIT Elevation (RFC 8693), Cluster Setup (kubeconfig), Architecture (LikeC4 C4 models)
 - OpenTofu — Vault, Keycloak, Harbor, MinIO, Ziti, Teleport, GitLab configuration as code
 - ArgoCD Image Updater — auto-deploy on image push
-- ApplicationSets — auto-discover apps from GitLab repos + generic-app Helm chart
-- Beyla — eBPF auto-instrumentation for HTTP/gRPC RED metrics
+- ApplicationSets — auto-discover apps from GitLab repos into per-app `apps-<name>` namespaces
+- Beyla — eBPF auto-instrumentation for HTTP/gRPC RED metrics and trace spans
+- Tempo — distributed tracing backend (MinIO S3 storage, Grafana integration)
 - Tetragon TracingPolicies — runtime security monitoring (kcs, 4 policies)
+- ModSecurity WAF — OWASP CRS on nginx ingress (kss), request filtering and audit logging
+- Coraza WAF — OWASP CRS via Envoy WASM plugin on Istio Gateway (kcs)
+- CrowdSec — community-driven IDS with shared threat intelligence
+- Security alerting — PrometheusRules (brute force, error spikes) + Loki rules (SQLi, XSS, scanners)
 - Teleport K8s agent — per-cluster Kubernetes API proxy via Teleport
 - Open WebUI — LLM chat interface with Keycloak OIDC and CNPG PostgreSQL
 - GitLab CI — automated container image builds for custom apps
@@ -192,7 +197,9 @@ The project lives on the hypervisor where Vagrant/libvirt/KVM run. All `just` co
 | Registry | Harbor (with proxy caches) |
 | Storage | Longhorn (block), MinIO (S3), NFS (RWX) |
 | Database | CloudNativePG (PostgreSQL operator) |
-| Monitoring | Prometheus, Grafana, Loki, Alloy, Alertmanager, Beyla (eBPF) |
+| Monitoring | Prometheus, Grafana, Loki, Alloy, Alertmanager, Beyla (eBPF), Tempo |
+| WAF | ModSecurity + OWASP CRS (kss), Coraza WASM (kcs) |
+| IDS | CrowdSec (community threat intel), Loki log alerts, Prometheus metric alerts |
 | Security | Trivy Operator, Tetragon (kcs), OPA Gatekeeper |
 | LLM | Open WebUI (Keycloak OIDC, CNPG PostgreSQL) |
 | Identity | Keycloak (broker + upstream IdP federation) |
@@ -260,7 +267,8 @@ iac/                              # Infrastructure definitions
                                   # monitoring, gatekeeper-policies, headlamp, harbor,
                                   # cluster-setup, jit-elevation, portal, architecture,
                                   # apps-discovery, open-webui, teleport-kube-agent,
-                                  # ziti-router, kiali, keycloak-operator, gateway-api-crds
+                                  # ziti-router, kiali, keycloak-operator, gateway-api-crds,
+                                  # coraza-waf
   argocd/                         # ArgoCD App-of-Apps
     chart/                        # Helm chart generating all Application CRs
     charts/generic-app/           # Shared Helm chart for ApplicationSet-deployed apps
@@ -346,8 +354,8 @@ ArgoCD manages all K8s resources via sync waves. Projects: **bootstrap** (waves 
 | -1 | DNS/Ingress | external-dns, nginx-ingress (kss), Istio stack (kcs) |
 | 0 | Platform operators | ArgoCD, Longhorn, Gatekeeper, SPIRE, CNPG, Ziti router, Teleport K8s agent |
 | 1 | Identity | Keycloak operator + instance, OAuth2-Proxy, OIDC RBAC |
-| 2 | Monitoring | kube-prometheus-stack, Loki, Alloy, Beyla |
-| 3 | Security | Gatekeeper policies, Trivy |
+| 2 | Monitoring | kube-prometheus-stack, Loki, Tempo, Alloy, Beyla |
+| 3 | Security | Gatekeeper policies, Trivy, Coraza WAF (kcs), CrowdSec |
 | 4 | Applications | Headlamp, Portal, cluster-setup, JIT elevation, Architecture, Open WebUI, Kiali (kcs) |
 | 5 | Dynamic apps | ApplicationSets (auto-discovered from GitLab) |
 
@@ -365,6 +373,13 @@ iac/argocd/values/
 Two ApplicationSets auto-discover apps from GitLab `apps` group:
 - **apps-generic-chart**: Repos with `deploy/values.yaml` (no custom chart) → generic-app template
 - **apps-own-chart**: Repos with `chart/Chart.yaml` → app's own Helm chart
+
+Each app deploys to its own `apps-<reponame>` namespace with:
+- Origin labels (`homelab.dev/origin: github-mirror`) and annotations (`source-repo`, `source-branch`)
+- Default-deny NetworkPolicy (from generic-app chart)
+- Optional `internet: true` in `deploy/values.yaml` for external API access
+- Harbor pull secret via ExternalSecret (from generic-app chart)
+
 Both support ArgoCD Image Updater for auto-deploy on image push.
 
 ## Important Implementation Details
@@ -424,8 +439,8 @@ This repo uses two git remotes. All code lives on `main`. The `deploy` branch is
 2. **Security is paramount** — never commit secrets, credentials, or tokens. All secrets flow through Vault + external-secrets. Use SOPS/age for any encrypted values that must live in-repo. Audit changes for accidental secret exposure.
 3. **ArgoCD manages the cluster** — do not use `kubectl apply` to deploy resources that ArgoCD manages. This causes SSA field ownership conflicts. Instead, modify the source manifests, commit, push, and let ArgoCD sync.
 4. **Use `just` commands** — the justfile is the user-facing interface. Prefer `just <command>` over running stage scripts directly.
-5. **Deploy-sync generates everything** — never run `just generate` on main. Generation is handled by `just deploy-sync` which runs it in the deploy branch worktree. The workflow is: edit on `main` → commit → `just deploy-sync` → push deploy to GitLab.
-6. **Main stays clean** — tracked files on `main` must only use `example.com` placeholders. Personal domains belong in generated files (gitignored on `main`, committed on `deploy`).
+5. **Deploy-sync generates everything** — `just deploy-sync` generates all config in the deploy branch worktree. `generate-config.sh` is safe to run on main (only writes gitignored files, never modifies tracked files). The workflow is: edit on `main` → commit → `just deploy-sync` → push deploy to GitLab.
+6. **Main stays clean** — tracked files on `main` must only use `example.com` placeholders. Personal domains belong in generated files (gitignored on `main`, committed on `deploy`). Cluster domains are derived from `config.yaml` at generation time, not stored in `cluster.yaml`.
 
 ### Making Changes
 
@@ -448,8 +463,8 @@ This repo uses two git remotes. All code lives on `main`. The `deploy` branch is
 
 **Adding OpenTofu resources:**
 1. Add to the appropriate module in `tofu/modules/` or environment in `tofu/environments/`
-2. Commit on `main`, then `just deploy-sync` to generate tfvars on the deploy branch
-3. Run `just tofu-plan <env>` and `just tofu-apply <env>` from the deploy branch worktree (where generated terraform.tfvars exist)
+2. Commit on `main`, then `just deploy-sync` to generate tfvars
+3. Run `source .env.kss && just tofu-plan <env>` and `just tofu-apply <env>` (auto-generates config, checks for credentials)
 
 ### What NOT to Do
 
