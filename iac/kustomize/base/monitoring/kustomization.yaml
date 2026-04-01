@@ -12,6 +12,7 @@ resources:
   - loki-minio-secret.yaml
   - tempo-minio-secret.yaml
   - loki-alert-rules.yaml
+  - grafana-dashboard-security.yaml
   - prometheus-rules.yaml
   - grafana-dashboard-trivy.yaml
   - grafana-dashboard-loki.yaml

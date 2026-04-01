@@ -23,6 +23,15 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
+  ignoreDifferences:
+    - group: apps
+      kind: DaemonSet
+      jqPathExpressions:
+        - .spec.template.spec.hostNetwork
+    - group: apps
+      kind: Deployment
+      jqPathExpressions:
+        - .spec.template.spec.hostNetwork
   syncPolicy:
     automated:
       prune: true
@@ -31,6 +40,7 @@ spec:
       - CreateNamespace=true
       - ServerSideApply=true
       - ServerSideDiff=true
+      - RespectIgnoreDifferences=true
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application

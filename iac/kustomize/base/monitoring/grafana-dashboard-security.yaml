@@ -1,0 +1,173 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-security
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  security-overview.json: |
+    {
+      "annotations": {"list": []},
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "links": [],
+      "panels": [
+        {
+          "title": "WAF: ModSecurity Blocks (kss)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum(rate(nginx_ingress_controller_requests{status=~\"403|406\"}[5m]))",
+              "legendFormat": "Blocked requests/s"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {"drawStyle": "line", "fillOpacity": 10}
+            }
+          }
+        },
+        {
+          "title": "HTTP Error Rate by Service (Beyla)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{http_response_status_code=~\"4..|5..\"}[5m]))",
+              "legendFormat": "{{service_name}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {"drawStyle": "line", "fillOpacity": 10}
+            }
+          }
+        },
+        {
+          "title": "401 Unauthorized Rate (Brute Force Indicator)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{http_response_status_code=\"401\"}[5m]))",
+              "legendFormat": "{{service_name}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {"drawStyle": "bars", "fillOpacity": 50}
+            }
+          }
+        },
+        {
+          "title": "5xx Error Rate (Application Crashes)",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\"}[5m]))",
+              "legendFormat": "{{service_name}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {"drawStyle": "line", "fillOpacity": 10}
+            }
+          }
+        },
+        {
+          "title": "Request Rate by Service",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count[5m]))",
+              "legendFormat": "{{service_name}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {"drawStyle": "line", "fillOpacity": 10}
+            }
+          }
+        },
+        {
+          "title": "P95 Latency by Service",
+          "type": "timeseries",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "histogram_quantile(0.95, sum by (service_name, le) (rate(http_server_request_duration_seconds_bucket[5m])))",
+              "legendFormat": "{{service_name}}"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "color": {"mode": "palette-classic"},
+              "custom": {"drawStyle": "line", "fillOpacity": 10}
+            }
+          }
+        },
+        {
+          "title": "ModSecurity Audit Logs (kss)",
+          "type": "logs",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+          "targets": [
+            {
+              "datasource": {"type": "loki", "uid": "loki"},
+              "expr": "{namespace=\"ingress-nginx\", container=\"controller\"} |~ \"ModSecurity\""
+            }
+          ]
+        },
+        {
+          "title": "Suspicious Requests (SQLi, XSS, Traversal)",
+          "type": "logs",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+          "targets": [
+            {
+              "datasource": {"type": "loki", "uid": "loki"},
+              "expr": "{namespace=~\"ingress-nginx|istio-ingress\"} |~ \"(?i)(union\\\\s+select|<script|\\\\.\\\\./)\" "
+            }
+          ]
+        },
+        {
+          "title": "Active Security Alerts",
+          "type": "table",
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32},
+          "targets": [
+            {
+              "datasource": {"type": "prometheus", "uid": "prometheus"},
+              "expr": "ALERTS{alertstate=\"firing\", alertname=~\"BruteForce.*|CredentialStuffing.*|HighErrorRate|RequestFlood|SlowRequestSpike|ModSecurity.*|PathTraversal.*|SQLInjection.*|XSSAttempt.*|ScannerTool.*\"}",
+              "format": "table",
+              "instant": true
+            }
+          ],
+          "transformations": [
+            {"id": "organize", "options": {"excludeByName": {"Time": true, "__name__": true, "Value": true}}}
+          ]
+        }
+      ],
+      "schemaVersion": 39,
+      "tags": ["security", "waf"],
+      "templating": {"list": []},
+      "time": {"from": "now-6h", "to": "now"},
+      "timepicker": {},
+      "timezone": "utc",
+      "title": "Security Overview",
+      "uid": "security-overview"
+    }

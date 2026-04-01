@@ -71,7 +71,7 @@ grafana:
     - name: Tempo
       uid: tempo
       type: tempo
-      url: http://tempo.monitoring.svc.cluster.local:3100
+      url: http://tempo.monitoring.svc.cluster.local:3200
       access: proxy
       isDefault: false
       jsonData:
