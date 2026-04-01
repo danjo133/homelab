@@ -25,7 +25,7 @@ spec:
         fsGroup: 10007
       containers:
         - name: open-terminal
-          image: ghcr.io/open-webui/open-terminal:latest
+          image: ghcr.io/open-webui/open-terminal@sha256:4f9da5bb02b2a122a57e5849973dec865272f7d4f0d825902c5ddaa4a4f5cd7b
           ports:
             - name: http
               containerPort: 8000
@@ -43,6 +43,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
+              add: ["SETGID"]
           volumeMounts:
             - name: data
               mountPath: /home/user
