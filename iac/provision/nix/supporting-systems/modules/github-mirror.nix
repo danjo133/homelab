@@ -11,6 +11,13 @@ let
   configDir = "/etc/github-mirror";
   stateDir = "/var/lib/github-mirror";
 
+  # Per-project CI/CD variables for repos that need build customisation
+  # (e.g. multi-stage Dockerfiles requiring --target)
+  # Mirrors ci/project-vars.yaml in the repo root
+  projectVarsJson = builtins.toJSON {
+    Riksdaler = { BUILD_TARGET = "core"; };
+  };
+
   mirrorScript = pkgs.writeShellScript "github-mirror-sync" ''
     set -eu
 
@@ -290,6 +297,26 @@ let
           -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "X-Forwarded-Proto: https" \
           -H "Content-Type: application/json" \
           -d "$(jq -n --arg ci "$CI_CONFIG" '{ci_config_path: $ci}')" >/dev/null || true
+      fi
+
+      # Set per-project CI/CD variables (if defined in projectVars)
+      PROJECT_ID="$EXISTING_ID"
+      if [ -z "$PROJECT_ID" ] || [ "$PROJECT_ID" = "null" ]; then
+        PROJECT_ID=$(curl -sf "$GITLAB_API/groups/$APPS_GROUP_ID/projects?search=$REPO_NAME" \
+          -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "X-Forwarded-Proto: https" | jq -r ".[] | select(.path == \"$REPO_NAME\") | .id")
+      fi
+      PROJECT_VARS=$(echo '${projectVarsJson}' | jq -r --arg name "$REPO_NAME" '.[$name] // empty')
+      if [ -n "$PROJECT_VARS" ]; then
+        echo "$PROJECT_VARS" | jq -r 'to_entries[] | "\(.key) \(.value)"' | while read -r VAR_KEY VAR_VAL; do
+          curl -sf -X DELETE "$GITLAB_API/projects/$PROJECT_ID/variables/$VAR_KEY" \
+            -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "X-Forwarded-Proto: https" 2>/dev/null || true
+          curl -sf -X POST "$GITLAB_API/projects/$PROJECT_ID/variables" \
+            -H "PRIVATE-TOKEN: $GITLAB_TOKEN" -H "X-Forwarded-Proto: https" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg key "$VAR_KEY" --arg val "$VAR_VAL" \
+              '{key: $key, value: $val, protected: false, raw: true}')" >/dev/null
+          echo "    Set CI variable: $VAR_KEY=$VAR_VAL"
+        done
       fi
 
       # Git mirror: bare clone from GitHub, push to GitLab

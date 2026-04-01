@@ -6,6 +6,9 @@
 #   HARBOR_REGISTRY      - Harbor hostname
 #   HARBOR_PUSH_USER     - Harbor robot account username
 #   HARBOR_PUSH_PASSWORD - Harbor robot account password
+#
+# Optional per-project CI/CD variables (set via ci/project-vars.yaml):
+#   BUILD_TARGET         - Dockerfile target stage (for multi-stage builds)
 
 stages:
   - build
@@ -29,6 +32,7 @@ build:
       /kaniko/executor
       --context "${CI_PROJECT_DIR}"
       --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      ${BUILD_TARGET:+--target "$BUILD_TARGET"}
       --destination "${HARBOR_REGISTRY}/apps/${IMAGE_NAME}:${CI_COMMIT_SHA}"
       --destination "${HARBOR_REGISTRY}/apps/${IMAGE_NAME}:latest"
       --cache=true

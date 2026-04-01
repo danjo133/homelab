@@ -172,6 +172,7 @@ jq -n \
     --arg gatewayIp "${GATEWAY_IP:-10.0.0.1}" \
     --arg managementCidr "${MANAGEMENT_CIDR:-10.0.0.0/24}" \
     --arg podCidr "${POD_CIDR:-10.42.0.0/16}" \
+    --arg serviceCidr "${SERVICE_CIDR:-10.43.0.0/16}" \
     --arg nfsAllowedNetwork "${NFS_ALLOWED_NETWORK:-10.0.0.0/24}" \
     --arg supportVmIp "${SUPPORT_VM_IP:-10.69.50.10}" \
     --arg ollamaUrl "$OLLAMA_URL" \
@@ -224,6 +225,7 @@ jq -n \
             gatewayIp: $gatewayIp,
             managementCidr: $managementCidr,
             podCidr: $podCidr,
+            serviceCidr: $serviceCidr,
             nfsAllowedNetwork: $nfsAllowedNetwork,
             supportVmIp: $supportVmIp,
             ollamaUrl: $ollamaUrl,

@@ -124,6 +124,7 @@ spec:
     - https://cloudnative-pg.github.io/charts
     - https://openziti.io/helm-charts
     - https://charts.releases.teleport.dev
+    - https://crowdsecurity.github.io/helm-charts
   destinations:
     - server: https://kubernetes.default.svc
       namespace: argocd
@@ -145,6 +146,8 @@ spec:
       namespace: ziti-system
     - server: https://kubernetes.default.svc
       namespace: teleport
+    - server: https://kubernetes.default.svc
+      namespace: crowdsec
     - server: https://kubernetes.default.svc
       namespace: kube-system
   clusterResourceWhitelist:

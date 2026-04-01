@@ -1,0 +1,6 @@
+# Per-project CI/CD variables for mirrored GitHub repos
+# The github-mirror sync script sets these as project-level variables in GitLab
+# Format: project-name: { VAR_NAME: value, ... }
+
+Riksdaler:
+  BUILD_TARGET: core

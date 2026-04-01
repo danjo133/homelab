@@ -21,6 +21,8 @@ spec:
         spec:
           hostPID: true
           restartPolicy: Never
+          imagePullSecrets:
+            - name: harbor-pull-secret
           tolerations:
             - key: node-role.kubernetes.io/control-plane
               operator: Exists
@@ -29,7 +31,7 @@ spec:
             node-role.kubernetes.io/master: "true"
           containers:
             - name: kube-bench
-              image: harbor.example.com/docker.io/aquasec/kube-bench:v0.9.3
+              image: docker.io/aquasec/kube-bench:v0.9.3
               command:
                 - kube-bench
                 - run

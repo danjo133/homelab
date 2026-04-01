@@ -1,6 +1,7 @@
 {{- $ctx := (ds "ctx") -}}
 {{- $nfsAllowedNetwork := $ctx.config.nfsAllowedNetwork -}}
 {{- $gatewayIp := $ctx.config.gatewayIp -}}
+{{- $serviceCidr := $ctx.config.serviceCidr -}}
 {{- range $i, $ns := (ds "netpol").defaultPolicyNamespaces -}}
 {{- if gt $i 0 }}
 ---
@@ -40,6 +41,12 @@ spec:
     # Intra-cluster: all pods in all namespaces
     - to:
         - namespaceSelector: {}
+    # Service CIDR — required for hostNetwork pods (Canal evaluates
+    # NetworkPolicy before kube-proxy DNAT in the OUTPUT chain, so
+    # ClusterIP destinations are not matched by namespaceSelector rules)
+    - to:
+        - ipBlock:
+            cidr: {{ $serviceCidr }}
     # Node network (support VM, node services) except router
     - to:
         - ipBlock:

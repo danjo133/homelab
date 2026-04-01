@@ -110,6 +110,8 @@ policies:
     egress:
       - toCIDR: "SUPPORT_VM_IP"
         ports:
+          - port: "3024"
+            protocol: TCP
           - port: "3080"
             protocol: TCP
           - port: "443"
