@@ -53,6 +53,7 @@ tofu/environments/*/terraform.tfvars
 config.local.yaml
 config.yaml
 secrets.yaml
+.dtrack-bootstrap-creds*
 
 # Generated config (from generate-config.sh)
 stages/lib/config-local.sh
@@ -67,6 +68,7 @@ iac/argocd/values/kss/
 iac/argocd/values/kcs/
 iac/clusters/*/generated/
 tofu/environments/*/backend.tf
+tofu/environments/dependencytrack/terraform-*.tfvars
 .push-guard
 
 # Trivy

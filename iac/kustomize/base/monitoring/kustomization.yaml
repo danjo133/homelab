@@ -21,3 +21,4 @@ resources:
   - grafana-dashboard-tetragon.yaml
   - grafana-dashboard-compliance.yaml
   - gatekeeper-metrics.yaml
+  - grafana-datasource-tempo.yaml

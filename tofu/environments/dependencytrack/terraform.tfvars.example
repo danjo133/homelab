@@ -1,0 +1,5 @@
+# Per-cluster tfvars are generated as terraform-<cluster>.tfvars
+# by scripts/generate-config.sh. Example:
+vault_addr              = "https://vault.support.example.com"
+dependencytrack_url     = "https://dtrack.kss.example.com"
+cluster_name            = "kss"

@@ -53,6 +53,7 @@ apps:
   openclaw: true
   globalpulse: true
   kiali: true
+  dependencyTrack: true
 
 # --- OIDC ---
 oidc:

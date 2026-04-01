@@ -2,6 +2,7 @@
 operator:
   scanJobsConcurrentLimit: 3
   vulnerabilityScannerEnabled: true
+  sbomGenerationEnabled: true
   configAuditScannerEnabled: true
   rbacAssessmentScannerEnabled: true
   infraAssessmentScannerEnabled: true

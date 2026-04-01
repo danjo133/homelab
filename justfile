@@ -322,6 +322,27 @@ tofu-bootstrap-cluster:
     tofu -chdir="tofu/environments/${KSS_CLUSTER}" apply
     success "Bootstrap complete for ${KSS_CLUSTER}"
 
+# Bootstrap Dependency-Track: create initial API key from default admin/admin (requires KSS_CLUSTER)
+dtrack-bootstrap:
+    ./tofu/scripts/bootstrap-dependencytrack.sh
+
+# Apply DependencyTrack tofu config for a specific cluster (requires KSS_CLUSTER + TF_VAR_dependencytrack_api_key)
+tofu-dtrack:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${KSS_CLUSTER:?KSS_CLUSTER must be set}"
+    ./scripts/generate-config.sh
+    WORKTREE=$(mktemp -d "${TMPDIR:-/tmp}/deploy-tofu.XXXXXX")
+    cleanup() { git worktree remove --force "$WORKTREE" 2>/dev/null || rm -rf "$WORKTREE"; }
+    trap cleanup EXIT
+    git worktree add --quiet "$WORKTREE" deploy
+    # Copy generated tfvars (gitignored on main) into the deploy worktree
+    cp tofu/environments/dependencytrack/terraform-${KSS_CLUSTER}.tfvars "$WORKTREE/tofu/environments/dependencytrack/"
+    echo "Running tofu init + apply for dependencytrack (${KSS_CLUSTER}) in deploy worktree..."
+    cd "$WORKTREE"
+    tofu -chdir=tofu/environments/dependencytrack init -backend-config="key=dependencytrack-${KSS_CLUSTER}/terraform.tfstate" -reconfigure
+    tofu -chdir=tofu/environments/dependencytrack apply -var-file="terraform-${KSS_CLUSTER}.tfvars"
+
 # ─── Security ─────────────────────────────────
 
 # Run full security audit (all scanners)

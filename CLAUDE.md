@@ -101,18 +101,16 @@ just platform-trivy           # Trivy scanner
 just platform-deploy          # All platform services
 just platform-status          # Show status
 
-# OpenTofu (env: base, kss, kcs)
-just tofu-init <env>          # Initialize environment
-just tofu-plan <env>          # Plan changes
-just tofu-apply <env>         # Apply changes
-just tofu-state <env>         # List state
-just tofu-setup-bucket        # Create MinIO state bucket
-just tofu-import-base         # Import base resources
-just tofu-import-cluster      # Import cluster resources (requires KSS_CLUSTER)
-just tofu-seed-broker         # Seed broker IdP secrets into Vault
-just tofu-migrate-broker      # Migrate broker realm to OpenTofu (requires KSS_CLUSTER)
-just tofu-migrate-secrets     # Remove placeholder secrets from state (requires KSS_CLUSTER)
-just tofu-bootstrap-cluster   # Full cluster bootstrap: seed → init → import → apply
+# OpenTofu — runs in deploy branch worktree with real tfvars
+# Requires: just deploy-sync first, then source .env.kss (or .env.kcs)
+just tofu <env>                           # Init + apply in deploy worktree (primary command)
+just deploy-exec tofu-plan <env>          # Plan only (preview changes)
+just deploy-exec tofu-state <env>         # List state
+just tofu-setup-bucket                    # Create MinIO state bucket (one-time)
+just deploy-exec tofu-import-base         # Import base resources
+just deploy-exec tofu-import-cluster      # Import cluster resources (requires KSS_CLUSTER)
+just deploy-exec tofu-seed-broker         # Seed broker IdP secrets into Vault
+just deploy-exec tofu-bootstrap-cluster   # Full cluster bootstrap: seed → init → import → apply
 
 # Security
 just security-audit           # Run all security scanners
@@ -200,7 +198,7 @@ The project lives on the hypervisor where Vagrant/libvirt/KVM run. All `just` co
 | Monitoring | Prometheus, Grafana, Loki, Alloy, Alertmanager, Beyla (eBPF), Tempo |
 | WAF | ModSecurity + OWASP CRS (kss), Coraza WASM (kcs) |
 | IDS | CrowdSec (community threat intel), Loki log alerts, Prometheus metric alerts |
-| Security | Trivy Operator, Tetragon (kcs), OPA Gatekeeper |
+| Security | Trivy Operator, Tetragon (kcs), OPA Gatekeeper, Dependency-Track (SBOM) |
 | LLM | Open WebUI (Keycloak OIDC, CNPG PostgreSQL) |
 | Identity | Keycloak (broker + upstream IdP federation) |
 | Auth Proxy | OAuth2-Proxy (OIDC SSO) |
@@ -298,9 +296,11 @@ tofu/                             # OpenTofu IaC
     harbor-apps/                  # App image projects + robot accounts for CI
     minio-config/                 # Bucket management
     teleport-config/              # Teleport join tokens, K8s agent config (Vault)
+    dependencytrack-config/       # DT teams, API keys, OIDC mappings, projects
     ziti-config/                  # Edge routers, services, policies, client identities
   environments/
     base/                         # Root: Vault + Keycloak + GitLab + Harbor apps + MinIO + Ziti + Teleport
+    dependencytrack/              # DT config: teams, API keys, OIDC mappings, projects (separate — requires DT running)
     kss/                          # KSS: Vault namespace + Harbor + Keycloak broker + Ziti router
     kcs/                          # KCS: Vault namespace + Harbor + Keycloak broker + Ziti router
   scripts/                        # State bucket setup, import, seed, migrate scripts
@@ -355,7 +355,7 @@ ArgoCD manages all K8s resources via sync waves. Projects: **bootstrap** (waves 
 | 0 | Platform operators | ArgoCD, Longhorn, Gatekeeper, SPIRE, CNPG, Ziti router, Teleport K8s agent |
 | 1 | Identity | Keycloak operator + instance, OAuth2-Proxy, OIDC RBAC |
 | 2 | Monitoring | kube-prometheus-stack, Loki, Tempo, Alloy, Beyla |
-| 3 | Security | Gatekeeper policies, Trivy, Coraza WAF (kcs), CrowdSec |
+| 3 | Security | Gatekeeper policies, Trivy, Dependency-Track, Coraza WAF (kcs), CrowdSec |
 | 4 | Applications | Headlamp, Portal, cluster-setup, JIT elevation, Architecture, Open WebUI, Kiali (kcs) |
 | 5 | Dynamic apps | ApplicationSets (auto-discovered from GitLab) |
 
@@ -404,6 +404,30 @@ On kcs (Cilium CNI + Istio Ambient), network policies operate at two layers. **C
 
 ### OpenZiti
 Zero-trust overlay network. Controller + support router on support VM (Docker Compose). Per-cluster routers as K8s pods in `ziti-system` namespace. OpenTofu manages edge routers, overlay services (support-web, kss-ingress, kcs-ingress), service policies, and client device identities. Enrollment JWTs stored in Vault.
+
+### Dependency-Track
+SBOM management and vulnerability correlation. Deployed per-cluster via Helm chart + kustomize config (CNPG database, ExternalSecrets, SBOM upload CronJob).
+
+**Architecture:** Separate tofu environment (`tofu/environments/dependencytrack/`) — extracted from base so `just tofu base` doesn't require DT to be running. The DT OpenTofu provider validates connectivity at init time even when no resources use it.
+
+**Bootstrap (per-cluster, one-time):**
+1. Ensure DT pods are running: `kubectl get pods -n dependency-track`
+2. Run: `export KSS_CLUSTER=<cluster> && just dtrack-bootstrap`
+3. The script saves credentials to `.dtrack-bootstrap-creds-<cluster>` (gitignored) and can resume from saved credentials if re-run after a failure
+4. Set the API key and apply: `export TF_VAR_dependencytrack_api_key='<key>' && just tofu-dtrack`
+5. Each cluster has independent state (`dependencytrack-<cluster>/terraform.tfstate` in MinIO)
+
+**DT 4.14 gotchas:**
+- `FORCE_PASSWORD_CHANGE` is true on the default admin user — must use `forceChangePassword` endpoint before login works (the bootstrap script handles this)
+- `PORTFOLIO_MANAGEMENT` permission is required to create projects via the API (not just `PROJECT_CREATION_UPLOAD`)
+- OIDC config properties are not exposed via the config property API — use `ALPINE_OIDC_*` env vars instead
+- Java startup is slow on fresh DB (NVD feed downloads) — startup probe `failureThreshold` is set to 120 (1200s / 20 min)
+
+**Ingress:** kss uses nginx Ingress (from Helm chart), kcs uses Gateway API HTTPRoute (generated, with `/api` and `/health` paths routed to the API server). The Helm ingress is disabled on Istio clusters via `isIstioMesh` template conditional.
+
+**OIDC:** Requires `dependency-track` client in the broker Keycloak realm (created by `just tofu <cluster>`). The client secret is injected via `dependency-track-oidc` ExternalSecret → `ALPINE_OIDC_CLIENT_SECRET` env var.
+
+**ModSecurity CRS tuning:** DT's API (and its OpenTofu provider) use PUT/DELETE methods and `text/plain` content type, which OWASP CRS blocks by default. The global nginx modsecurity-snippet includes `tx.allowed_methods` and `tx.allowed_request_content_type` overrides. Per-ingress modsecurity-snippet annotations are disabled by the nginx admission webhook — all CRS tuning must go in the global ConfigMap snippet.
 
 ### Custom Applications
 Five apps in `iac/apps/`: **portal** (annotation-based service discovery dashboard), **jit-elevation** (RFC 8693 token exchange for temporary privilege escalation), **cluster-setup** (OIDC token info + kubeconfig download), **architecture** (LikeC4 C4 model visualization of the infrastructure), **demo-app** (reference template exercising generic-app chart features). Built as container images via GitLab CI (`.gitlab-ci.yml`), stored in Harbor, auto-deployed via ArgoCD Image Updater.
@@ -463,8 +487,8 @@ This repo uses two git remotes. All code lives on `main`. The `deploy` branch is
 
 **Adding OpenTofu resources:**
 1. Add to the appropriate module in `tofu/modules/` or environment in `tofu/environments/`
-2. Commit on `main`, then `just deploy-sync` to generate tfvars
-3. Run `source .env.kss && just tofu-plan <env>` and `just tofu-apply <env>` (auto-generates config, checks for credentials)
+2. Commit on `main`, then `just deploy-sync` to get changes onto the deploy branch
+3. Run `source .env.kss && just tofu <env>` (init + apply in deploy branch worktree with real tfvars)
 
 ### What NOT to Do
 
@@ -472,6 +496,7 @@ This repo uses two git remotes. All code lives on `main`. The `deploy` branch is
 - Do not `helm install/upgrade` — ArgoCD or helmfile manages all releases
 - Do not store secrets in plaintext anywhere in the repo
 - Do not bypass the justfile for operations it covers
+- Do not run `just tofu-init/plan/apply` directly — use `just tofu <env>` (init + apply in deploy worktree) or `just deploy-exec tofu-plan <env>` (plan only). Tofu must run from the deploy branch worktree where real tfvars are generated.
 - Do not push to any remote without the user's explicit approval
 - Do not put personal domains in tracked files on `main` — only `example.com` placeholders
 - Do not edit the `deploy` branch — it's an ephemeral orphan rebuilt by `just deploy-sync`

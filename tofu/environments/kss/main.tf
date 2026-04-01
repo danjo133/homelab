@@ -151,3 +151,13 @@ resource "vault_kv_secret_v2" "keycloak_open_webui_client" {
     "client-secret" = module.keycloak_broker.open_webui_client_secret
   })
 }
+
+resource "vault_kv_secret_v2" "keycloak_dependency_track_client" {
+  mount = module.vault_cluster.kv_mount_path
+  name  = "keycloak/dependency-track-client"
+
+  data_json = jsonencode({
+    "client-id"     = "dependency-track"
+    "client-secret" = module.keycloak_broker.dependency_track_client_secret
+  })
+}

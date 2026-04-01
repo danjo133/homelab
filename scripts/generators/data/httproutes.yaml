@@ -206,3 +206,23 @@ routes:
       icon: "\U0001F4BE"
       category: "Platform"
       order: "30"
+
+  - name: dependency-track
+    filename: httproute-dependency-track.yaml
+    namespace: dependency-track
+    hostname: dtrack
+    serviceName: dependency-track-frontend
+    servicePort: 8080
+    extraRules:
+      - pathPrefix: /api
+        serviceName: dependency-track-api-server
+        servicePort: 8080
+      - pathPrefix: /health
+        serviceName: dependency-track-api-server
+        servicePort: 8080
+    portal:
+      name: "Dependency-Track"
+      description: "Software composition analysis"
+      icon: "\U0001F50D"
+      category: "Security"
+      order: "20"

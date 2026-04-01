@@ -17,4 +17,8 @@ minio_secret_key = ""
 minio_ssl        = true
 
 vault_namespaces = ["kss", "kcs"]
-minio_buckets    = ["harbor", "loki-kss", "loki-kcs", "tofu-state"]
+minio_buckets    = ["harbor", "loki-kss", "loki-kcs", "tofu-state", "riksdaler-kss", "riksdaler-kcs"]
+
+# Dependency-Track (set after DT is running)
+# dependencytrack_url     = "https://dtrack.kss.example.com"
+# dependencytrack_api_key = ""  # Get from: kubectl logs -n dependency-track deploy/dependency-track-api-server | grep "API Key"

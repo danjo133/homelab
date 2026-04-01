@@ -1,0 +1,33 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: dependency-track-db
+  namespace: dependency-track
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
+
+  bootstrap:
+    initdb:
+      database: dependency-track
+      owner: dependency-track
+      secret:
+        name: dependency-track-db-credentials
+
+  managed:
+    roles:
+      - name: dependency-track
+        ensure: present
+        login: true
+        passwordSecret:
+          name: dependency-track-db-credentials
+
+  storage:
+    size: 4Gi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi

@@ -165,3 +165,10 @@ policies:
     egress:
       - internet: true
 
+  - name: allow-internet
+    filename: dependency-track-internet.yaml
+    namespace: dependency-track
+    description: "Allow Dependency-Track to reach NVD, OSV, and GitHub Advisory APIs"
+    egress:
+      - internet: true
+

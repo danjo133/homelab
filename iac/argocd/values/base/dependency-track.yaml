@@ -1,0 +1,90 @@
+# Dependency-Track — SBOM management and vulnerability correlation
+
+common:
+  secretKey:
+    createSecret: true
+
+apiServer:
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      memory: 4Gi
+
+  persistentVolume:
+    enabled: false
+
+  probes:
+    startup:
+      failureThreshold: 120
+
+  # extraEnv is fully overridden by per-cluster values (Helm list merge).
+  # Kept here as reference with example.com placeholders for the main branch.
+  extraEnv:
+    # External PostgreSQL via CNPG
+    - name: ALPINE_DATABASE_MODE
+      value: "external"
+    - name: ALPINE_DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: dependency-track-db-credentials
+          key: database-url
+    - name: ALPINE_DATABASE_DRIVER
+      value: "org.postgresql.Driver"
+    - name: ALPINE_DATABASE_USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: dependency-track-db-credentials
+          key: username
+    - name: ALPINE_DATABASE_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: dependency-track-db-credentials
+          key: password
+    # OIDC authentication
+    - name: ALPINE_OIDC_ENABLED
+      value: "true"
+    - name: ALPINE_OIDC_CLIENT_ID
+      value: "dependency-track"
+    - name: ALPINE_OIDC_ISSUER
+      value: "https://auth.example.com/realms/broker"
+    - name: ALPINE_OIDC_USERNAME_CLAIM
+      value: "preferred_username"
+    - name: ALPINE_OIDC_TEAMS_CLAIM
+      value: "groups"
+    - name: ALPINE_OIDC_USER_PROVISIONING
+      value: "true"
+    - name: ALPINE_OIDC_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: dependency-track-oidc
+          key: client-secret
+    - name: ALPINE_OIDC_TEAM_SYNCHRONIZATION
+      value: "true"
+
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    scrapeInterval: 60s
+
+frontend:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+  apiBaseUrl: ""
+  extraEnv:
+    - name: OIDC_ISSUER
+      value: "https://auth.example.com/realms/broker"
+    - name: OIDC_CLIENT_ID
+      value: "dependency-track"
+    - name: OIDC_FLOW
+      value: "code"
+    - name: OIDC_LOGIN_BUTTON_TEXT
+      value: "Log in with SSO"
+
+ingress:
+  enabled: false

@@ -16,6 +16,7 @@ include:
 stages:
   - build
   - test
+  - sbom-upload
 
 .kaniko-build:
   stage: build
@@ -137,3 +138,92 @@ scan-openclaw:
   variables:
     CS_IMAGE: ${HARBOR_REGISTRY}/apps/openclaw:latest
     APP_DIR: iac/apps/openclaw
+
+# --- SBOM upload to Dependency-Track ---
+# Uploads CycloneDX SBOMs from container scanning to Dependency-Track.
+# Required CI variables:
+#   DT_API_KEY  - Dependency-Track API key (masked)
+#   DT_URL      - Dependency-Track API URL (e.g., https://dtrack.kss.example.com)
+
+.sbom-upload:
+  stage: sbom-upload
+  image:
+    name: ${HARBOR_REGISTRY}/docker.io/curlimages/curl:latest
+    entrypoint: [""]
+  script:
+    - |
+      for sbom in $(find . -name "gl-sbom-*.cdx.json" 2>/dev/null); do
+        echo "Uploading $sbom to Dependency-Track as ${APP_NAME}..."
+        ENCODED=$(base64 -w0 "$sbom")
+        curl -sf -X PUT "${DT_URL}/api/v1/bom" \
+          -H "X-Api-Key: ${DT_API_KEY}" \
+          -H "Content-Type: application/json" \
+          -d "{\"projectName\": \"${APP_NAME}\", \"projectVersion\": \"${CI_COMMIT_SHORT_SHA}\", \"autoCreate\": true, \"bom\": \"${ENCODED}\"}"
+        echo " OK"
+      done
+  tags:
+    - docker
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $DT_API_KEY != null'
+      changes:
+        - ${APP_DIR}/**/*
+
+upload-sbom-portal:
+  extends: .sbom-upload
+  needs: ["scan-portal"]
+  variables:
+    APP_NAME: portal
+    APP_DIR: iac/apps/portal
+
+upload-sbom-jit-elevation:
+  extends: .sbom-upload
+  needs: ["scan-jit-elevation"]
+  variables:
+    APP_NAME: jit-elevation
+    APP_DIR: iac/apps/jit-elevation
+
+upload-sbom-cluster-setup:
+  extends: .sbom-upload
+  needs: ["scan-cluster-setup"]
+  variables:
+    APP_NAME: cluster-setup
+    APP_DIR: iac/apps/cluster-setup
+
+upload-sbom-architecture:
+  extends: .sbom-upload
+  needs: ["scan-architecture"]
+  variables:
+    APP_NAME: architecture
+    APP_DIR: iac/apps/architecture
+
+upload-sbom-openclaw:
+  extends: .sbom-upload
+  needs: ["scan-openclaw"]
+  variables:
+    APP_NAME: openclaw
+    APP_DIR: iac/apps/openclaw
+
+# --- NixOS VM SBOM (scheduled pipeline) ---
+# Generates SBOM for support VM NixOS packages and uploads to Dependency-Track.
+# Runs on schedule only (configure weekly in GitLab CI/CD > Schedules).
+nixos-sbom:
+  stage: sbom-upload
+  image:
+    name: ${HARBOR_REGISTRY}/docker.io/anchore/syft:latest
+    entrypoint: [""]
+  script:
+    - |
+      echo "Generating SBOM for NixOS support VM..."
+      syft dir:/run/current-system -o cyclonedx-json > nixos-sbom.cdx.json
+      echo "Uploading to Dependency-Track..."
+      ENCODED=$(base64 -w0 nixos-sbom.cdx.json)
+      apk add --no-cache curl 2>/dev/null || true
+      curl -sf -X PUT "${DT_URL}/api/v1/bom" \
+        -H "X-Api-Key: ${DT_API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d "{\"projectName\": \"support-vm-nixos\", \"projectVersion\": \"$(date +%Y%m%d)\", \"autoCreate\": true, \"bom\": \"${ENCODED}\"}"
+      echo " OK"
+  tags:
+    - docker
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $DT_API_KEY != null'

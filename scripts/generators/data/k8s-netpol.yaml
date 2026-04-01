@@ -28,6 +28,27 @@ defaultPolicyNamespaces:
   - vault-auth
   - trivy-system
   - crowdsec
+  - dependency-track
+
+# Namespaces running admission webhooks — need API server ingress
+# (host-network traffic uses flannel source IPs outside namespaceSelector match)
+webhookNamespaces:
+  - namespace: cert-manager
+    port: 10250
+  - namespace: cnpg-system
+    port: 9443
+  - namespace: external-secrets
+    port: 10250
+  - namespace: gatekeeper-system
+    port: 8443
+  - namespace: longhorn-system
+    port: 9502
+  - namespace: metallb-system
+    port: 9443
+  - namespace: monitoring
+    port: 10250
+  - namespace: spire-system
+    port: 9443
 
 # Namespaces that get internet egress access
 internetNamespaces:
@@ -35,3 +56,4 @@ internetNamespaces:
   - external-dns
   - argocd
   - crowdsec
+  - dependency-track

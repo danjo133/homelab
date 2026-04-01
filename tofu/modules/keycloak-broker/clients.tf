@@ -344,3 +344,41 @@ resource "keycloak_openid_client_default_scopes" "open_webui" {
     keycloak_openid_client_scope.groups.name,
   ]
 }
+
+# ============================================================================
+# dependency-track — confidential client for Dependency-Track OIDC
+# ============================================================================
+
+resource "keycloak_openid_client" "dependency_track" {
+  realm_id  = keycloak_realm.broker.id
+  client_id = "dependency-track"
+  name      = "Dependency-Track"
+  enabled   = true
+
+  access_type                  = "PUBLIC"
+  standard_flow_enabled        = true
+  direct_access_grants_enabled = false
+  service_accounts_enabled     = false
+  pkce_code_challenge_method   = "S256"
+
+  valid_redirect_uris = [
+    "https://dtrack.${var.domain}/*",
+  ]
+  web_origins = [
+    "https://dtrack.${var.domain}",
+  ]
+}
+
+resource "keycloak_openid_client_default_scopes" "dependency_track" {
+  realm_id  = keycloak_realm.broker.id
+  client_id = keycloak_openid_client.dependency_track.id
+
+  default_scopes = [
+    "acr",
+    "profile",
+    "email",
+    "roles",
+    keycloak_openid_client_scope.openid.name,
+    keycloak_openid_client_scope.groups.name,
+  ]
+}

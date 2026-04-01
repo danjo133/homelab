@@ -1,0 +1,108 @@
+# SBOM upload CronJob — reads Trivy SbomReport CRDs and uploads to Dependency-Track
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sbom-upload
+  namespace: dependency-track
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sbom-report-reader
+rules:
+  - apiGroups: ["aquasecurity.github.io"]
+    resources: ["sbomreports"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sbom-upload-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: sbom-report-reader
+subjects:
+  - kind: ServiceAccount
+    name: sbom-upload
+    namespace: dependency-track
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: sbom-upload
+  namespace: dependency-track
+spec:
+  schedule: "0 */6 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          serviceAccountName: sbom-upload
+          containers:
+            - name: upload
+              image: bitnami/kubectl:latest
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  DT_URL="http://dependency-track-api-server:8080"
+                  UPLOADED=0
+                  FAILED=0
+                  SKIPPED=0
+
+                  # List all SbomReport names (lightweight — no report data)
+                  echo "Listing SbomReports..."
+                  REPORTS=$(kubectl get sbomreports.aquasecurity.github.io -A -o jsonpath='{range .items[*]}{.metadata.namespace}{" "}{.metadata.name}{"\n"}{end}')
+                  COUNT=$(echo "$REPORTS" | grep -c '.' || true)
+                  echo "Found $COUNT SbomReport(s)"
+
+                  # Process one report at a time (no set -e so failures don't abort the loop)
+                  echo "$REPORTS" | while read -r NS NAME; do
+                    [ -z "$NS" ] && continue
+                    PROJECT_NAME="${NS}/${NAME}"
+
+                    # Fetch single report — .report.components is the full CycloneDX BOM
+                    REPORT=$(kubectl get sbomreports.aquasecurity.github.io -n "$NS" "$NAME" -o json) || { echo "  SKIP $PROJECT_NAME (fetch failed)"; continue; }
+                    FULL_BOM=$(echo "$REPORT" | jq -c '.report.components')
+
+                    COMP_COUNT=$(echo "$FULL_BOM" | jq '.components | length')
+                    if [ "$COMP_COUNT" = "0" ] || [ "$COMP_COUNT" = "null" ]; then
+                      echo "  SKIP $PROJECT_NAME (no components)"
+                      continue
+                    fi
+
+                    # Upload to Dependency-Track (pipe via stdin to avoid arg length limits)
+                    ENCODED=$(echo "$FULL_BOM" | base64 -w0)
+                    VERSION=$(echo "$REPORT" | jq -r '.report.artifact.tag // "latest"')
+                    RESPONSE=$(printf '{"projectName": "%s", "projectVersion": "%s", "autoCreate": true, "bom": "%s"}' "$PROJECT_NAME" "$VERSION" "$ENCODED" | \
+                      curl -s -w "%{http_code}" -o /dev/null \
+                      -X PUT "$DT_URL/api/v1/bom" \
+                      -H "X-Api-Key: ${DT_API_KEY}" \
+                      -H "Content-Type: application/json" \
+                      --data-binary @-)
+
+                    if [ "$RESPONSE" = "200" ] || [ "$RESPONSE" = "201" ]; then
+                      echo "  OK $PROJECT_NAME ($COMP_COUNT components)"
+                    else
+                      echo "  FAIL $PROJECT_NAME (HTTP $RESPONSE)"
+                    fi
+                  done
+
+                  echo "Done processing $COUNT reports"
+              env:
+                - name: DT_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: dependency-track-api-key
+                      key: api-key
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 512Mi
+          restartPolicy: OnFailure

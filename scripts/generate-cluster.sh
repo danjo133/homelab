@@ -123,6 +123,7 @@ if [ -f "$_config_file" ]; then
     APP_OPENCLAW=$(yq -r '.apps.openclaw // true' "$_config_file")
     APP_GLOBALPULSE=$(yq -r '.apps.globalpulse // true' "$_config_file")
     APP_KIALI=$(yq -r '.apps.kiali // true' "$_config_file")
+    APP_DEPENDENCY_TRACK=$(yq -r '.apps.dependency_track // true' "$_config_file")
 else
     OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
     SUPPORT_VM_IP="${SUPPORT_VM_IP:-10.69.50.10}"
@@ -133,6 +134,7 @@ else
     APP_OPENCLAW=true
     APP_GLOBALPULSE=true
     APP_KIALI=true
+    APP_DEPENDENCY_TRACK=true
 fi
 OLLAMA_IP=$(echo "$OLLAMA_URL" | sed 's|https\?://||; s|:.*||')
 
@@ -208,6 +210,7 @@ jq -n \
     --argjson appOpenclaw "${APP_OPENCLAW:-true}" \
     --argjson appGlobalpulse "${APP_GLOBALPULSE:-true}" \
     --argjson appKiali "${APP_KIALI:-true}" \
+    --argjson appDependencyTrack "${APP_DEPENDENCY_TRACK:-true}" \
     '{
         cluster: $cluster,
         config: {
@@ -264,7 +267,8 @@ jq -n \
             openWebui: $appOpenWebui,
             openclaw: $appOpenclaw,
             globalpulse: $appGlobalpulse,
-            kiali: $appKiali
+            kiali: $appKiali,
+            dependencyTrack: $appDependencyTrack
         }
     }' > "$CONTEXT_FILE"
 
@@ -484,6 +488,10 @@ fi
 
 if [ "$HELMFILE_ENV" = "istio-mesh" ] && [ "${APP_KIALI}" = "true" ]; then
     render "helm-values/kiali.yaml.tpl" "$VALUES_DIR/kiali.yaml"
+fi
+
+if [ "${APP_DEPENDENCY_TRACK}" = "true" ]; then
+    render "helm-values/dependency-track.yaml.tpl" "$VALUES_DIR/dependency-track.yaml"
 fi
 
 # ── Section 19: ArgoCD chart values + root-app ───────────────────────────────

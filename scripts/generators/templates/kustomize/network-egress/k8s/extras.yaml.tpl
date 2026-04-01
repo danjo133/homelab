@@ -34,6 +34,26 @@ spec:
           protocol: UDP
         - port: 53
           protocol: TCP
+{{- range (ds "netpol").webhookNamespaces }}
+---
+# {{ .namespace }}: API server → admission webhook
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-apiserver-webhook
+  namespace: {{ .namespace }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: {{ $ctx.config.podCidr }}
+      ports:
+        - port: {{ .port }}
+          protocol: TCP
+{{- end }}
 {{- range (ds "netpol").internetNamespaces }}
 ---
 apiVersion: networking.k8s.io/v1

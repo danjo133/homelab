@@ -44,3 +44,9 @@ output "open_webui_client_secret" {
   value       = keycloak_openid_client.open_webui.client_secret
   sensitive   = true
 }
+
+output "dependency_track_client_secret" {
+  description = "Secret of the dependency-track client"
+  value       = keycloak_openid_client.dependency_track.client_secret
+  sensitive   = true
+}

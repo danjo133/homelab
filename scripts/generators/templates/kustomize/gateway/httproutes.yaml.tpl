@@ -28,6 +28,17 @@ spec:
   hostnames:
     - "{{ $route.hostname }}.{{ $domain }}"
   rules:
+{{- if has $route "extraRules" }}
+{{- range $route.extraRules }}
+    - matches:
+        - path:
+            type: PathPrefix
+            value: {{ .pathPrefix }}
+      backendRefs:
+        - name: {{ .serviceName }}
+          port: {{ .servicePort }}
+{{- end }}
+{{- end }}
     - matches:
         - path:
             type: PathPrefix

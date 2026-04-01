@@ -328,6 +328,32 @@ resource "vault_kv_secret_v2" "open_webui_db_credentials" {
   depends_on = [module.vault_base]
 }
 
+# Dependency-Track DB credentials — generated passwords for CloudNativePG
+resource "random_password" "dependency_track_db" {
+  length  = 24
+  special = false
+}
+
+resource "random_password" "dependency_track_db_admin" {
+  length  = 24
+  special = false
+}
+
+resource "vault_kv_secret_v2" "dependency_track_db_credentials" {
+  for_each  = toset(var.vault_namespaces)
+  namespace = each.value
+  mount     = module.vault_base.cluster_kv_mount_paths[each.value]
+  name      = "dependency-track/db-credentials"
+
+  data_json = jsonencode({
+    username            = "dependency-track"
+    password            = random_password.dependency_track_db.result
+    "postgres-password" = random_password.dependency_track_db_admin.result
+  })
+
+  depends_on = [module.vault_base]
+}
+
 # Open Terminal API key — authentication for terminal execution API
 resource "random_password" "open_terminal_api_key" {
   length  = 32
@@ -396,6 +422,9 @@ resource "vault_kv_secret_v2" "riksdaler_infra" {
   data_json = jsonencode({
     "access-key" = var.minio_access_key
     "secret-key" = var.minio_secret_key
+    "endpoint"   = "${var.minio_ssl ? "https" : "http"}://${var.minio_endpoint}"
+    "bucket"     = "riksdaler-${each.value}"
+    "use-ssl"    = tostring(var.minio_ssl)
   })
 
   depends_on = [module.vault_base]

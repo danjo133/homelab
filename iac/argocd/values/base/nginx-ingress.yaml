@@ -39,9 +39,15 @@ controller:
       SecAction "id:900000,phase:1,nolog,pass,t:none,setvar:tx.paranoia_level=1"
       # Anomaly scoring thresholds
       SecAction "id:900110,phase:1,nolog,pass,t:none,setvar:tx.inbound_anomaly_score_threshold=5,setvar:tx.outbound_anomaly_score_threshold=4"
+      # Allow standard REST methods (CRS defaults to GET HEAD POST OPTIONS only)
+      SecAction "id:900200,phase:1,nolog,pass,t:none,setvar:tx.allowed_methods=GET HEAD POST OPTIONS PUT DELETE PATCH"
+      # Allow text/plain content type (CRS rule 920420 blocks it by default)
+      SecAction "id:900220,phase:1,nolog,pass,t:none,setvar:tx.allowed_request_content_type=|application/x-www-form-urlencoded| |multipart/form-data| |text/xml| |application/xml| |application/soap+xml| |application/json| |application/reports+json| |application/csp-report| |text/plain|"
       # Allow health probes
       SecRule REQUEST_URI "@beginsWith /healthz" "id:1000,phase:1,allow,nolog"
       SecRule REQUEST_URI "@beginsWith /readyz" "id:1001,phase:1,allow,nolog"
+      # DT frontend serves config.json which CRS 930130 (LFI restricted files) blocks
+      SecRule REQUEST_URI "@streq /static/config.json" "id:1010,phase:1,nolog,pass,ctl:ruleRemoveById=930130"
   tolerations:
     - operator: Exists
   admissionWebhooks:

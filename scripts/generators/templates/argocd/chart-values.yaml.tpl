@@ -53,3 +53,4 @@ apps:
   openclaw: {{ $ctx.apps.openclaw }}
   globalpulse: {{ $ctx.apps.globalpulse }}
   kiali: {{ $ctx.apps.kiali }}
+  dependencyTrack: {{ $ctx.apps.dependencyTrack }}
