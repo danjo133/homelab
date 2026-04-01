@@ -41,6 +41,12 @@ resource "vault_policy" "external_secrets" {
     path "secret/data/mcpo/*" {
       capabilities = ["read"]
     }
+    path "secret/data/dependency-track/*" {
+      capabilities = ["read"]
+    }
+    path "secret/data/riksdaler/*" {
+      capabilities = ["read"]
+    }
     path "secret/metadata/*" {
       capabilities = ["read", "list"]
     }

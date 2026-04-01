@@ -31,6 +31,14 @@ spec:
             - name: http
               containerPort: {{ .Values.port }}
               protocol: TCP
+          {{- if and .Values.probes.startup .Values.probes.startup.enabled }}
+          startupProbe:
+            httpGet:
+              path: {{ .Values.probes.startup.path }}
+              port: http
+            failureThreshold: {{ .Values.probes.startup.failureThreshold | default 30 }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds | default 2 }}
+          {{- end }}
           {{- if .Values.probes.liveness.enabled }}
           livenessProbe:
             httpGet:
@@ -81,9 +89,15 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           {{- end }}
-          {{- with .Values.envFrom }}
+          {{- if or .Values.envFrom .Values.vaultSecrets }}
           envFrom:
+            {{- range .Values.vaultSecrets }}
+            - secretRef:
+                name: {{ $.Release.Name }}-{{ .name }}
+            {{- end }}
+            {{- with .Values.envFrom }}
             {{- toYaml . | nindent 12 }}
+            {{- end }}
           {{- end }}
           resources:
             limits:

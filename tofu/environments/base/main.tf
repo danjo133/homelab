@@ -386,6 +386,21 @@ resource "vault_kv_secret_v2" "oauth2_proxy" {
   depends_on = [module.vault_base]
 }
 
+# MinIO riksdaler S3 credentials — uses MinIO root creds (provider has no IAM users)
+resource "vault_kv_secret_v2" "riksdaler_infra" {
+  for_each  = toset(var.vault_namespaces)
+  namespace = each.value
+  mount     = module.vault_base.cluster_kv_mount_paths[each.value]
+  name      = "riksdaler/infra"
+
+  data_json = jsonencode({
+    "access-key" = var.minio_access_key
+    "secret-key" = var.minio_secret_key
+  })
+
+  depends_on = [module.vault_base]
+}
+
 # MinIO Loki S3 credentials — uses MinIO root creds (provider has no IAM users)
 resource "vault_kv_secret_v2" "minio_loki" {
   for_each  = toset(var.vault_namespaces)

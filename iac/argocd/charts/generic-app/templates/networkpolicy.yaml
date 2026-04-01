@@ -55,3 +55,24 @@ spec:
               - 172.16.0.0/12
               - 192.168.0.0/16
 {{- end }}
+{{- range .Values.extraEgress }}
+---
+# Extra egress: {{ .name }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-{{ .name }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: {{ .cidr }}
+      {{- if .port }}
+      ports:
+        - port: {{ .port }}
+          protocol: TCP
+      {{- end }}
+{{- end }}

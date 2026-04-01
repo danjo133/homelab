@@ -43,8 +43,29 @@ sso: false
 # Allow internet egress (creates NetworkPolicy allowing external IPs)
 internet: false
 
+# Extra egress rules — each entry creates a targeted NetworkPolicy
+# Example: allow Ollama access:
+#   extraEgress:
+#     - name: ollama
+#       cidr: 10.69.10.10/32
+#       port: 11434
+extraEgress: []
+
 # Extra annotations added to Ingress/HTTPRoute (e.g. portal metadata)
 ingressAnnotations: {}
+
+# Vault secrets — each entry creates an ExternalSecret and injects env vars
+# Two patterns:
+#   With explicit keys (remap Vault properties to env var names):
+#     - name: infra
+#       path: myapp/infra
+#       keys:
+#         MINIO_ACCESS_KEY: access-key
+#         MINIO_SECRET_KEY: secret-key
+#   Without keys (all Vault properties become env vars as-is):
+#     - name: credentials
+#       path: myapp/credentials
+vaultSecrets: []
 
 # Environment variables
 env: []
