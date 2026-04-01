@@ -36,3 +36,5 @@ spec:
       - longhorn-system
       - spire-system
       - trivy-system
+      - beyla-system
+      - crowdsec
