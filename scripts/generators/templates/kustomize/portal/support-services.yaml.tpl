@@ -16,6 +16,7 @@ metadata:
     portal.homelab/category: "{{ .category }}"
     portal.homelab/order: "{{ .order }}"
 spec:
+  ingressClassName: portal-discovery
   rules:
     - host: {{ .subdomain }}.{{ $supportDomain }}
 {{- end }}
