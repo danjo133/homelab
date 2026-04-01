@@ -7,7 +7,7 @@
 let
   deployConfig = import ../generated-config.nix;
   gitlabDir = "/var/lib/gitlab";
-  gitlabImage = "gitlab/gitlab-ce:18.9.0-ce.0";
+  gitlabImage = "gitlab/gitlab-ce:18.10.1-ce.0";
 
   # Required upgrade stops for GitLab sequential upgrades.
   # When upgrading across major/minor versions, GitLab requires stopping at
