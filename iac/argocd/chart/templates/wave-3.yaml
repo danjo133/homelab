@@ -63,7 +63,7 @@ spec:
       ref: values
     - repoURL: https://dependencytrack.github.io/helm-charts
       chart: dependency-track
-      targetRevision: "0.*"
+      targetRevision: "0.43.0"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/dependency-track.yaml
@@ -143,7 +143,7 @@ spec:
       ref: values
     - repoURL: https://aquasecurity.github.io/helm-charts
       chart: trivy-operator
-      targetRevision: "0.32.*"
+      targetRevision: "0.32.1"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/trivy.yaml
@@ -173,7 +173,7 @@ spec:
       ref: values
     - repoURL: https://crowdsecurity.github.io/helm-charts
       chart: crowdsec
-      targetRevision: "0.*"
+      targetRevision: "0.22.1"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/crowdsec.yaml

@@ -170,6 +170,9 @@ TF_VAR_harbor_admin_password="${HARBOR_PASSWORD}"  # from: ssh iter "ssh -i ~/.v
 TF_VAR_gitlab_token="${GITLAB_TOKEN}"
 TF_VAR_gitlab_argocd_password="$(openssl rand -base64 16)"
 
+# GitHub PAT for Renovate changelog lookups (optional — set manually if needed)
+TF_VAR_github_renovate_token=""
+
 TF_VAR_ziti_admin_password=${ZITI_PASSWORD}
 TF_VAR_teleport_admin_password=${TELEPORT_PASSWORD}
 TF_VAR_gitlab_admin_password="${GL_ADMIN_PASS}"
@@ -186,6 +189,7 @@ for cluster in kss kcs; do
   if [[ -f "$env_file" ]]; then
     EXISTING_BROKER_PASS=$(grep '^TF_VAR_broker_admin_password=' "$env_file" | cut -d= -f2 || true)
     EXISTING_ARGOCD_PASS=$(grep '^TF_VAR_gitlab_argocd_password=' "$env_file" | sed 's/^[^=]*=//' || true)
+    EXISTING_GITHUB_TOKEN=$(grep '^TF_VAR_github_renovate_token=' "$env_file" | sed 's/^[^=]*=//' || true)
   fi
 
   write_env_file "$cluster"
@@ -197,7 +201,10 @@ for cluster in kss kcs; do
   if [[ -n "${EXISTING_ARGOCD_PASS:-}" ]]; then
     sed -i "s/^TF_VAR_gitlab_argocd_password=.*/TF_VAR_gitlab_argocd_password=${EXISTING_ARGOCD_PASS}/" "$env_file"
   fi
-  unset EXISTING_BROKER_PASS EXISTING_ARGOCD_PASS
+  if [[ -n "${EXISTING_GITHUB_TOKEN:-}" ]]; then
+    sed -i "s/^TF_VAR_github_renovate_token=.*/TF_VAR_github_renovate_token=${EXISTING_GITHUB_TOKEN}/" "$env_file"
+  fi
+  unset EXISTING_BROKER_PASS EXISTING_ARGOCD_PASS EXISTING_GITHUB_TOKEN
 
   # Append K8s auth variables if kubeconfig is available for this cluster
   kubeconfig="${HOME}/.kube/config-${cluster}"

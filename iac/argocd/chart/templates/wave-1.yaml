@@ -63,7 +63,7 @@ spec:
       ref: values
     - repoURL: https://oauth2-proxy.github.io/manifests
       chart: oauth2-proxy
-      targetRevision: "10.*"
+      targetRevision: "10.4.2"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/oauth2-proxy.yaml

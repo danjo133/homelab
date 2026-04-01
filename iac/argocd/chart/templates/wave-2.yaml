@@ -14,7 +14,7 @@ spec:
       ref: values
     - repoURL: https://prometheus-community.github.io/helm-charts
       chart: kube-prometheus-stack
-      targetRevision: "82.*"
+      targetRevision: "82.16.0"
       helm:
         skipCrds: true
         valueFiles:
@@ -57,7 +57,7 @@ spec:
       ref: values
     - repoURL: https://grafana.github.io/helm-charts
       chart: loki
-      targetRevision: "6.*"
+      targetRevision: "6.55.0"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/loki.yaml
@@ -87,7 +87,7 @@ spec:
       ref: values
     - repoURL: https://grafana.github.io/helm-charts
       chart: tempo
-      targetRevision: "1.*"
+      targetRevision: "1.24.4"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/tempo.yaml
@@ -117,7 +117,7 @@ spec:
       ref: values
     - repoURL: https://grafana.github.io/helm-charts
       chart: alloy
-      targetRevision: "1.*"
+      targetRevision: "1.6.2"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/alloy.yaml
@@ -146,7 +146,7 @@ spec:
       ref: values
     - repoURL: https://grafana.github.io/helm-charts
       chart: beyla
-      targetRevision: "1.*"
+      targetRevision: "1.15.0"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/beyla.yaml

@@ -1,0 +1,48 @@
+# Renovate Bot runner CI config
+#
+# This file is intended for a SEPARATE GitLab project (e.g., "renovate-runner").
+# It runs Renovate on a nightly schedule to scan the homelab repo and create MRs.
+#
+# Setup:
+#   1. Create a new GitLab project (e.g., "renovate-runner")
+#   2. Copy this file as .gitlab-ci.yml in that project
+#   3. Create a GitLab Personal Access Token with api+write_repository scopes
+#   4. Set these CI/CD variables in the renovate-runner project:
+#      - RENOVATE_TOKEN: GitLab PAT (masked)
+#      - GITHUB_COM_TOKEN: GitHub PAT for changelog lookups (optional, masked)
+#      - HARBOR_PUSH_USER: Harbor robot account username (for registry lookups)
+#      - HARBOR_PUSH_PASSWORD: Harbor robot account password (masked)
+#   5. Create a CI/CD Schedule: daily at 22:00 UTC
+#
+# The homelab repo's .renovaterc.json controls what Renovate scans and how.
+
+stages:
+  - renovate
+
+renovate:
+  stage: renovate
+  image:
+    name: renovate/renovate:43.102.3
+    entrypoint: [""]
+  variables:
+    # Target the homelab repo — adjust group/project path as needed
+    RENOVATE_REPOSITORIES: '["homelab/homelab"]'
+    RENOVATE_PLATFORM: gitlab
+    RENOVATE_ENDPOINT: ${CI_API_V4_URL}
+    # Log level: debug for troubleshooting, info for normal operation
+    LOG_LEVEL: info
+    # Let Renovate auto-merge MRs when pipeline passes
+    RENOVATE_AUTOMERGE_TYPE: pr
+    RENOVATE_PLATFORM_AUTOMERGE: "true"
+    # Reduce noise
+    RENOVATE_ONBOARDING: "false"
+    RENOVATE_REQUIRE_CONFIG: ignored
+    # Rate limiting
+    RENOVATE_CONCURRENT_REQUEST_LIMIT: "5"
+  script:
+    - renovate
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+  tags:
+    - docker

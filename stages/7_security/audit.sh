@@ -9,7 +9,7 @@ mkdir -p "$RESULTS_DIR"
 header "Security Audit — $(date -Iseconds)"
 
 declare -A results
-scanners=(trivy-iac trivy-fs tflint shellcheck-all grype-sbom secrets-scan)
+scanners=(trivy-iac trivy-fs tflint shellcheck-all grype-sbom secrets-scan dep-immutability)
 
 for scanner in "${scanners[@]}"; do
     script="${STAGES_DIR}/7_security/${scanner}.sh"

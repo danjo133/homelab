@@ -27,7 +27,7 @@
 
             # Kubernetes
             kubectl
-            helm
+            kubernetes-helm
             helmfile
             kustomize
             kubelogin-oidc

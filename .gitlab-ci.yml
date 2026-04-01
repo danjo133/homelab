@@ -14,9 +14,98 @@ include:
   - template: Security/SAST-IaC.gitlab-ci.yml
 
 stages:
+  - validate
   - build
   - test
   - sbom-upload
+
+# =============================================================================
+# MR Validation Pipeline
+# Runs on merge requests (including Renovate MRs) to validate changes.
+# All jobs must pass before auto-merge is allowed.
+# =============================================================================
+
+validate-yaml:
+  stage: validate
+  image:
+    name: ${HARBOR_REGISTRY}/docker.io/cytopia/yamllint:latest
+    entrypoint: [""]
+  script:
+    - >-
+      yamllint -d '{extends: relaxed, rules: {line-length: {max: 300},
+      truthy: {check-keys: false}, comments-indentation: disable}}'
+      iac/argocd/values/ iac/kustomize/
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - iac/argocd/values/**/*
+        - iac/kustomize/**/*
+  tags:
+    - docker
+
+validate-helm-template:
+  stage: validate
+  image:
+    name: ${HARBOR_REGISTRY}/docker.io/alpine/helm:latest
+    entrypoint: [""]
+  script:
+    - >-
+      helm template root-app iac/argocd/chart/
+      --values iac/argocd/chart/values.yaml
+      --set repoURL=https://gitlab.example.com/homelab/homelab.git
+      --set targetRevision=deploy
+      > /dev/null
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - iac/argocd/**/*
+  tags:
+    - docker
+
+validate-kustomize:
+  stage: validate
+  image:
+    name: ${HARBOR_REGISTRY}/docker.io/registry.k8s.io/kustomize/kustomize:v5
+    entrypoint: [""]
+  script:
+    - |
+      FAIL=0
+      for dir in iac/kustomize/base/*/; do
+        if [ -f "${dir}kustomization.yaml" ]; then
+          echo "Validating ${dir}..."
+          if ! kustomize build "$dir" > /dev/null 2>&1; then
+            echo "FAIL: ${dir}"
+            kustomize build "$dir"
+            FAIL=1
+          fi
+        fi
+      done
+      exit $FAIL
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - iac/kustomize/**/*
+  tags:
+    - docker
+
+validate-trivy-config:
+  stage: validate
+  image:
+    name: ${HARBOR_REGISTRY}/docker.io/aquasec/trivy:latest
+    entrypoint: [""]
+  script:
+    - trivy config --exit-code 1 --severity HIGH,CRITICAL iac/
+  allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - iac/**/*
+  tags:
+    - docker
+
+# =============================================================================
+# Build Pipeline (main branch only)
+# =============================================================================
 
 .kaniko-build:
   stage: build

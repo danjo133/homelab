@@ -78,6 +78,13 @@ variable "gitlab_argocd_password" {
   sensitive   = true
 }
 
+variable "github_renovate_token" {
+  description = "GitHub PAT for Renovate changelog lookups (optional, reduces rate limiting)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # --- OpenZiti ---
 
 variable "ziti_api_url" {

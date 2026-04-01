@@ -14,7 +14,7 @@ spec:
       ref: values
     - repoURL: https://charts.jetstack.io
       chart: cert-manager
-      targetRevision: "v1.19.*"
+      targetRevision: "v1.19.4"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/cert-manager.yaml
@@ -46,7 +46,7 @@ spec:
       ref: values
     - repoURL: https://charts.external-secrets.io
       chart: external-secrets
-      targetRevision: "0.16.*"
+      targetRevision: "0.16.2"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/external-secrets.yaml

@@ -373,6 +373,10 @@ security-grype:
 security-secrets:
     ./stages/7_security/secrets-scan.sh
 
+# Dependency immutability audit (mutable tags, unpinned versions)
+security-dep-immutability:
+    ./stages/7_security/dep-immutability.sh
+
 # CIS compliance check against live cluster (requires KUBECONFIG)
 security-compliance:
     ./stages/7_security/compliance-local.sh

@@ -100,22 +100,25 @@ resource "vault_kv_secret_v2" "harbor_admin" {
 }
 
 module "gitlab_config" {
-  source               = "../../modules/gitlab-config"
-  argocd_password      = var.gitlab_argocd_password
-  vault_namespaces     = var.vault_namespaces
-  harbor_push_user     = module.harbor_apps.push_robot_name
-  harbor_push_password = module.harbor_apps.push_robot_secret
-  admin_ssh_public_key = file(pathexpand(var.admin_ssh_public_key_file))
-  support_domain       = var.support_domain
-  email_domain         = var.email_domain
+  source                = "../../modules/gitlab-config"
+  argocd_password       = var.gitlab_argocd_password
+  vault_namespaces      = var.vault_namespaces
+  harbor_push_user      = module.harbor_apps.push_robot_name
+  harbor_push_password  = module.harbor_apps.push_robot_secret
+  admin_ssh_public_key  = file(pathexpand(var.admin_ssh_public_key_file))
+  support_domain        = var.support_domain
+  email_domain          = var.email_domain
+  gitlab_token          = var.gitlab_token
+  github_renovate_token = var.github_renovate_token
+  renovate_repositories = ["infra/homelab"]
 
   depends_on = [module.vault_base]
 }
 
 module "teleport_config" {
-  source               = "../../modules/teleport-config"
-  vault_namespaces     = var.vault_namespaces
-  teleport_proxy_addr  = var.teleport_addr
+  source              = "../../modules/teleport-config"
+  vault_namespaces    = var.vault_namespaces
+  teleport_proxy_addr = var.teleport_addr
 
   depends_on = [module.vault_base]
 }

@@ -14,7 +14,7 @@ spec:
       ref: values
     - repoURL: https://kubernetes-sigs.github.io/external-dns
       chart: external-dns
-      targetRevision: "1.20.*"
+      targetRevision: "1.20.0"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/external-dns.yaml
@@ -46,7 +46,7 @@ spec:
       ref: values
     - repoURL: https://kubernetes.github.io/ingress-nginx
       chart: ingress-nginx
-      targetRevision: "4.14.*"
+      targetRevision: "4.14.5"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/nginx-ingress.yaml
@@ -78,7 +78,7 @@ spec:
   source:
     repoURL: https://istio-release.storage.googleapis.com/charts
     chart: base
-    targetRevision: "1.28.*"
+    targetRevision: "1.28.5"
     helm:
       values: |
         global:
@@ -117,7 +117,7 @@ spec:
   source:
     repoURL: https://istio-release.storage.googleapis.com/charts
     chart: cni
-    targetRevision: "1.28.*"
+    targetRevision: "1.28.5"
     helm:
       values: |
         profile: ambient
@@ -157,7 +157,7 @@ spec:
       ref: values
     - repoURL: https://istio-release.storage.googleapis.com/charts
       chart: istiod
-      targetRevision: "1.28.*"
+      targetRevision: "1.28.5"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base-cluster/kcs/istio-istiod.yaml
@@ -194,7 +194,7 @@ spec:
   source:
     repoURL: https://istio-release.storage.googleapis.com/charts
     chart: ztunnel
-    targetRevision: "1.28.*"
+    targetRevision: "1.28.5"
     helm:
       values: |
         resources:

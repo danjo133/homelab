@@ -14,7 +14,7 @@ spec:
       ref: values
     - repoURL: https://argoproj.github.io/argo-helm
       chart: argo-cd
-      targetRevision: "9.*"
+      targetRevision: "9.4.17"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/argocd.yaml
@@ -46,7 +46,7 @@ spec:
       ref: values
     - repoURL: https://argoproj.github.io/argo-helm
       chart: argocd-image-updater
-      targetRevision: "0.*"
+      targetRevision: "0.14.0"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/argocd-image-updater.yaml
@@ -77,7 +77,7 @@ spec:
       ref: values
     - repoURL: https://charts.longhorn.io
       chart: longhorn
-      targetRevision: "1.8.*"
+      targetRevision: "1.8.2"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/longhorn.yaml
@@ -114,7 +114,7 @@ spec:
       ref: values
     - repoURL: https://open-policy-agent.github.io/gatekeeper/charts
       chart: gatekeeper
-      targetRevision: "3.21.*"
+      targetRevision: "3.21.1"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/gatekeeper.yaml
@@ -150,10 +150,10 @@ spec:
       ref: values
     - repoURL: https://spiffe.github.io/helm-charts-hardened
       chart: spire-crds
-      targetRevision: "0.5.*"
+      targetRevision: "0.5.0"
     - repoURL: https://spiffe.github.io/helm-charts-hardened
       chart: spire
-      targetRevision: "0.28.*"
+      targetRevision: "0.28.3"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/spire.yaml
@@ -184,7 +184,7 @@ spec:
       ref: values
     - repoURL: https://cloudnative-pg.github.io/charts
       chart: cloudnative-pg
-      targetRevision: "0.*"
+      targetRevision: "0.27.1"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/cnpg-operator.yaml
@@ -215,7 +215,7 @@ spec:
       ref: values
     - repoURL: https://openziti.io/helm-charts
       chart: ziti-router
-      targetRevision: "1.*"
+      targetRevision: "1.6.2"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/ziti-router.yaml
@@ -245,7 +245,7 @@ spec:
       ref: values
     - repoURL: https://charts.releases.teleport.dev
       chart: teleport-kube-agent
-      targetRevision: "18.*"
+      targetRevision: "18.7.3"
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/teleport-kube-agent.yaml

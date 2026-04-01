@@ -40,3 +40,23 @@ variable "email_domain" {
   type        = string
   default     = "example.com"
 }
+
+variable "gitlab_token" {
+  description = "GitLab admin PAT — used to create Renovate user PAT"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "github_renovate_token" {
+  description = "GitHub PAT for Renovate changelog lookups (optional, reduces rate limiting)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "renovate_repositories" {
+  description = "GitLab project paths for Renovate to scan (e.g. [\"infra/homelab\"])"
+  type        = list(string)
+  default     = ["infra/homelab"]
+}

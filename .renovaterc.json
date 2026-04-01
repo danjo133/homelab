@@ -1,148 +1,32 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:base",
+    "config:recommended",
     ":dependencyDashboard",
     ":enableVulnerabilityAlerts",
-    "schedule:weekly"
-  ],
-  "timezone": "UTC",
-  "schedule": [
-    "before 9am on Monday"
-  ],
-  "labels": [
-    "dependencies",
-    "renovate"
-  ],
-  "commitMessagePrefix": "chore(deps): ",
-  "commitMessageTopic": "{{depName}}",
-  "grouping": {
-    "major": {
-      "schedule": ["after 10pm on the first Monday of the month"],
-      "labels": ["breaking-change"]
-    },
-    "minor": {
-      "schedule": ["after 10pm on Monday"],
-      "labels": ["feature"]
-    }
-  },
-  "packageRules": [
-    {
-      "description": "Kubernetes and RKE2",
-      "matchDatasources": ["github-releases"],
-      "matchPackagePatterns": ["kubernetes", "rke2"],
-      "minMajorVersion": 1,
-      "schedule": ["after 10pm on the second Monday of the month"],
-      "labels": ["kubernetes"],
-      "assignees": ["@self"]
-    },
-    {
-      "description": "Helm charts",
-      "matchDatasources": ["helm"],
-      "groupName": "Helm charts",
-      "labels": ["helm"]
-    },
-    {
-      "description": "Container images",
-      "matchDatasources": ["docker"],
-      "groupName": "Container images",
-      "labels": ["docker"],
-      "schedule": ["after 10pm on Sunday"]
-    },
-    {
-      "description": "Cilium and network tools",
-      "matchPackagePatterns": ["cilium", "tetragon"],
-      "labels": ["network", "security"],
-      "schedule": ["after 10pm on the second Tuesday of the month"]
-    },
-    {
-      "description": "Security-critical updates",
-      "matchDatasources": ["npm", "pypi", "golang"],
-      "matchUpdateTypes": ["security"],
-      "schedule": ["at 2am on any day"],
-      "automerge": true,
-      "autoApprove": true,
-      "labels": ["security-patch"]
-    },
-    {
-      "description": "Patch updates - auto-merge",
-      "matchUpdateTypes": ["patch", "pin", "digest"],
-      "automerge": true,
-      "autoApprove": true,
-      "schedule": ["at 3am on weekends"],
-      "labels": ["patch"]
-    },
-    {
-      "description": "Minor version updates - require review",
-      "matchUpdateTypes": ["minor"],
-      "automerge": false,
-      "labels": ["minor-update"]
-    },
-    {
-      "description": "Major version updates - require review",
-      "matchUpdateTypes": ["major"],
-      "automerge": false,
-      "labels": ["major-update", "breaking-change"],
-      "assignees": ["@self"]
-    },
-    {
-      "description": "NixOS packages",
-      "matchDatasources": ["nix"],
-      "labels": ["nixos"],
-      "schedule": ["after 10pm on Friday"]
-    },
-    {
-      "description": "GitHub Actions",
-      "matchDatasources": ["github-actions"],
-      "automerge": true,
-      "schedule": ["at 4am on Sunday"]
-    },
-    {
-      "description": "Dev dependencies - auto-merge patches only",
-      "matchDepTypes": ["devDependencies"],
-      "matchUpdateTypes": ["patch"],
-      "automerge": true,
-      "schedule": ["at 5am on any day"]
-    },
-    {
-      "description": "Lock file updates only",
-      "matchUpdateTypes": ["lockFileMaintenance"],
-      "schedule": ["before 9am on Monday"],
-      "automerge": true
-    }
-  ],
-  "extends": [
-    "config:base",
-    ":dependencyDashboard",
-    "schedule:weekly",
-    "docker:enableMajor",
     "docker:pinDigests"
   ],
-  "dockerfile": {
-    "enabled": true,
-    "schedule": ["after 10pm on Sunday"]
-  },
-  "docsUrl": "https://docs.renovatebot.com/",
-  "prConcurrentLimit": 5,
-  "prCreationLimit": 3,
+  "platform": "gitlab",
+  "timezone": "UTC",
+  "schedule": ["after 10pm every day"],
+  "minimumReleaseAge": "14 days",
+  "labels": ["dependencies", "renovate"],
+  "commitMessagePrefix": "chore(deps): ",
+  "commitMessageTopic": "{{depName}}",
   "semanticCommits": "enabled",
   "semanticCommitScope": "deps",
-  "gitCommitScope": "deps",
+  "prConcurrentLimit": 5,
+  "prCreationLimit": 3,
   "vulnerabilityAlerts": {
     "enabled": true,
-    "labels": ["vulnerability"],
-    "assignees": ["@self"]
+    "labels": ["vulnerability", "security"],
+    "minimumReleaseAge": "0 days",
+    "schedule": ["at any time"]
   },
-  "postUpdateOptions": [
-    "gomodTidy",
-    "npmDedupe",
-    "yarnDedupeHighest"
-  ],
-  "ignoreDeps": [],
   "enabledManagers": [
+    "custom.regex",
     "dockerfile",
     "docker-compose",
-    "github-actions",
     "gitlabci",
     "helm-values",
     "helmfile",
@@ -150,23 +34,130 @@
     "nix",
     "npm",
     "poetry",
-    "pip"
+    "pip_requirements"
   ],
-  "pre-commit": {
-    "enabled": true,
-    "schedule": ["before 9am on Monday"]
-  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Helm chart versions in ArgoCD Application templates",
+      "fileMatch": ["iac/argocd/chart/templates/wave.*\\.yaml$"],
+      "matchStrings": [
+        "repoURL:\\s+(?<registryUrl>https?://[^\\s{]+)\\s+chart:\\s+(?<depName>[^\\s{]+)\\s+targetRevision:\\s+\"(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "helm",
+      "versioningTemplate": "helm"
+    },
+{
+      "customType": "regex",
+      "description": "Container images in ArgoCD values files",
+      "fileMatch": ["iac/argocd/values/.*\\.yaml$"],
+      "matchStrings": [
+        "# renovate: datasource=docker depName=(?<depName>[^\\s]+)\\s+(?:image|tag):\\s+\"?(?<currentValue>[^\"\\s]+)\"?"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Group all Istio charts together",
+      "matchDatasources": ["helm"],
+      "matchPackagePatterns": ["^istio", "^ztunnel"],
+      "groupName": "Istio",
+      "labels": ["istio", "network"]
+    },
+    {
+      "description": "Group Cilium and Tetragon together",
+      "matchDatasources": ["helm"],
+      "matchPackagePatterns": ["^cilium$", "^tetragon$"],
+      "groupName": "Cilium",
+      "labels": ["cilium", "network"]
+    },
+    {
+      "description": "Group Grafana stack charts together",
+      "matchDatasources": ["helm"],
+      "matchPackageNames": ["loki", "tempo", "alloy", "beyla"],
+      "groupName": "Grafana stack",
+      "labels": ["monitoring"]
+    },
+    {
+      "description": "Group SPIRE charts together",
+      "matchDatasources": ["helm"],
+      "matchPackagePatterns": ["^spire"],
+      "groupName": "SPIRE",
+      "labels": ["identity"]
+    },
+    {
+      "description": "Security-critical vulnerability fixes — immediate, no age gate",
+      "matchUpdateTypes": ["patch"],
+      "isVulnerabilityAlert": true,
+      "minimumReleaseAge": "0 days",
+      "schedule": ["at any time"],
+      "automerge": true,
+      "labels": ["security-patch"]
+    },
+    {
+      "description": "Patch updates — auto-merge after pipeline passes",
+      "matchUpdateTypes": ["patch", "pin", "digest"],
+      "automerge": true,
+      "labels": ["patch"]
+    },
+    {
+      "description": "Minor version updates — auto-merge after pipeline passes",
+      "matchUpdateTypes": ["minor"],
+      "automerge": true,
+      "labels": ["minor-update"]
+    },
+    {
+      "description": "Major version updates — require manual review",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["major-update", "breaking-change"],
+      "minimumReleaseAge": "30 days"
+    },
+    {
+      "description": "kube-prometheus-stack — separate MR, careful review",
+      "matchDatasources": ["helm"],
+      "matchPackageNames": ["kube-prometheus-stack"],
+      "groupName": "kube-prometheus-stack",
+      "automerge": false,
+      "labels": ["monitoring", "breaking-change"]
+    },
+    {
+      "description": "Kubernetes and RKE2 — monthly, manual review",
+      "matchDatasources": ["github-releases"],
+      "matchPackagePatterns": ["kubernetes", "rke2"],
+      "schedule": ["after 10pm on the second Monday of the month"],
+      "automerge": false,
+      "labels": ["kubernetes"],
+      "minimumReleaseAge": "30 days"
+    },
+    {
+      "description": "Ignore custom app images — ArgoCD Image Updater handles these",
+      "matchDatasources": ["docker"],
+      "matchPackagePatterns": [
+        "harbor\\.example\\.com/apps/",
+        "/apps/portal$",
+        "/apps/jit-elevation$",
+        "/apps/cluster-setup$",
+        "/apps/architecture$",
+        "/apps/openclaw$"
+      ],
+      "enabled": false
+    }
+  ],
   "hostRules": [
     {
       "description": "Docker Hub rate limiting",
+      "matchHost": "docker.io",
+      "concurrentRequestLimit": 2
+    },
+    {
+      "description": "Harbor registry auth (set RENOVATE_HARBOR_TOKEN in CI vars)",
+      "matchHost": "harbor.example.com",
       "hostType": "docker",
-      "throttle": 1000
+      "username": "${HARBOR_PUSH_USER}",
+      "password": "${HARBOR_PUSH_PASSWORD}"
     }
   ],
-  "stabilityDays": 0,
-  "minimumReleaseAge": "0 days",
-  "versionCompatibility": "loose",
-  "suppressNotifications": [
-    "prIgnoreNotification"
-  ]
+  "suppressNotifications": ["prIgnoreNotification"]
 }
