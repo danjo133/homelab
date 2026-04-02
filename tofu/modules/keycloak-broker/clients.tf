@@ -271,11 +271,9 @@ resource "keycloak_openid_client" "headlamp" {
 
   valid_redirect_uris = [
     "https://headlamp.${var.domain}/*",
-    "https://k8s.${var.domain}/*",
   ]
   web_origins = [
     "https://headlamp.${var.domain}",
-    "https://k8s.${var.domain}",
   ]
 
   lifecycle { ignore_changes = [client_secret] }

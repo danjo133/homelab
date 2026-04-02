@@ -119,7 +119,7 @@ routes:
   - name: headlamp
     filename: headlamp-httproute.yaml
     namespace: headlamp
-    hostname: k8s
+    hostname: headlamp
     serviceName: headlamp
     servicePort: 80
     portal:
