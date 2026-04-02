@@ -1,0 +1,42 @@
+apiVersion: cilium.io/v1alpha1
+kind: TracingPolicy
+metadata:
+  name: sensitive-file-access
+spec:
+  kprobes:
+    - call: security_file_permission
+      syscall: false
+      return: true
+      args:
+        - index: 0
+          type: file
+        - index: 1
+          type: int
+      returnArg:
+        index: 0
+        type: int
+      selectors:
+        - matchArgs:
+            - index: 0
+              operator: Prefix
+              values:
+                - /etc/shadow
+                - /etc/sudoers
+                - /var/run/secrets/kubernetes.io
+            - index: 1
+              operator: Equal
+              values:
+                - "4"
+        - matchArgs:
+            - index: 0
+              operator: Prefix
+              values:
+                - /etc/shadow
+                - /etc/sudoers
+                - /etc/passwd
+                - /etc/pam.d
+                - /var/run/secrets/kubernetes.io
+            - index: 1
+              operator: Equal
+              values:
+                - "2"

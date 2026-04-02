@@ -437,6 +437,12 @@ if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
     render "kustomize/openclaw/kustomization.yaml.tpl" "$GEN_DIR/kustomize/openclaw/kustomization.yaml"
 fi
 
+# ── Tetragon policies (Cilium only) ──────────────────────────────────────────
+if [ "$CNI" = "cilium" ]; then
+    echo "  Generating kustomize/tetragon-policies/..."
+    render "kustomize/tetragon-policies/kustomization.yaml.tpl" "$GEN_DIR/kustomize/tetragon-policies/kustomization.yaml"
+fi
+
 # ── Network egress policies ──────────────────────────────────────────────────
 echo "  Generating kustomize/network-egress-policy/..."
 if [ "$CNI" = "cilium" ]; then

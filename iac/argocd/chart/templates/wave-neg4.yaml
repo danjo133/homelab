@@ -54,7 +54,7 @@ spec:
       targetRevision: "1.19.0"
       helm:
         valueFiles:
-          - $values/iac/argocd/values/kcs/cilium.yaml
+          - $values/iac/argocd/values/base-cluster/kcs/cilium.yaml
         parameters:
           - name: k8sServiceHost
             value: {{ include "root-app.masterFqdn" . }}
