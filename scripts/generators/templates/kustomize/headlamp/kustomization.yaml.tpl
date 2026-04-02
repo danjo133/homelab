@@ -13,5 +13,5 @@ patches:
       name: headlamp-oidc
     patch: |
       - op: replace
-        path: /spec/target/template/data/issuerURL
+        path: /spec/target/template/data/OIDC_ISSUER_URL
         value: "https://auth.{{ (ds "ctx").computed.domain }}/realms/broker"
