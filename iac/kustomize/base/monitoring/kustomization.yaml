@@ -20,5 +20,6 @@ resources:
   - grafana-dashboard-beyla.yaml
   - grafana-dashboard-tetragon.yaml
   - grafana-dashboard-compliance.yaml
+  - grafana-dashboard-crowdsec.yaml
   - gatekeeper-metrics.yaml
   - grafana-datasource-tempo.yaml
