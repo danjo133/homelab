@@ -10,7 +10,7 @@ spec:
       group: gateway.networking.k8s.io
       name: main-gateway
   url: oci://ghcr.io/corazawaf/coraza-proxy-wasm
-  phase: AUTHN
+  phase: AUTHZ
   pluginConfig:
     directives_map:
       default:
