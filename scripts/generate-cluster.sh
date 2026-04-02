@@ -437,6 +437,12 @@ if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
     render "kustomize/openclaw/kustomization.yaml.tpl" "$GEN_DIR/kustomize/openclaw/kustomization.yaml"
 fi
 
+# ── Coraza WAF (istio-mesh only) ─────────────────────────────────────────────
+if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
+    echo "  Generating kustomize/coraza-waf/..."
+    render "kustomize/coraza-waf/kustomization.yaml.tpl" "$GEN_DIR/kustomize/coraza-waf/kustomization.yaml"
+fi
+
 # ── Tetragon policies (Cilium only) ──────────────────────────────────────────
 if [ "$CNI" = "cilium" ]; then
     echo "  Generating kustomize/tetragon-policies/..."

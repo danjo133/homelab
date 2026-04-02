@@ -9,8 +9,9 @@ spec:
     - kind: Gateway
       group: gateway.networking.k8s.io
       name: main-gateway
-  url: oci://ghcr.io/corazawaf/coraza-proxy-wasm
+  url: oci://harbor.example.com/ghcr.io/corazawaf/coraza-proxy-wasm
   phase: AUTHZ
+  failStrategy: OPEN
   pluginConfig:
     directives_map:
       default:

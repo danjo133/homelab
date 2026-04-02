@@ -115,7 +115,7 @@ spec:
   source:
     repoURL: {{ .Values.repoURL }}
     targetRevision: {{ .Values.targetRevision }}
-    path: iac/kustomize/base/coraza-waf
+    path: {{ include "root-app.overlayPath" (dict "root" . "overlay" "coraza-waf") }}
   destination:
     server: https://kubernetes.default.svc
     namespace: istio-ingress
