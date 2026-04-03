@@ -2,13 +2,13 @@
 # {{ $ctx.computed.name }} cluster trivy overrides
 image:
   registry: {{ $ctx.config.harborRegistry }}
-  repository: ghcr.io/aquasec/trivy-operator
+  repository: docker.io/aquasec/trivy-operator
 
 trivy:
   image:
     registry: {{ $ctx.config.harborRegistry }}
-    repository: ghcr.io/aquasec/trivy
+    repository: docker.io/aquasec/trivy
   dbRegistry: {{ $ctx.config.harborRegistry }}
-  dbRepository: ghcr.io/aquasec/trivy-db
+  dbRepository: docker.io/aquasec/trivy-db
   javaDbRegistry: {{ $ctx.config.harborRegistry }}
-  javaDbRepository: ghcr.io/aquasec/trivy-java-db
+  javaDbRepository: docker.io/aquasec/trivy-java-db
