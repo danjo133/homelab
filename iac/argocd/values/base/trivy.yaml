@@ -11,6 +11,11 @@ operator:
 trivy:
   severity: CRITICAL,HIGH
   ignoreUnfixed: true
+  # Route through Harbor proxy cache instead of mirror.gcr.io
+  # (mirror.gcr.io is unreachable from cluster pods)
+  dbRepository: harbor.example.com/ghcr.io/aquasecurity/trivy-db
+  javaDbRepository: harbor.example.com/ghcr.io/aquasecurity/trivy-java-db
+  repository: harbor.example.com/ghcr.io/aquasecurity/trivy
   resources:
     requests:
       cpu: 50m
