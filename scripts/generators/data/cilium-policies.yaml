@@ -165,6 +165,16 @@ policies:
     egress:
       - internet: true
 
+  - name: allow-support-vm
+    filename: istio-ingress-support.yaml
+    namespace: istio-ingress
+    description: "Allow Istio gateway to reach Harbor on support VM for OCI image pulls"
+    egress:
+      - toCIDR: "SUPPORT_VM_IP"
+        ports:
+          - port: "443"
+            protocol: TCP
+
   - name: allow-internet
     filename: dependency-track-internet.yaml
     namespace: dependency-track
