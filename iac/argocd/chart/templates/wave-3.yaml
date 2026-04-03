@@ -147,6 +147,7 @@ spec:
       helm:
         valueFiles:
           - $values/iac/argocd/values/base/trivy.yaml
+          - $values/iac/argocd/values/{{ .Values.clusterName }}/trivy.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: trivy-system

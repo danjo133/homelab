@@ -492,6 +492,7 @@ render "helm-values/ziti-router.yaml.tpl" "$VALUES_DIR/ziti-router.yaml"
 render "helm-values/loki.yaml.tpl" "$VALUES_DIR/loki.yaml"
 render "helm-values/tempo.yaml.tpl" "$VALUES_DIR/tempo.yaml"
 render "helm-values/teleport-kube-agent.yaml.tpl" "$VALUES_DIR/teleport-kube-agent.yaml"
+render "helm-values/trivy.yaml.tpl" "$VALUES_DIR/trivy.yaml"
 render "helm-values/external-dns.yaml.tpl" "$VALUES_DIR/external-dns.yaml"
 
 if [ "${APP_OPEN_WEBUI}" = "true" ]; then
