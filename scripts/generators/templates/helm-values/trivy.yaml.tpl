@@ -12,3 +12,12 @@ trivy:
   dbRepository: docker.io/aquasec/trivy-db
   javaDbRegistry: {{ $ctx.config.harborRegistry }}
   javaDbRepository: docker.io/aquasec/trivy-java-db
+
+  # Route scan job image pulls through Harbor proxy cache
+  # (scan jobs run as pods without access to containerd registry mirrors)
+  registry:
+    mirror:
+      "docker.io": {{ $ctx.config.harborRegistry }}/docker.io
+      "ghcr.io": {{ $ctx.config.harborRegistry }}/ghcr.io
+      "quay.io": {{ $ctx.config.harborRegistry }}/quay.io
+      "gcr.io": {{ $ctx.config.harborRegistry }}/gcr.io
