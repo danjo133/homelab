@@ -38,3 +38,4 @@ spec:
       - trivy-system
       - beyla-system
       - crowdsec
+      - monitoring
