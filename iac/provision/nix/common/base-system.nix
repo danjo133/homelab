@@ -17,6 +17,13 @@
   # Configure dhcpcd: don't accept default gateway from libvirt NAT (ens6)
   # Only accept gateway from VLAN 50 interface (ens7)
   networking.useDHCP = true;
+
+  # Only allow dhcpcd to manage the two physical interfaces.
+  # Without this, dhcpcd picks up dynamically created Cilium/container
+  # interfaces (lxc*, cilium*, veth*), wastes resources soliciting DHCP
+  # on them, and can fail to renew leases on the real interfaces.
+  networking.dhcpcd.allowInterfaces = [ "ens6" "enp0s6" "ens7" "enp0s7" ];
+
   networking.dhcpcd.extraConfig = ''
     # Send hostname in DHCP requests (Option 12)
     # This allows the DHCP server (Unifi) to register our hostname
@@ -35,9 +42,6 @@
       nooption domain_name_servers
       nooption domain_name
       nooption domain_search
-
-    # Don't manage Cilium/container interfaces - they're managed by the CNI
-    denyinterfaces cilium* lxc* veth* cni* docker* br-*
   '';
 
   # Basic system packages available on all VMs
