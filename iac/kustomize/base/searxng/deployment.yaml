@@ -38,6 +38,8 @@ spec:
               value: "http://searxng.open-webui.svc:8080/"
             - name: AUTOCOMPLETE
               value: "false"
+            - name: SEARXNG_PORT
+              value: "8080"
           securityContext:
             runAsNonRoot: true
             runAsUser: 65534
