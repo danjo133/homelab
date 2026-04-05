@@ -175,6 +175,16 @@ policies:
           - port: "443"
             protocol: TCP
 
+  - name: allow-support-vm
+    filename: trivy-support.yaml
+    namespace: trivy-system
+    description: "Allow Trivy to reach Harbor on support VM for DB and image scanning"
+    egress:
+      - toCIDR: "SUPPORT_VM_IP"
+        ports:
+          - port: "443"
+            protocol: TCP
+
   - name: allow-internet
     filename: dependency-track-internet.yaml
     namespace: dependency-track
