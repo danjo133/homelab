@@ -31,6 +31,14 @@ trivy:
     limits:
       memory: 512Mi
 
+policiesBundle:
+  registry: harbor.example.com
+  repository: docker.io/aquasec/trivy-checks
+
+nodeCollector:
+  registry: harbor.example.com
+  repository: ghcr.io/aquasecurity/node-collector
+
 excludeNamespaces: "kube-system"
 
 serviceMonitor:

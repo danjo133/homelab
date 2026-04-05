@@ -21,3 +21,11 @@ trivy:
       "ghcr.io": {{ $ctx.config.harborRegistry }}/ghcr.io
       "quay.io": {{ $ctx.config.harborRegistry }}/quay.io
       "gcr.io": {{ $ctx.config.harborRegistry }}/gcr.io
+
+policiesBundle:
+  registry: {{ $ctx.config.harborRegistry }}
+  repository: docker.io/aquasec/trivy-checks
+
+nodeCollector:
+  registry: {{ $ctx.config.harborRegistry }}
+  repository: ghcr.io/aquasecurity/node-collector
