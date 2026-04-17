@@ -350,6 +350,7 @@ if [ "$HELMFILE_ENV" != "default" ]; then
     if [ "$HELMFILE_ENV" = "istio-mesh" ]; then
         render "kustomize/gateway/reference-grant.yaml.tpl" "$GEN_DIR/kustomize/gateway/reference-grant.yaml"
         render "kustomize/gateway/ext-authz-policy.yaml.tpl" "$GEN_DIR/kustomize/gateway/ext-authz-policy.yaml"
+        render "kustomize/gateway/gateway-params.yaml.tpl" "$GEN_DIR/kustomize/gateway/gateway-params.yaml"
     fi
 fi
 

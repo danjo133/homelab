@@ -9,6 +9,13 @@ metadata:
     external-dns.alpha.kubernetes.io/hostname: "*.{{ (ds "ctx").computed.domain }}"
 spec:
   gatewayClassName: {{ (ds "ctx").computed.gatewayClass }}
+{{- if (ds "ctx").computed.isIstioMesh }}
+  infrastructure:
+    parametersRef:
+      group: ""
+      kind: ConfigMap
+      name: main-gateway-params
+{{- end }}
   listeners:
     - name: http
       protocol: HTTP

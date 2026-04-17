@@ -11,4 +11,5 @@ resources:
   - reference-grant.yaml
   - httproutes.yaml
   - ext-authz-policy.yaml
+  - gateway-params.yaml
 {{- end }}
