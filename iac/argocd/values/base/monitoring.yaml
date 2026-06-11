@@ -2,9 +2,11 @@
 prometheus:
   prometheusSpec:
     retention: 7d
-    # Keep ~5GB headroom on the 20Gi PVC for the WAL; retentionSize only
-    # bounds compacted blocks, and a full disk crashloops Prometheus.
-    retentionSize: 15GB
+    # Both clusters' live PVCs are 10Gi (created before storage was raised
+    # to 20Gi below; the operator never resizes existing PVCs). retentionSize
+    # only bounds compacted blocks — leave headroom for the WAL, or a full
+    # disk crashloops Prometheus. Raise only after the PVCs are expanded.
+    retentionSize: 8GB
     storageSpec:
       volumeClaimTemplate:
         spec:

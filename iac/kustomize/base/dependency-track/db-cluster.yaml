@@ -23,7 +23,9 @@ spec:
           name: dependency-track-db-credentials
 
   storage:
-    size: 4Gi
+    # NVD/vuln feed data outgrew 4Gi (CNPG refuses to start postgres on a
+    # full disk). CNPG expands the PVC online when this is raised.
+    size: 8Gi
 
   resources:
     requests:
