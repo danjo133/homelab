@@ -65,6 +65,11 @@
           ];
 
           shellHook = ''
+            # Ensure the pre-push secret/domain guard is active in every clone
+            if [ "$(git config core.hooksPath 2>/dev/null)" != ".githooks" ]; then
+              git config core.hooksPath .githooks
+              echo "Installed git hooks (core.hooksPath = .githooks)"
+            fi
             if [ -z "''${KSS_CLUSTER:-}" ]; then
               echo "Hint: export KSS_CLUSTER=kss  (required for cluster commands)"
             else

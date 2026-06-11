@@ -2,7 +2,9 @@
 prometheus:
   prometheusSpec:
     retention: 7d
-    retentionSize: 18GB
+    # Keep ~5GB headroom on the 20Gi PVC for the WAL; retentionSize only
+    # bounds compacted blocks, and a full disk crashloops Prometheus.
+    retentionSize: 15GB
     storageSpec:
       volumeClaimTemplate:
         spec:

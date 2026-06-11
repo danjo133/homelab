@@ -34,6 +34,13 @@
   boot.loader.grub.enable = true;
   boot.loader.grub.device = "/dev/vda";
 
+  # TEMPORARY WORKAROUND (2026-06-11): kernel 6.12.66 hangs at boot during
+  # KASLR (RDRAND/RDTSC) under the hypervisor's QEMU 11.0.0 with a stale
+  # running kernel (6.18.6 loaded, 7.0.5 installed). Remove after the
+  # hypervisor has been rebooted onto a coherent kernel/QEMU stack and a
+  # KASLR boot has been verified.
+  boot.kernelParams = [ "nokaslr" ];
+
   # Add docker group to vagrant user (for Harbor management)
   users.users.vagrant.extraGroups = lib.mkAfter [ "docker" ];
 

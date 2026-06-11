@@ -127,3 +127,11 @@ Thumbs.db
 *.backup
 *.bak
 *~
+
+# Credentials that tooling drops in the repo root (Teleport identities, certs)
+*.cer
+*.pem
+teleport-*-identity*
+
+# Local security assessment notes (do not publish)
+SECURITY-REMEDIATION-TODO.md
